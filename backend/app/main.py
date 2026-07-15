@@ -1,23 +1,24 @@
 from fastapi import FastAPI
 
+from app.routes.test import router
+
 app = FastAPI(
     title="AI ExamGuard API",
-    description="Backend API for AI ExamGuard",
     version="1.0.0"
 )
 
+app.include_router(router)
+
 
 @app.get("/")
-async def root():
+def root():
     return {
-        "status": "running",
-        "application": "AI ExamGuard",
-        "version": "1.0.0"
+        "status": "running"
     }
 
 
 @app.get("/health")
-async def health():
+def health():
     return {
         "status": "healthy"
     }
