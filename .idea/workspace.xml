@@ -4,17 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="feat: initialize FastAPI backend and database foundation&#10;feat: implement JWT authentication&#10;feat: add role-based authorization&#10;feat: implement exam management module&#10;feat: add face enrollment service&#10;feat: integrate YOLO object detection&#10;feat: implement browser activity monitoring&#10;feat: add risk assessment engine&#10;feat: implement instructor dashboard&#10;feat: generate examination PDF reports&#10;fix: resolve JWT expiration issue&#10;refactor: reorganize authentication services&#10;docs: update API documentation">
-      <change afterPath="$PROJECT_DIR$/backend/app/auth/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/auth/dependencies.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/auth/jwt.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/auth/security.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/auth.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/auth.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/user.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/test_security.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="&quot;Implemented password hashing with Passlib&quot;" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -139,7 +129,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784085622456</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="&quot;Implemented password hashing with Passlib&quot;">
+      <option name="closed" value="true" />
+      <created>1784167725480</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1784167725480</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -156,6 +154,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Day 1 - Backend Foundation" />
     <MESSAGE value="feat: initialize FastAPI backend and database foundation&#10;feat: implement JWT authentication&#10;feat: add role-based authorization&#10;feat: implement exam management module&#10;feat: add face enrollment service&#10;feat: integrate YOLO object detection&#10;feat: implement browser activity monitoring&#10;feat: add risk assessment engine&#10;feat: implement instructor dashboard&#10;feat: generate examination PDF reports&#10;fix: resolve JWT expiration issue&#10;refactor: reorganize authentication services&#10;docs: update API documentation" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: initialize FastAPI backend and database foundation&#10;feat: implement JWT authentication&#10;feat: add role-based authorization&#10;feat: implement exam management module&#10;feat: add face enrollment service&#10;feat: integrate YOLO object detection&#10;feat: implement browser activity monitoring&#10;feat: add risk assessment engine&#10;feat: implement instructor dashboard&#10;feat: generate examination PDF reports&#10;fix: resolve JWT expiration issue&#10;refactor: reorganize authentication services&#10;docs: update API documentation" />
+    <MESSAGE value="&quot;Implemented password hashing with Passlib&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="&quot;Implemented password hashing with Passlib&quot;" />
   </component>
 </project>
