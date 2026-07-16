@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from app.auth.security import hash_password
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
+from app.schemas.auth import LoginRequest
+from app.auth.jwt import create_access_token
+from app.auth.security import verify_password
 
 
 class AuthService:
@@ -49,3 +52,38 @@ class AuthService:
         db.refresh(user)
 
         return user
+
+    @staticmethod
+    def login(request: LoginRequest, db: Session):
+
+        user = (
+            db.query(User)
+            .filter(User.email == request.email)
+            .first()
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password."
+            )
+
+        if not verify_password(
+                request.password,
+                user.password_hash
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid email or password."
+            )
+
+        token = create_access_token(
+            {
+                "sub": user.email
+            }
+        )
+
+        return {
+            "access_token": token,
+            "token_type": "bearer"
+        }

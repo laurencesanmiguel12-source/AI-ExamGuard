@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Refactor authentication into AuthService">
-      <change beforePath="$PROJECT_DIR$/backend/app/auth/dependencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/auth/dependencies.py" afterDir="false" />
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Add JWT decode function">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/auth/service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/auth/service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routes/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routes/auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/auth.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -171,7 +174,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784170857466</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Add JWT decode function">
+      <option name="closed" value="true" />
+      <created>1784171318596</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1784171318596</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -192,6 +203,7 @@
     <MESSAGE value="Created authentication Pydantic schemas&quot;" />
     <MESSAGE value="Complete user registration endpoint" />
     <MESSAGE value="Refactor authentication into AuthService" />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactor authentication into AuthService" />
+    <MESSAGE value="Add JWT decode function" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add JWT decode function" />
   </component>
 </project>
