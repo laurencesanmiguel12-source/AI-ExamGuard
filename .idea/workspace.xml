@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Add JWT decode function">
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Complete JWT authentication and authorization&quot;">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/auth/service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/auth/service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/routes/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routes/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/schemas/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/auth.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -182,7 +179,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784171318596</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Complete JWT authentication and authorization&quot;">
+      <option name="closed" value="true" />
+      <created>1784172933263</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1784172933263</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -204,6 +209,7 @@
     <MESSAGE value="Complete user registration endpoint" />
     <MESSAGE value="Refactor authentication into AuthService" />
     <MESSAGE value="Add JWT decode function" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add JWT decode function" />
+    <MESSAGE value="Complete JWT authentication and authorization&quot;" />
+    <option name="LAST_COMMIT_MESSAGE" value="Complete JWT authentication and authorization&quot;" />
   </component>
 </project>
