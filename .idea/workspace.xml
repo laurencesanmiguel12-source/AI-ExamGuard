@@ -4,13 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Created authentication Pydantic schemas&quot;">
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Complete user registration endpoint">
+      <change afterPath="$PROJECT_DIR$/backend/app/auth/service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/routes/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/routes/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/schemas/auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/auth.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/schemas/user.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/user.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -160,7 +156,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784168633783</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Complete user registration endpoint">
+      <option name="closed" value="true" />
+      <created>1784170325003</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1784170325003</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -179,6 +183,7 @@
     <MESSAGE value="feat: initialize FastAPI backend and database foundation&#10;feat: implement JWT authentication&#10;feat: add role-based authorization&#10;feat: implement exam management module&#10;feat: add face enrollment service&#10;feat: integrate YOLO object detection&#10;feat: implement browser activity monitoring&#10;feat: add risk assessment engine&#10;feat: implement instructor dashboard&#10;feat: generate examination PDF reports&#10;fix: resolve JWT expiration issue&#10;refactor: reorganize authentication services&#10;docs: update API documentation" />
     <MESSAGE value="&quot;Implemented password hashing with Passlib&quot;" />
     <MESSAGE value="Created authentication Pydantic schemas&quot;" />
-    <option name="LAST_COMMIT_MESSAGE" value="Created authentication Pydantic schemas&quot;" />
+    <MESSAGE value="Complete user registration endpoint" />
+    <option name="LAST_COMMIT_MESSAGE" value="Complete user registration endpoint" />
   </component>
 </project>
