@@ -1,17 +1,13 @@
-from app.auth.jwt import create_access_token, verify_access_token
+from app.auth.jwt import create_access_token, decode_access_token
 
-payload = {
-    "sub": "1",
-    "email": "admin@test.com",
-    "role": "Admin"
-}
+token = create_access_token(
+    {
+        "sub": "laurence@test.com"
+    }
+)
 
-token = create_access_token(payload)
-
-print("TOKEN")
 print(token)
 
-decoded = verify_access_token("this_is_not_a_real_token")
+payload = decode_access_token(token)
 
-print("\nDECODED")
-print(decoded)
+print(payload)

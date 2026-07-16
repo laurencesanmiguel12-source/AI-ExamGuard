@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
+from fastapi import HTTPException, status
 
 from app.core.config import settings
 
 
-def create_access_token(data: dict) -> str:
-    """
-    Creates a JWT access token.
-    """
+def create_access_token(data: dict):
 
     to_encode = data.copy()
 
@@ -27,12 +25,10 @@ def create_access_token(data: dict) -> str:
     return encoded_jwt
 
 
-def verify_access_token(token: str) -> dict:
-    """
-    Decodes and validates a JWT.
-    """
+def decode_access_token(token: str):
 
     try:
+
         payload = jwt.decode(
             token,
             settings.SECRET_KEY,
@@ -42,4 +38,8 @@ def verify_access_token(token: str) -> dict:
         return payload
 
     except JWTError:
-        raise ValueError("Invalid or expired token")
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token."
+        )
