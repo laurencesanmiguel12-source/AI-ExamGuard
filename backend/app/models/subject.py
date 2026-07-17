@@ -11,7 +11,6 @@ class Subject(Base, TimestampMixin):
 
     code: Mapped[str] = mapped_column(
         String(20),
-        unique=True,
         nullable=False
     )
 

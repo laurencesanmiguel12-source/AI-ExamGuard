@@ -4,11 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Add course schemas">
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/course.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/course_service.py" afterDir="false" />
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Complete Course CRUD module with JWT authorization">
+      <change afterPath="$PROJECT_DIR$/backend/app/routes/subject.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/schemas/subject.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/services/subject_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/subject.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/subject.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -198,7 +200,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784176971066</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Complete Course CRUD module with JWT authorization">
+      <option name="closed" value="true" />
+      <created>1784177517232</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1784177517232</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -222,6 +232,7 @@
     <MESSAGE value="Add JWT decode function" />
     <MESSAGE value="Complete JWT authentication and authorization&quot;" />
     <MESSAGE value="Add course schemas" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add course schemas" />
+    <MESSAGE value="Complete Course CRUD module with JWT authorization" />
+    <option name="LAST_COMMIT_MESSAGE" value="Complete Course CRUD module with JWT authorization" />
   </component>
 </project>
