@@ -1,0 +1,118 @@
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.models.course import Course
+from app.models.student import Student
+from app.models.user import User
+from app.schemas.student import StudentCreate, StudentUpdate
+
+
+class StudentService:
+
+    @staticmethod
+    def get_all(db: Session):
+        return db.query(Student).all()
+
+    @staticmethod
+    def get_by_id(student_id: int, db: Session):
+
+        student = (
+            db.query(Student)
+            .filter(Student.id == student_id)
+            .first()
+        )
+
+        if student is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found."
+            )
+
+        return student
+
+    @staticmethod
+    def create(request: StudentCreate, db: Session):
+
+        existing_student = (
+            db.query(Student)
+            .filter(
+                Student.student_number == request.student_number
+            )
+            .first()
+        )
+
+        if existing_student:
+            raise HTTPException(
+                status_code=400,
+                detail="Student number already exists."
+            )
+
+        user = (
+            db.query(User)
+            .filter(User.id == request.user_id)
+            .first()
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found."
+            )
+
+        course = (
+            db.query(Course)
+            .filter(Course.id == request.course_id)
+            .first()
+        )
+
+        if course is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Course not found."
+            )
+
+        if user.student is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="User already has a student profile."
+            )
+
+        student = Student(
+            student_number=request.student_number,
+            user_id=request.user_id,
+            course_id=request.course_id
+        )
+
+        db.add(student)
+        db.commit()
+        db.refresh(student)
+
+        return student
+
+    @staticmethod
+    def update(student_id: int, request: StudentUpdate, db: Session):
+
+        student = StudentService.get_by_id(student_id, db)
+
+        if request.student_number is not None:
+            student.student_number = request.student_number
+
+        if request.course_id is not None:
+            student.course_id = request.course_id
+
+        db.commit()
+        db.refresh(student)
+
+        return student
+
+    @staticmethod
+    def delete(student_id: int, db: Session):
+
+        student = StudentService.get_by_id(student_id, db)
+
+        db.delete(student)
+        db.commit()
+
+        return {
+            "message": "Student deleted successfully."
+        }

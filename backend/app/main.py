@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from app.routes.auth import router as auth_router
 from app.routes.course import router as course_router
 from app.routes.subject import router as subject_router
+from app.routes.student import router as student_router
+from app.routes.instructor import router as instructor_router
 
 app = FastAPI(
     title="AI ExamGuard API",
@@ -13,7 +15,8 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(course_router)
 app.include_router(subject_router)
-
+app.include_router(student_router)
+app.include_router(instructor_router)
 
 @app.get("/", tags=["Health Check"])
 def root():
