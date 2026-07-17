@@ -42,11 +42,12 @@ class AuthService:
         user = User(
             username=request.username,
             email=request.email,
+            first_name=request.first_name,
+            last_name=request.last_name,
             password_hash=hashed_password,
             role_id=request.role_id,
             is_active=True
         )
-
         db.add(user)
         db.commit()
         db.refresh(user)

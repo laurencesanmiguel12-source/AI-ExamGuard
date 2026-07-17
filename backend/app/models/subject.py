@@ -27,3 +27,8 @@ class Subject(Base, TimestampMixin):
         "Course",
         back_populates="subjects"
     )
+
+    exams = relationship(
+        "Exam",
+        back_populates="subject"
+    )

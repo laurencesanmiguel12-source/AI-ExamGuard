@@ -27,6 +27,15 @@ class User(Base, TimestampMixin):
         String(255),
         nullable=False
     )
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False
+    )
+
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False
+    )
 
     is_active: Mapped[bool] = mapped_column(
         Boolean,

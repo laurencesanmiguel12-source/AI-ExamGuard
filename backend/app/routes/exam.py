@@ -1,0 +1,58 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.auth.dependencies import get_current_user, require_instructor
+from app.core.database import get_db
+from app.models.user import User
+from app.schemas.exam import ExamCreate, ExamUpdate, ExamResponse
+from app.services.exam_service import ExamService
+
+router = APIRouter(
+    prefix="/exams",
+    tags=["Exams"]
+)
+
+
+@router.get("/", response_model=list[ExamResponse])
+def get_exams(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return ExamService.get_all(db)
+
+
+@router.get("/{exam_id}", response_model=ExamResponse)
+def get_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return ExamService.get_by_id(exam_id, db)
+
+
+@router.post("/", response_model=ExamResponse)
+def create_exam(
+    request: ExamCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_instructor)
+):
+    return ExamService.create(request, db)
+
+
+@router.put("/{exam_id}", response_model=ExamResponse)
+def update_exam(
+    exam_id: int,
+    request: ExamUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_instructor)
+):
+    return ExamService.update(exam_id, request, db)
+
+
+@router.delete("/{exam_id}")
+def delete_exam(
+    exam_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_instructor)
+):
+    return ExamService.delete(exam_id, db)

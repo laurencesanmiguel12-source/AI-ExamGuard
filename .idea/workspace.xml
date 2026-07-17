@@ -4,15 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Subject Module Created, Validated and Tested">
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/instructor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/student.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/instructor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/student.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/instructor_service.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/student_service.py" afterDir="false" />
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Instructor Module Created, Validated and Tested">
+      <change afterPath="$PROJECT_DIR$/backend/app/models/exam.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/routes/exam.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/schemas/exam.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/app/services/exam_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/auth/service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/auth/service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/instructor.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/instructor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/subject.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/subject.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/user.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/user.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/user.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/user.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -218,7 +222,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784255571553</updated>
     </task>
-    <option name="localTasksCounter" value="15" />
+    <task id="LOCAL-00015" summary="Instructor Module Created, Validated and Tested">
+      <option name="closed" value="true" />
+      <created>1784257729761</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1784257729761</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -244,6 +256,7 @@
     <MESSAGE value="Add course schemas" />
     <MESSAGE value="Complete Course CRUD module with JWT authorization" />
     <MESSAGE value="Subject Module Created, Validated and Tested" />
-    <option name="LAST_COMMIT_MESSAGE" value="Subject Module Created, Validated and Tested" />
+    <MESSAGE value="Instructor Module Created, Validated and Tested" />
+    <option name="LAST_COMMIT_MESSAGE" value="Instructor Module Created, Validated and Tested" />
   </component>
 </project>

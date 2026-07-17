@@ -24,3 +24,7 @@ class Instructor(Base, TimestampMixin):
         "User",
         back_populates="instructor"
     )
+    exams = relationship(
+        "Exam",
+        back_populates="instructor"
+    )
