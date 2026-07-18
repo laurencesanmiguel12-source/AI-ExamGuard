@@ -3,7 +3,9 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+
 from app.models.base import Base, TimestampMixin
+
 
 
 class Exam(Base, TimestampMixin):
@@ -62,8 +64,8 @@ class Exam(Base, TimestampMixin):
         back_populates="exams"
     )
 
-    # questions = relationship(
-    #     "Question",
-    #     back_populates="exam",
-    #     cascade="all, delete-orphan"
-    # )
+    questions = relationship(
+        "Question",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )
