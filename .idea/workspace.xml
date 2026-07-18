@@ -4,15 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Question Module created">
-      <change afterPath="$PROJECT_DIR$/backend/app/models/choice.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/choice.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/choice.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/choice_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/question.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/question.py" afterDir="false" />
+    <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Choice  Module created">
+      <change afterPath="$PROJECT_DIR$/backend/app/models/exam_session.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -242,7 +235,15 @@
       <option name="project" value="LOCAL" />
       <updated>1784341647783</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Choice  Module created">
+      <option name="closed" value="true" />
+      <created>1784342112385</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1784342112385</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -271,6 +272,7 @@
     <MESSAGE value="Instructor Module Created, Validated and Tested" />
     <MESSAGE value="Exam Module Created , Fixed issues with Database,Schema and issues with first name and last name" />
     <MESSAGE value="Question Module created" />
-    <option name="LAST_COMMIT_MESSAGE" value="Question Module created" />
+    <MESSAGE value="Choice  Module created" />
+    <option name="LAST_COMMIT_MESSAGE" value="Choice  Module created" />
   </component>
 </project>

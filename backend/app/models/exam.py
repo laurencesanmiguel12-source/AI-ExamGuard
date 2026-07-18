@@ -69,3 +69,8 @@ class Exam(Base, TimestampMixin):
         back_populates="exam",
         cascade="all, delete-orphan"
     )
+    exam_sessions = relationship(
+        "ExamSession",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )

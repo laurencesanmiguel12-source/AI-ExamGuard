@@ -33,3 +33,8 @@ class Student(Base, TimestampMixin):
         "Course",
         back_populates="students"
     )
+    exam_sessions = relationship(
+        "ExamSession",
+        back_populates="student",
+        cascade="all, delete-orphan"
+    )
