@@ -7,3 +7,4 @@ from app.models.student import Student
 from app.models.instructor import Instructor
 from app.models.exam import Exam
 from app.models.question import Question
+from app.models.choice import Choice

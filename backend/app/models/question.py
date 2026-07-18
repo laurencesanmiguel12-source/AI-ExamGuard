@@ -37,3 +37,8 @@ class Question(Base, TimestampMixin):
         "Exam",
         back_populates="questions"
     )
+    choices = relationship(
+        "Choice",
+        back_populates="question",
+        cascade="all, delete-orphan"
+    )
