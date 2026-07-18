@@ -32,6 +32,9 @@ class Exam(Base, TimestampMixin):
         Integer,
         default=0
     )
+    passing_score: Mapped[int] = mapped_column(
+        nullable=False
+    )
 
     start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True)

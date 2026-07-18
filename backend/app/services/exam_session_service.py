@@ -1,8 +1,8 @@
-from datetime import datetime
-
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.student_answer import StudentAnswer
 from app.models.exam import Exam
 from app.models.exam_session import ExamSession
 from app.models.student import Student
@@ -105,9 +105,10 @@ class ExamSessionService:
         return session
 
     @staticmethod
+    @staticmethod
     def submit_exam(
-        session_id: int,
-        db: Session
+            session_id: int,
+            db: Session
     ):
 
         session = (
@@ -119,17 +120,55 @@ class ExamSessionService:
         if session is None:
             raise HTTPException(
                 status_code=404,
-                detail="Session not found."
+                detail="Exam session not found."
             )
 
-        if session.status == "SUBMITTED":
+        if session.status != "IN_PROGRESS":
             raise HTTPException(
                 status_code=400,
                 detail="Exam already submitted."
             )
 
+        exam = (
+            db.query(Exam)
+            .filter(Exam.id == session.exam_id)
+            .first()
+        )
+
+        if exam is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Exam not found."
+            )
+
+        answers = (
+            db.query(StudentAnswer)
+            .filter(
+                StudentAnswer.exam_session_id == session.id
+            )
+            .all()
+        )
+
+        total_score = sum(
+            answer.points_awarded
+            for answer in answers
+        )
+
+        if exam.total_points > 0:
+            percentage = (
+                                 total_score / exam.total_points
+                         ) * 100
+        else:
+            percentage = 0
+
+        passed = percentage >= exam.passing_score
+
+        session.score = total_score
+        session.percentage = percentage
+        session.passed = passed
+
         session.status = "SUBMITTED"
-        session.submitted_at = datetime.now()
+        session.submitted_at = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(session)

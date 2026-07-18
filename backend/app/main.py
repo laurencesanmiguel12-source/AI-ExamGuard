@@ -9,6 +9,7 @@ from app.routes.exam import router as exam_router
 from app.routes.question import router as question_router
 from app.routes.choice import router as choice_router
 from app.routes.exam_session import router as exam_session_router
+from app.routes.student_answer import router as student_answer_router
 
 app = FastAPI(
     title="AI ExamGuard API",
@@ -25,6 +26,8 @@ app.include_router(exam_router)
 app.include_router(question_router)
 app.include_router(choice_router)
 app.include_router(exam_session_router)
+app.include_router(student_answer_router)
+
 
 
 @app.get("/", tags=["Health Check"])

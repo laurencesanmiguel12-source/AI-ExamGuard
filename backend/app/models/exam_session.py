@@ -32,6 +32,13 @@ class ExamSession(Base, TimestampMixin):
         Integer,
         default=0
     )
+    percentage: Mapped[float] = mapped_column(
+        default=0
+    )
+
+    passed: Mapped[bool] = mapped_column(
+        default=False
+    )
 
     status: Mapped[str] = mapped_column(
         String(30),
@@ -46,4 +53,9 @@ class ExamSession(Base, TimestampMixin):
     exam = relationship(
         "Exam",
         back_populates="exam_sessions"
+    )
+    answers = relationship(
+        "StudentAnswer",
+        back_populates="exam_session",
+        cascade="all, delete-orphan"
     )

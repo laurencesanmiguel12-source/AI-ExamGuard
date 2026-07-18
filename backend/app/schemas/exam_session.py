@@ -26,6 +26,8 @@ class ExamSessionResponse(BaseModel):
     submitted_at: datetime | None
     score: int
     status: str
+    percentage: float
+    passed: bool
 
     model_config = ConfigDict(
         from_attributes=True
