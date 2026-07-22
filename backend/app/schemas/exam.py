@@ -8,6 +8,7 @@ class ExamBase(BaseModel):
     description: str | None = None
     duration_minutes: int
     total_points: int = 0
+    passing_score: int
     start_time: datetime
     end_time: datetime
     is_active: bool = False
@@ -24,6 +25,7 @@ class ExamUpdate(BaseModel):
     description: str | None = None
     duration_minutes: int | None = None
     total_points: int | None = None
+    passing_score: int | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_active: bool | None = None
