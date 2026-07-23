@@ -59,3 +59,8 @@ class ExamSession(Base, TimestampMixin):
         back_populates="exam_session",
         cascade="all, delete-orphan"
     )
+    violations = relationship(
+        "Violation",
+        back_populates="exam_session",
+        cascade="all, delete-orphan"
+    )

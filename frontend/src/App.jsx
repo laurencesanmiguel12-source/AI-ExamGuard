@@ -13,6 +13,9 @@ import Exams from "./pages/Exams/Exams";
 import Questions from "./pages/Questions/Questions";
 import Choices from "./pages/Choices/Choices";
 import ExamRoom from "./pages/ExamRoom/ExamRoom";
+import Results from "./pages/Results/Results";
+import ResultDetail from "./pages/Results/ResultDetail";
+import Reports from "./pages/Reports/Reports";
 
 const EXAM_CONTENT_ROLES = ["instructor"];
 
@@ -32,10 +35,16 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
 
+              <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
+                <Route path="/results" element={<Results />} />
+                <Route path="/results/:sessionId" element={<ResultDetail />} />
+              </Route>
+
               <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>
                 <Route path="/exams" element={<Exams />} />
                 <Route path="/questions" element={<Questions />} />
                 <Route path="/choices" element={<Choices />} />
+                <Route path="/reports" element={<Reports />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>

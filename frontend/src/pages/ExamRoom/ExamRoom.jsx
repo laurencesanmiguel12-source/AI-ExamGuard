@@ -8,6 +8,8 @@ import { getChoices } from "../../api/choices";
 import { getStudents } from "../../api/students";
 import { getExamSessions, startExamSession, submitExamSession } from "../../api/examSessions";
 import { saveAnswer, getAnswers } from "../../api/studentAnswers";
+import { getSessionRisk } from "../../api/violations";
+import useProctoring from "../../hooks/useProctoring";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
@@ -42,6 +44,8 @@ export default function ExamRoom() {
   const [answers, setAnswers] = useState({});
   const [current, setCurrent] = useState(0);
   const [result, setResult] = useState(null);
+  const [risk, setRisk] = useState(0);
+  const [lastTabSwitchAt, setLastTabSwitchAt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +131,31 @@ export default function ExamRoom() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expired, phase]);
+
+  useProctoring(session?.id, phase === "in-progress", (eventType) => {
+    if (eventType === "TAB_SWITCH") setLastTabSwitchAt(Date.now());
+  });
+
+  useEffect(() => {
+    if (phase !== "in-progress" || !session) return;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const value = await getSessionRisk(session.id);
+        if (!cancelled) setRisk(value);
+      } catch {
+        // best-effort; next poll will retry naturally
+      }
+    }
+
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [phase, session]);
 
   async function handleSelectChoice(questionId, choiceId) {
     setAnswers((a) => ({ ...a, [questionId]: choiceId }));
@@ -248,7 +277,7 @@ export default function ExamRoom() {
   }
 
   const q = questions[current];
-  const riskVal = 5;
+  const tabFocusOk = Date.now() - lastTabSwitchAt > 10000;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -268,8 +297,7 @@ export default function ExamRoom() {
           </div>
           <div className="w-px h-8 bg-border" />
           <div className="flex items-center gap-1.5">
-            <RiskPill value={riskVal} />
-            <PreviewBadge />
+            <RiskPill value={Math.round(risk)} />
           </div>
           <div className="w-px h-8 bg-border" />
           <StatusDot on={true} label="Session Active" />
@@ -394,17 +422,16 @@ export default function ExamRoom() {
             </Card>
 
             <Card className="p-4 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
-                <PreviewBadge />
-              </div>
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                { label: "Face Detected", ok: true },
-                { label: "Phone", ok: true },
-                { label: "Tab Focus", ok: true },
-              ].map(({ label, ok }) => (
+                { label: "Face Detected", ok: true, preview: true },
+                { label: "Phone", ok: true, preview: true },
+                { label: "Tab Focus", ok: tabFocusOk, preview: false },
+              ].map(({ label, ok, preview }) => (
                 <div key={label} className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    {label} {preview && <PreviewBadge />}
+                  </span>
                   <span className={`text-[10px] font-mono font-bold ${ok ? "text-emerald-600" : "text-red-600"}`}>
                     {ok ? "OK" : "ALERT"}
                   </span>

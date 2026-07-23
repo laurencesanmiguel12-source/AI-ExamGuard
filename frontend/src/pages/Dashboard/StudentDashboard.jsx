@@ -4,6 +4,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "rec
 import { BookOpen, ArrowRight, UserCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
+import { getExamSessions } from "../../api/examSessions";
+import { getStudents } from "../../api/students";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import PreviewBadge from "../../components/ui/PreviewBadge";
@@ -25,6 +27,7 @@ export default function StudentDashboard() {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     getExams()
@@ -32,6 +35,28 @@ export default function StudentDashboard() {
       .catch(() => setErrored(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([getExamSessions(), getStudents()])
+      .then(([sessions, students]) => {
+        if (cancelled) return;
+        const me = students.find((s) => s.user_id === user.id);
+        if (!me) return;
+        const submitted = sessions.filter((s) => s.student_id === me.id && s.status === "SUBMITTED");
+        const avgScore =
+          submitted.length === 0
+            ? null
+            : submitted.reduce((sum, s) => sum + s.percentage, 0) / submitted.length;
+        setStats({ examsTaken: submitted.length, avgScore });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
 
   return (
     <div>
@@ -185,18 +210,23 @@ export default function StudentDashboard() {
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">My Stats</div>
-              <PreviewBadge />
             </div>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { val: "—", label: "Exams Taken", color: "text-blue-600" },
-                { val: "—", label: "Avg Score", color: "text-emerald-600" },
-                { val: "—", label: "Avg Risk", color: "text-emerald-600" },
-                { val: "—", label: "Violations", color: "text-orange-600" },
-              ].map(({ val, label, color }) => (
+                { val: stats ? String(stats.examsTaken) : "—", label: "Exams Taken", color: "text-blue-600" },
+                {
+                  val: stats?.avgScore != null ? `${stats.avgScore.toFixed(0)}%` : "—",
+                  label: "Avg Score",
+                  color: "text-emerald-600",
+                },
+                { val: "—", label: "Avg Risk", color: "text-emerald-600", preview: true },
+                { val: "—", label: "Violations", color: "text-orange-600", preview: true },
+              ].map(({ val, label, color, preview }) => (
                 <div key={label} className="bg-secondary border border-border rounded-xl p-3 text-center">
                   <div className={`font-display text-2xl font-black ${color}`}>{val}</div>
-                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5">{label}</div>
+                  <div className="text-[10px] font-mono text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
+                    {label} {preview && <PreviewBadge />}
+                  </div>
                 </div>
               ))}
             </div>

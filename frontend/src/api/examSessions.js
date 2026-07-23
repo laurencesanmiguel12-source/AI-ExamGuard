@@ -5,6 +5,11 @@ export async function getExamSessions() {
   return response.data;
 }
 
+export async function getExamSession(id) {
+  const response = await apiClient.get(`/exam-sessions/${id}`);
+  return response.data;
+}
+
 export async function startExamSession(studentId, examId) {
   const response = await apiClient.post("/exam-sessions/start", {
     student_id: studentId,

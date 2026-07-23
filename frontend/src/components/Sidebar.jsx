@@ -1,9 +1,10 @@
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, HelpCircle, ListChecks } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, HelpCircle, ListChecks, Award, BarChart3 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
+  { to: "/results", label: "My Results", icon: Award, roles: ["student"] },
   { to: "/courses", label: "Courses", icon: BookOpen, roles: ["admin"] },
   { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
   { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin"] },
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
   { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["instructor"] },
   { to: "/questions", label: "Questions", icon: HelpCircle, roles: ["instructor"] },
   { to: "/choices", label: "Choices", icon: ListChecks, roles: ["instructor"] },
+  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["instructor"] },
 ];
 
 export default function Sidebar() {

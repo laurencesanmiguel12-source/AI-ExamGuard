@@ -1,45 +1,39 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PieChart as RPie, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Eye, FileText, BarChart3 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
+import { getLiveSessions } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import RiskPill from "../../components/ui/RiskPill";
 import RiskBar from "../../components/ui/RiskBar";
-import PreviewBadge from "../../components/ui/PreviewBadge";
 
-const liveStudents = [
-  { id: "AU-2025-001", name: "Maria Santos", risk: 12, status: "safe", face: true, phone: false, tab: false, lstm: 8 },
-  { id: "AU-2025-002", name: "Juan dela Cruz", risk: 74, status: "high", face: true, phone: true, tab: true, lstm: 86 },
-  { id: "AU-2025-003", name: "Ana Reyes", risk: 5, status: "safe", face: true, phone: false, tab: false, lstm: 4 },
-  { id: "AU-2025-004", name: "Carlo Mendoza", risk: 91, status: "critical", face: false, phone: true, tab: false, lstm: 94 },
-  { id: "AU-2025-005", name: "Liza Garcia", risk: 38, status: "medium", face: true, phone: false, tab: true, lstm: 42 },
-];
+const VIOLATION_META = {
+  TAB_SWITCH: { label: "Tab Switch", fill: "#1a4fa8" },
+  FULLSCREEN_EXIT: { label: "Fullscreen Exit", fill: "#c8192e" },
+  COPY_PASTE: { label: "Copy/Paste", fill: "#e86e1e" },
+  RIGHT_CLICK: { label: "Right Click", fill: "#8b1ec4" },
+};
 
-const violationBreakdown = [
-  { name: "Phone Detected", value: 34, fill: "#c8192e" },
-  { name: "Tab Switch", value: 28, fill: "#1a4fa8" },
-  { name: "Face Loss", value: 20, fill: "#e86e1e" },
-  { name: "Unknown Face", value: 12, fill: "#8b1ec4" },
-  { name: "Multiple People", value: 6, fill: "#1ec47a" },
-];
-
-const sessionAlerts = [
-  { t: "09:34:53", msg: "Identity mismatch · Carlos Mendoza", type: "critical" },
-  { t: "09:30:17", msg: "Face loss · Carlos Mendoza", type: "high" },
-  { t: "09:21:33", msg: "Tab switch · Jenny Flores", type: "warn" },
-  { t: "09:15:08", msg: "Phone detected · Juan dela Cruz", type: "high" },
-  { t: "09:01:00", msg: "All identities verified", type: "ok" },
-];
+const ALERT_SEVERITY = {
+  FULLSCREEN_EXIT: "critical",
+  COPY_PASTE: "high",
+  TAB_SWITCH: "warn",
+  RIGHT_CLICK: "warn",
+};
 
 const TT = { background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono", color: "#0f172a" };
 const TT_LABEL = { color: "#64748b" };
 
 export default function InstructorDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [myExams, setMyExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [liveSessions, setLiveSessions] = useState([]);
+  const [recentEvents, setRecentEvents] = useState([]);
 
   useEffect(() => {
     Promise.all([getInstructors(), getExams()])
@@ -51,7 +45,40 @@ export default function InstructorDashboard() {
       .finally(() => setLoading(false));
   }, [user]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    function poll() {
+      getLiveSessions()
+        .then((data) => {
+          if (cancelled) return;
+          setLiveSessions(data.sessions);
+          setRecentEvents(data.recent_events);
+        })
+        .catch(() => {});
+    }
+
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const activeCount = myExams.filter((e) => e.is_active).length;
+  const myExamIds = new Set(myExams.map((e) => e.id));
+  const mySessions = liveSessions.filter((s) => myExamIds.has(s.exam_id));
+  const myRecentEvents = recentEvents.filter((e) => myExamIds.has(e.exam_id));
+  const criticalCount = mySessions.filter((s) => s.risk_score >= 75).length;
+
+  const violationBreakdown = Object.entries(VIOLATION_META)
+    .map(([type, meta]) => ({
+      name: meta.label,
+      fill: meta.fill,
+      value: mySessions.reduce((sum, s) => sum + (s.violation_counts[type] ?? 0), 0),
+    }))
+    .filter((v) => v.value > 0);
 
   return (
     <div>
@@ -77,13 +104,12 @@ export default function InstructorDashboard() {
         {[
           { val: myExams.length, label: "My Exams", color: "text-blue-600" },
           { val: activeCount, label: "Active", color: "text-emerald-600" },
-          { val: liveStudents.length, label: "Live Sessions", color: "text-orange-600", preview: true },
-          { val: liveStudents.filter((s) => s.status === "critical").length, label: "Critical", color: "text-red-600", preview: true },
-        ].map(({ val, label, color, preview }) => (
+          { val: mySessions.length, label: "Live Sessions", color: "text-orange-600" },
+          { val: criticalCount, label: "Critical", color: "text-red-600" },
+        ].map(({ val, label, color }) => (
           <Card key={label} className="p-5">
             <div className="flex items-center gap-2 mb-2">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">{label}</div>
-              {preview && <PreviewBadge />}
             </div>
             <div className={`font-display text-4xl font-black ${color}`}>{val}</div>
           </Card>
@@ -97,32 +123,39 @@ export default function InstructorDashboard() {
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
                 Examinee Risk Monitor
               </div>
-              <PreviewBadge />
             </div>
             <div className="divide-y divide-border">
-              {liveStudents.map((s) => (
+              {mySessions.length === 0 && (
+                <div className="px-6 py-6 text-sm text-muted-foreground">No active exam sessions right now.</div>
+              )}
+              {mySessions.map((s) => (
                 <div
-                  key={s.id}
+                  key={s.session_id}
                   className={`px-6 py-4 flex items-center gap-4 hover:bg-secondary/50 transition-colors ${
-                    s.status === "critical" ? "bg-red-50/60" : ""
+                    s.risk_score >= 75 ? "bg-red-50/60" : ""
                   }`}
                 >
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-red-100 flex items-center justify-center text-foreground font-display font-black text-sm flex-shrink-0 border border-border">
-                    {s.name[0]}
+                    {s.student_number.slice(-2)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-foreground text-sm font-medium">{s.name}</span>
-                      <RiskPill value={s.risk} />
+                      <span className="text-foreground text-sm font-medium">{s.student_number}</span>
+                      <RiskPill value={Math.round(s.risk_score)} />
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
-                      <span>{s.id}</span>
-                      <span className={s.face ? "text-emerald-600" : "text-red-600"}>Face:{s.face ? "✓" : "✗"}</span>
-                      <span className={s.phone ? "text-red-600" : "text-muted-foreground"}>Phone:{s.phone ? "!" : "–"}</span>
-                      <span className={s.tab ? "text-orange-600" : "text-muted-foreground"}>Tab:{s.tab ? "!" : "–"}</span>
+                    <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground truncate">
+                      <span>{s.exam_title}</span>
+                      {Object.entries(VIOLATION_META).map(([type, meta]) => {
+                        const count = s.violation_counts[type] ?? 0;
+                        return (
+                          <span key={type} className={count > 0 ? "text-orange-600" : "text-muted-foreground"}>
+                            {meta.label}:{count > 0 ? count : "–"}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="w-24"><RiskBar value={s.risk} /></div>
+                  <div className="w-24"><RiskBar value={Math.round(s.risk_score)} /></div>
                   <Eye className="w-4 h-4 text-muted-foreground" />
                 </div>
               ))}
@@ -134,19 +167,29 @@ export default function InstructorDashboard() {
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">Session Alerts</div>
-              <PreviewBadge />
             </div>
             <div className="space-y-2">
-              {sessionAlerts.map((a, i) => (
+              {myRecentEvents.length === 0 && (
+                <div className="text-xs text-muted-foreground">No recent activity.</div>
+              )}
+              {myRecentEvents.map((e, i) => (
                 <div key={i} className="flex items-start gap-2.5 py-1.5 border-b border-border last:border-0">
                   <div
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${
-                      a.type === "critical" ? "bg-red-500" : a.type === "high" ? "bg-orange-400" : a.type === "warn" ? "bg-blue-400" : "bg-emerald-500"
+                      ALERT_SEVERITY[e.event_type] === "critical"
+                        ? "bg-red-500"
+                        : ALERT_SEVERITY[e.event_type] === "high"
+                        ? "bg-orange-400"
+                        : "bg-blue-400"
                     }`}
                   />
                   <div className="flex-1">
-                    <div className="text-xs text-foreground/80">{a.msg}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{a.t}</div>
+                    <div className="text-xs text-foreground/80">
+                      {VIOLATION_META[e.event_type]?.label ?? e.event_type} · {e.student_number}
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {new Date(e.created_at).toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -156,35 +199,46 @@ export default function InstructorDashboard() {
           <Card className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">Violation Breakdown</div>
-              <PreviewBadge />
             </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <RPie>
-                <Pie data={violationBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>
-                  {violationBreakdown.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                </Pie>
-                <Tooltip contentStyle={TT} labelStyle={TT_LABEL} />
-              </RPie>
-            </ResponsiveContainer>
-            <div className="space-y-1.5 mt-1">
-              {violationBreakdown.map((v) => (
-                <div key={v.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: v.fill }} />
-                    <span className="text-[11px] text-muted-foreground">{v.name}</span>
-                  </div>
-                  <span className="font-mono text-[11px] text-foreground/70">{v.value}%</span>
+            {violationBreakdown.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No violations logged yet.</p>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <RPie>
+                    <Pie data={violationBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>
+                      {violationBreakdown.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TT} labelStyle={TT_LABEL} />
+                  </RPie>
+                </ResponsiveContainer>
+                <div className="space-y-1.5 mt-1">
+                  {violationBreakdown.map((v) => (
+                    <div key={v.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: v.fill }} />
+                        <span className="text-[11px] text-muted-foreground">{v.name}</span>
+                      </div>
+                      <span className="font-mono text-[11px] text-foreground/70">{v.value}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </Card>
 
           <div className="grid grid-cols-2 gap-3">
-            <button className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors">
+            <button
+              onClick={() => navigate("/reports")}
+              className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
+            >
               <FileText className="w-5 h-5 text-blue-500" />
               <span className="text-[11px] font-mono text-muted-foreground">Reports</span>
             </button>
-            <button className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors">
+            <button
+              onClick={() => navigate("/reports")}
+              className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
+            >
               <BarChart3 className="w-5 h-5 text-primary" />
               <span className="text-[11px] font-mono text-muted-foreground">Analytics</span>
             </button>
