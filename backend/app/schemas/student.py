@@ -19,6 +19,7 @@ class StudentUpdate(BaseModel):
 
 class StudentResponse(StudentBase):
     id: int
+    face_model_path: str | None = None
 
     model_config = ConfigDict(
         from_attributes=True

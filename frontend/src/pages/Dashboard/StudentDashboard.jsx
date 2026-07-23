@@ -28,6 +28,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
   const [stats, setStats] = useState(null);
+  const [me, setMe] = useState(null);
 
   useEffect(() => {
     getExams()
@@ -42,9 +43,10 @@ export default function StudentDashboard() {
     Promise.all([getExamSessions(), getStudents()])
       .then(([sessions, students]) => {
         if (cancelled) return;
-        const me = students.find((s) => s.user_id === user.id);
-        if (!me) return;
-        const submitted = sessions.filter((s) => s.student_id === me.id && s.status === "SUBMITTED");
+        const found = students.find((s) => s.user_id === user.id);
+        if (!found) return;
+        setMe(found);
+        const submitted = sessions.filter((s) => s.student_id === found.id && s.status === "SUBMITTED");
         const avgScore =
           submitted.length === 0
             ? null
@@ -189,22 +191,36 @@ export default function StudentDashboard() {
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
                 Biometric Status
               </div>
-              <PreviewBadge />
             </div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-muted-foreground" />
+              <div
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+                  me?.face_model_path ? "bg-emerald-50 border-emerald-200" : "bg-secondary border-border"
+                }`}
+              >
+                <UserCheck className={`w-5 h-5 ${me?.face_model_path ? "text-emerald-600" : "text-muted-foreground"}`} />
               </div>
               <div>
-                <div className="text-foreground text-sm font-medium">Not Enrolled</div>
-                <div className="text-[11px] font-mono text-muted-foreground">Face enrollment ships in Phase 9</div>
+                <div className="text-foreground text-sm font-medium">
+                  {me?.face_model_path ? "Enrolled" : "Not Enrolled"}
+                </div>
+                <div className="text-[11px] font-mono text-muted-foreground">
+                  {me?.face_model_path ? "Ready for exam verification" : "Required before proctored exams"}
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <StatusDot on={false} label="Face encoding saved" />
-              <StatusDot on={false} label="Reference images stored" />
-              <StatusDot on={false} label="Identity verified" />
+            <div className="space-y-2 mb-4">
+              <StatusDot on={!!me?.face_model_path} label="Face model trained" />
+              <StatusDot on={!!me?.face_model_path} label="Ready for verification" />
             </div>
+            {me && (
+              <button
+                onClick={() => navigate("/face-enrollment")}
+                className="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-xl text-[11px] font-mono uppercase tracking-widest transition-colors"
+              >
+                {me.face_model_path ? "Re-enroll" : "Enroll Now"}
+              </button>
+            )}
           </Card>
 
           <Card className="p-5">

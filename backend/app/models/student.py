@@ -24,6 +24,11 @@ class Student(Base, TimestampMixin):
         ForeignKey("courses.id")
     )
 
+    face_model_path: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
     user = relationship(
         "User",
         back_populates="student"

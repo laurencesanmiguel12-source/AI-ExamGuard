@@ -16,6 +16,7 @@ import ExamRoom from "./pages/ExamRoom/ExamRoom";
 import Results from "./pages/Results/Results";
 import ResultDetail from "./pages/Results/ResultDetail";
 import Reports from "./pages/Reports/Reports";
+import FaceEnrollment from "./pages/FaceEnrollment/FaceEnrollment";
 
 const EXAM_CONTENT_ROLES = ["instructor"];
 
@@ -29,6 +30,7 @@ function App() {
 
           <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
             <Route path="/take-exam/:examId" element={<ExamRoom />} />
+            <Route path="/face-enrollment" element={<FaceEnrollment />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>

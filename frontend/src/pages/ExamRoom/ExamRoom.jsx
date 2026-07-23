@@ -9,7 +9,10 @@ import { getStudents } from "../../api/students";
 import { getExamSessions, startExamSession, submitExamSession } from "../../api/examSessions";
 import { saveAnswer, getAnswers } from "../../api/studentAnswers";
 import { getSessionRisk } from "../../api/violations";
+import { checkFace } from "../../api/faceEnrollment";
+import { checkObjects } from "../../api/objectDetection";
 import useProctoring from "../../hooks/useProctoring";
+import useCamera from "../../hooks/useCamera";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
@@ -46,6 +49,8 @@ export default function ExamRoom() {
   const [result, setResult] = useState(null);
   const [risk, setRisk] = useState(0);
   const [lastTabSwitchAt, setLastTabSwitchAt] = useState(0);
+  const [faceDetected, setFaceDetected] = useState(true);
+  const [phoneDetected, setPhoneDetected] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,6 +161,42 @@ export default function ExamRoom() {
       clearInterval(id);
     };
   }, [phase, session]);
+
+  const { videoRef, error: cameraError, ready: cameraReady, captureFrame } = useCamera(
+    phase === "in-progress"
+  );
+
+  useEffect(() => {
+    if (phase !== "in-progress" || !session || !cameraReady) return;
+    let cancelled = false;
+
+    async function checkOnce() {
+      try {
+        const blob = await captureFrame();
+        if (!blob || cancelled) return;
+
+        const faceResult = await checkFace(session.id, blob).catch(() => null);
+        if (!cancelled && faceResult?.face_detected !== null && faceResult?.face_detected !== undefined) {
+          setFaceDetected(faceResult.face_detected);
+        }
+
+        const objectResult = await checkObjects(session.id, blob).catch(() => null);
+        if (!cancelled && objectResult) {
+          setPhoneDetected(objectResult.phone_detected);
+        }
+      } catch {
+        // best-effort; next check will retry naturally
+      }
+    }
+
+    checkOnce();
+    const id = setInterval(checkOnce, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, session, cameraReady]);
 
   async function handleSelectChoice(questionId, choiceId) {
     setAnswers((a) => ({ ...a, [questionId]: choiceId }));
@@ -414,18 +455,23 @@ export default function ExamRoom() {
               <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-secondary">
                 <Eye className="w-3 h-3 text-muted-foreground" />
                 <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">AI Monitor</span>
-                <PreviewBadge />
               </div>
               <div className="relative aspect-[4/3] bg-secondary flex items-center justify-center">
-                <span className="text-[11px] font-mono text-muted-foreground">Camera feed — Phase 9</span>
+                {cameraError ? (
+                  <span className="text-[11px] font-mono text-muted-foreground px-4 text-center">
+                    Camera unavailable
+                  </span>
+                ) : (
+                  <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                )}
               </div>
             </Card>
 
             <Card className="p-4 space-y-2.5">
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                { label: "Face Detected", ok: true, preview: true },
-                { label: "Phone", ok: true, preview: true },
+                { label: "Face Detected", ok: faceDetected, preview: false },
+                { label: "Phone", ok: !phoneDetected, preview: false },
                 { label: "Tab Focus", ok: tabFocusOk, preview: false },
               ].map(({ label, ok, preview }) => (
                 <div key={label} className="flex items-center justify-between">

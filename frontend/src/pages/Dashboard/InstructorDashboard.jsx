@@ -15,11 +15,19 @@ const VIOLATION_META = {
   FULLSCREEN_EXIT: { label: "Fullscreen Exit", fill: "#c8192e" },
   COPY_PASTE: { label: "Copy/Paste", fill: "#e86e1e" },
   RIGHT_CLICK: { label: "Right Click", fill: "#8b1ec4" },
+  FACE_LOST: { label: "Face Lost", fill: "#1ec47a" },
+  IDENTITY_MISMATCH: { label: "Identity Mismatch", fill: "#f43f5e" },
+  PHONE_DETECTED: { label: "Phone Detected", fill: "#eab308" },
+  MULTIPLE_PEOPLE: { label: "Multiple People", fill: "#0ea5e9" },
 };
 
 const ALERT_SEVERITY = {
   FULLSCREEN_EXIT: "critical",
+  IDENTITY_MISMATCH: "critical",
+  PHONE_DETECTED: "critical",
+  FACE_LOST: "high",
   COPY_PASTE: "high",
+  MULTIPLE_PEOPLE: "high",
   TAB_SWITCH: "warn",
   RIGHT_CLICK: "warn",
 };

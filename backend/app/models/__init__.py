@@ -10,3 +10,4 @@ from app.models.question import Question
 from app.models.choice import Choice
 from app.models.exam_session import ExamSession
 from app.models.student_answer import StudentAnswer
+from app.models.violation import Violation
