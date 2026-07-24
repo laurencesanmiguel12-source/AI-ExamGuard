@@ -20,10 +20,17 @@ STORAGE_DIR = os.path.join(
     "face_models"
 )
 
-_CASCADE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "resources", "haarcascade_frontalface_default.xml"
+_YUNET_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "resources", "face_detection_yunet_2023mar.onnx"
 )
-_CASCADE = cv2.CascadeClassifier(_CASCADE_PATH)
+# YuNet replaces the old Haar cascade - unlike Haar's frontal-only detection (reliable only within
+# roughly +/-15-20 degrees of straight-on), YuNet is a small pretrained ONNX model built and
+# benchmarked specifically for pose/rotation/lighting robustness, fixing detection dropping out on
+# quick head turns. Score/NMS thresholds are OpenCV's own sample defaults - a starting point, not
+# yet tuned against real hardware.
+_DETECTOR = cv2.FaceDetectorYN_create(
+    _YUNET_PATH, "", (320, 320), score_threshold=0.9, nms_threshold=0.3, top_k=5000
+)
 
 
 def _detect_and_crop(image_bytes: bytes):
@@ -33,14 +40,23 @@ def _detect_and_crop(image_bytes: bytes):
     if image is None:
         return None
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = _CASCADE.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    # YuNet expects a color image and needs the actual per-frame size set before each detect()
+    # call, since captured frame dimensions aren't guaranteed constant across requests.
+    _DETECTOR.setInputSize((image.shape[1], image.shape[0]))
+    _, faces = _DETECTOR.detect(image)
 
-    if len(faces) == 0:
+    if faces is None or len(faces) == 0:
         return None
 
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+    largest = max(faces, key=lambda f: f[2] * f[3])
+    x, y, w, h = largest[:4].astype(int)
+    x, y = max(x, 0), max(y, 0)
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     crop = gray[y:y + h, x:x + w]
+
+    if crop.size == 0:
+        return None
 
     return cv2.resize(crop, FACE_SIZE)
 
