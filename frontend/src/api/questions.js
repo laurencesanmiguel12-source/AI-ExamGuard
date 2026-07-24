@@ -1,20 +1,27 @@
 import apiClient from "./client";
 
-export async function getQuestions() {
-  const response = await apiClient.get("/questions");
+export async function getExamQuestions(examId) {
+  const response = await apiClient.get(`/exams/${examId}/questions`);
   return response.data;
 }
 
-export async function createQuestion(payload) {
-  const response = await apiClient.post("/questions", payload);
+export async function createExamQuestion(examId, payload) {
+  const response = await apiClient.post(`/exams/${examId}/questions`, payload);
   return response.data;
 }
 
-export async function updateQuestion(id, payload) {
-  const response = await apiClient.put(`/questions/${id}`, payload);
+export async function updateExamQuestion(examId, questionId, payload) {
+  const response = await apiClient.put(`/exams/${examId}/questions/${questionId}`, payload);
   return response.data;
 }
 
-export async function deleteQuestion(id) {
-  await apiClient.delete(`/questions/${id}`);
+export async function deleteExamQuestion(examId, questionId) {
+  await apiClient.delete(`/exams/${examId}/questions/${questionId}`);
+}
+
+export async function importExamQuestionsCsv(examId, file) {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await apiClient.post(`/exams/${examId}/questions/import`, form);
+  return response.data;
 }

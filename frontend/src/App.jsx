@@ -10,8 +10,7 @@ import Subjects from "./pages/Subjects/Subjects";
 import Students from "./pages/Students/Students";
 import Instructors from "./pages/Instructors/Instructors";
 import Exams from "./pages/Exams/Exams";
-import Questions from "./pages/Questions/Questions";
-import Choices from "./pages/Choices/Choices";
+import ExamContent from "./pages/ExamContent/ExamContent";
 import ExamRoom from "./pages/ExamRoom/ExamRoom";
 import Results from "./pages/Results/Results";
 import ResultDetail from "./pages/Results/ResultDetail";
@@ -44,8 +43,7 @@ function App() {
 
               <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>
                 <Route path="/exams" element={<Exams />} />
-                <Route path="/questions" element={<Questions />} />
-                <Route path="/choices" element={<Choices />} />
+                <Route path="/exams/:examId/content" element={<ExamContent />} />
                 <Route path="/reports" element={<Reports />} />
               </Route>
 

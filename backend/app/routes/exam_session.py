@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth.student_context import get_current_student
 from app.core.database import get_db
+from app.models.student import Student
 from app.schemas.exam_session import (
     ExamSessionCreate,
     ExamSessionResponse,
@@ -21,9 +23,10 @@ router = APIRouter(
 )
 def start_exam(
     request: ExamSessionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    student: Student = Depends(get_current_student)
 ):
-    return ExamSessionService.start_exam(request, db)
+    return ExamSessionService.start_exam(student, request.exam_id, db)
 
 
 @router.get(

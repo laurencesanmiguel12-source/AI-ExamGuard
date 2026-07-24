@@ -9,21 +9,9 @@ from app.schemas.choice import ChoiceCreate, ChoiceUpdate
 class ChoiceService:
 
     @staticmethod
-    def create(request: ChoiceCreate, db: Session):
+    def create(question: Question, request: ChoiceCreate, db: Session):
 
-        question = (
-            db.query(Question)
-            .filter(Question.id == request.question_id)
-            .first()
-        )
-
-        if question is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Question not found."
-            )
-
-        choice = Choice(**request.model_dump())
+        choice = Choice(question_id=question.id, **request.model_dump())
 
         db.add(choice)
         db.commit()
@@ -32,41 +20,26 @@ class ChoiceService:
         return choice
 
     @staticmethod
-    def get_all(db: Session):
-
-        return db.query(Choice).all()
-
-    @staticmethod
-    def get_by_id(choice_id: int, db: Session):
+    def get_owned(question: Question, choice_id: int, db: Session):
 
         choice = (
             db.query(Choice)
-            .filter(Choice.id == choice_id)
+            .filter(Choice.id == choice_id, Choice.question_id == question.id)
             .first()
         )
 
         if choice is None:
             raise HTTPException(
                 status_code=404,
-                detail="Choice not found."
+                detail="Choice not found for this question."
             )
 
         return choice
 
     @staticmethod
-    def update(choice_id: int, request: ChoiceUpdate, db: Session):
+    def update(question: Question, choice_id: int, request: ChoiceUpdate, db: Session):
 
-        choice = (
-            db.query(Choice)
-            .filter(Choice.id == choice_id)
-            .first()
-        )
-
-        if choice is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Choice not found."
-            )
+        choice = ChoiceService.get_owned(question, choice_id, db)
 
         update_data = request.model_dump(exclude_unset=True)
 
@@ -79,19 +52,9 @@ class ChoiceService:
         return choice
 
     @staticmethod
-    def delete(choice_id: int, db: Session):
+    def delete(question: Question, choice_id: int, db: Session):
 
-        choice = (
-            db.query(Choice)
-            .filter(Choice.id == choice_id)
-            .first()
-        )
-
-        if choice is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Choice not found."
-            )
+        choice = ChoiceService.get_owned(question, choice_id, db)
 
         db.delete(choice)
         db.commit()

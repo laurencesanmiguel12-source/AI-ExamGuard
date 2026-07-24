@@ -1,8 +1,9 @@
 import apiClient from "./client";
 
-export async function logViolation(sessionId, eventType) {
+export async function logViolation(sessionId, eventType, detail) {
   const response = await apiClient.post(`/exam-sessions/${sessionId}/violations`, {
     event_type: eventType,
+    ...(detail ? { detail } : {}),
   });
   return response.data;
 }

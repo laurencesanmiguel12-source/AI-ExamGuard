@@ -18,7 +18,7 @@ def get_exams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return ExamService.get_all(db)
+    return ExamService.get_all(current_user, db)
 
 
 @router.get("/{exam_id}", response_model=ExamResponse)
@@ -27,7 +27,7 @@ def get_exam(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return ExamService.get_by_id(exam_id, db)
+    return ExamService.get_by_id_for_user(exam_id, current_user, db)
 
 
 @router.post("/", response_model=ExamResponse)

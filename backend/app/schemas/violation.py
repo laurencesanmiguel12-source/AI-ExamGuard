@@ -5,12 +5,14 @@ from pydantic import BaseModel, ConfigDict
 
 class ViolationCreate(BaseModel):
     event_type: str
+    detail: str | None = None
 
 
 class ViolationResponse(BaseModel):
     id: int
     exam_session_id: int
     event_type: str
+    detail: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(
@@ -34,6 +36,7 @@ class RecentViolation(BaseModel):
     student_number: str
     exam_id: int
     event_type: str
+    detail: str | None = None
     created_at: datetime
 
 

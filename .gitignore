@@ -8,3 +8,8 @@ dist/
 dist-ssr/
 *.local
 backend/storage/
+backend/training/datasets/
+backend/training/runs/
+kaggle.json
+extension/keys/
+.claude/settings.local.json

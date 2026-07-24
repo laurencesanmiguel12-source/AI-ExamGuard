@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, ListChecks } from "lucide-react";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
@@ -60,6 +61,18 @@ export default function Exams() {
     { key: "subject_id", label: "Subject", render: (row) => subjectName(row.subject_id) },
     { key: "instructor_id", label: "Instructor", render: (row) => instructorName(row.instructor_id) },
     { key: "is_active", label: "Status", render: (row) => (row.is_active ? "Active" : "Inactive") },
+    {
+      key: "content",
+      label: "Content",
+      render: (row) => (
+        <Link
+          to={`/exams/${row.id}/content`}
+          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
+        >
+          <ListChecks className="w-3.5 h-3.5" /> Manage Content
+        </Link>
+      ),
+    },
   ];
 
   function openCreate() {

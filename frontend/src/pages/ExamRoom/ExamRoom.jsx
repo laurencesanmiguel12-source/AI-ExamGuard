@@ -3,8 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle, Eye } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExam } from "../../api/exams";
-import { getQuestions } from "../../api/questions";
-import { getChoices } from "../../api/choices";
+import { getExamQuestions } from "../../api/questions";
 import { getStudents } from "../../api/students";
 import { getExamSessions, startExamSession, submitExamSession } from "../../api/examSessions";
 import { saveAnswer, getAnswers } from "../../api/studentAnswers";
@@ -12,6 +11,7 @@ import { getSessionRisk } from "../../api/violations";
 import { checkFace } from "../../api/faceEnrollment";
 import { checkObjects } from "../../api/objectDetection";
 import useProctoring from "../../hooks/useProctoring";
+import useExtensionMonitor from "../../hooks/useExtensionMonitor";
 import useCamera from "../../hooks/useCamera";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
@@ -51,17 +51,17 @@ export default function ExamRoom() {
   const [lastTabSwitchAt, setLastTabSwitchAt] = useState(0);
   const [faceDetected, setFaceDetected] = useState(true);
   const [phoneDetected, setPhoneDetected] = useState(false);
+  const [extensionAlert, setExtensionAlert] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
-        const [examData, students, allQuestions, allChoices] = await Promise.all([
+        const [examData, students, examQuestionsRaw] = await Promise.all([
           getExam(examId),
           getStudents(),
-          getQuestions(),
-          getChoices(),
+          getExamQuestions(examId),
         ]);
 
         if (cancelled) return;
@@ -78,13 +78,11 @@ export default function ExamRoom() {
           return;
         }
 
-        const examQuestions = allQuestions
-          .filter((q) => q.exam_id === Number(examId))
-          .sort((a, b) => a.order_number - b.order_number);
+        const examQuestions = [...examQuestionsRaw].sort((a, b) => a.order_number - b.order_number);
 
         const grouped = {};
         for (const q of examQuestions) {
-          grouped[q.id] = allChoices.filter((c) => c.question_id === q.id);
+          grouped[q.id] = q.choices;
         }
 
         setExam(examData);
@@ -96,7 +94,7 @@ export default function ExamRoom() {
           (s) => s.student_id === me.id && s.exam_id === Number(examId) && s.status === "IN_PROGRESS"
         );
 
-        const activeOrNew = activeSession ?? (await startExamSession(me.id, Number(examId)));
+        const activeOrNew = activeSession ?? (await startExamSession(Number(examId)));
         if (cancelled) return;
 
         setSession(activeOrNew);
@@ -109,9 +107,13 @@ export default function ExamRoom() {
           if (a.choice_id != null) answerMap[a.question_id] = a.choice_id;
         }
         setAnswers(answerMap);
-        setPhase("in-progress");
+        setPhase("extension-check");
       } catch (err) {
         if (cancelled) return;
+        if (err.response?.status === 403) {
+          setPhase("wrong-course");
+          return;
+        }
         setError(err.response?.data?.detail ?? "Couldn't load this exam.");
         setPhase("error");
       }
@@ -140,6 +142,14 @@ export default function ExamRoom() {
   useProctoring(session?.id, phase === "in-progress", (eventType) => {
     if (eventType === "TAB_SWITCH") setLastTabSwitchAt(Date.now());
   });
+
+  const extensionActive = phase === "extension-check" || phase === "in-progress";
+  const { status: extensionStatus, retry: retryExtensionCheck } = useExtensionMonitor(
+    session?.id,
+    extensionActive,
+    phase === "in-progress",
+    (eventType, domain) => setExtensionAlert({ eventType, domain })
+  );
 
   useEffect(() => {
     if (phase !== "in-progress" || !session) return;
@@ -190,7 +200,7 @@ export default function ExamRoom() {
     }
 
     checkOnce();
-    const id = setInterval(checkOnce, 15000);
+    const id = setInterval(checkOnce, 5000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -266,6 +276,26 @@ export default function ExamRoom() {
     );
   }
 
+  if (phase === "wrong-course") {
+    return (
+      <div className="flex h-screen items-center justify-center px-6">
+        <Card className="p-8 max-w-md text-center">
+          <h2 className="font-display font-black text-2xl text-foreground mb-2">Not Available For Your Course</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            This exam isn't offered to your course. If you believe this is a mistake, contact your
+            instructor.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+          >
+            Back to Dashboard
+          </button>
+        </Card>
+      </div>
+    );
+  }
+
   if (phase === "error") {
     return (
       <div className="flex h-screen items-center justify-center px-6">
@@ -317,6 +347,59 @@ export default function ExamRoom() {
     );
   }
 
+  if (phase === "extension-check") {
+    return (
+      <div className="flex h-screen items-center justify-center px-6">
+        <Card className="p-8 max-w-md text-center">
+          {extensionStatus === "checking" && (
+            <>
+              <h2 className="font-display font-black text-2xl text-foreground mb-2">
+                Checking for Tab Monitor Extension…
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                We're checking whether the AI-ExamGuard Tab Monitor browser extension is installed.
+              </p>
+            </>
+          )}
+          {extensionStatus === "connected" && (
+            <>
+              <h2 className="font-display font-black text-2xl text-foreground mb-2">
+                Tab Monitor Extension Detected
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                This exam flags activity if you visit Google Search, ChatGPT, or similar tools in
+                another tab while it's in progress.
+              </p>
+              <button
+                onClick={() => setPhase("in-progress")}
+                className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              >
+                Start Exam
+              </button>
+            </>
+          )}
+          {extensionStatus === "unavailable" && (
+            <>
+              <h2 className="font-display font-black text-2xl text-foreground mb-2">
+                Extension Not Detected
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                This exam requires the AI-ExamGuard Tab Monitor browser extension (Chrome/Edge
+                only). Install it from your instructor's provided link, then retry.
+              </p>
+              <button
+                onClick={retryExtensionCheck}
+                className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              >
+                Retry Check
+              </button>
+            </>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
   const q = questions[current];
   const tabFocusOk = Date.now() - lastTabSwitchAt > 10000;
 
@@ -328,6 +411,13 @@ export default function ExamRoom() {
           <div className="text-[11px] font-mono text-muted-foreground">
             {questions.length} question{questions.length === 1 ? "" : "s"} · {exam.total_points} pts
           </div>
+          {extensionAlert && (
+            <div className="text-[11px] font-mono text-red-600 mt-0.5">
+              {extensionAlert.eventType === "AI_TOOL_DETECTED" ? "AI Tool Detected" : "Search Engine Detected"}
+              {" · "}
+              {extensionAlert.domain}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">
@@ -470,16 +560,23 @@ export default function ExamRoom() {
             <Card className="p-4 space-y-2.5">
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                { label: "Face Detected", ok: faceDetected, preview: false },
-                { label: "Phone", ok: !phoneDetected, preview: false },
-                { label: "Tab Focus", ok: tabFocusOk, preview: false },
-              ].map(({ label, ok, preview }) => (
+                { label: "Face Detected", ok: faceDetected, preview: false, alertLabel: "ALERT" },
+                { label: "Phone", ok: !phoneDetected, preview: false, alertLabel: "ALERT" },
+                { label: "Tab Focus", ok: tabFocusOk, preview: false, alertLabel: "ALERT" },
+                {
+                  label: "Tab Monitor",
+                  ok: !extensionAlert,
+                  preview: false,
+                  alertLabel:
+                    extensionAlert?.eventType === "AI_TOOL_DETECTED" ? "AI TOOL" : "SEARCH ENGINE",
+                },
+              ].map(({ label, ok, preview, alertLabel }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                     {label} {preview && <PreviewBadge />}
                   </span>
                   <span className={`text-[10px] font-mono font-bold ${ok ? "text-emerald-600" : "text-red-600"}`}>
-                    {ok ? "OK" : "ALERT"}
+                    {ok ? "OK" : alertLabel}
                   </span>
                 </div>
               ))}

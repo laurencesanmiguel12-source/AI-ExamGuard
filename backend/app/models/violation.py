@@ -18,6 +18,11 @@ class Violation(Base, TimestampMixin):
         nullable=False
     )
 
+    detail: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
+
     exam_session = relationship(
         "ExamSession",
         back_populates="violations"

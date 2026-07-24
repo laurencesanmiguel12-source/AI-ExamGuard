@@ -1,20 +1,18 @@
 import apiClient from "./client";
 
-export async function getChoices() {
-  const response = await apiClient.get("/choices");
+export async function createExamChoice(examId, questionId, payload) {
+  const response = await apiClient.post(`/exams/${examId}/questions/${questionId}/choices`, payload);
   return response.data;
 }
 
-export async function createChoice(payload) {
-  const response = await apiClient.post("/choices", payload);
+export async function updateExamChoice(examId, questionId, choiceId, payload) {
+  const response = await apiClient.put(
+    `/exams/${examId}/questions/${questionId}/choices/${choiceId}`,
+    payload
+  );
   return response.data;
 }
 
-export async function updateChoice(id, payload) {
-  const response = await apiClient.put(`/choices/${id}`, payload);
-  return response.data;
-}
-
-export async function deleteChoice(id) {
-  await apiClient.delete(`/choices/${id}`);
+export async function deleteExamChoice(examId, questionId, choiceId) {
+  await apiClient.delete(`/exams/${examId}/questions/${questionId}/choices/${choiceId}`);
 }

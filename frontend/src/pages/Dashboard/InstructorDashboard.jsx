@@ -19,12 +19,16 @@ const VIOLATION_META = {
   IDENTITY_MISMATCH: { label: "Identity Mismatch", fill: "#f43f5e" },
   PHONE_DETECTED: { label: "Phone Detected", fill: "#eab308" },
   MULTIPLE_PEOPLE: { label: "Multiple People", fill: "#0ea5e9" },
+  AI_TOOL_DETECTED: { label: "AI Tool Detected", fill: "#dc2626" },
+  SEARCH_ENGINE_DETECTED: { label: "Search Engine Detected", fill: "#f97316" },
 };
 
 const ALERT_SEVERITY = {
   FULLSCREEN_EXIT: "critical",
   IDENTITY_MISMATCH: "critical",
   PHONE_DETECTED: "critical",
+  AI_TOOL_DETECTED: "critical",
+  SEARCH_ENGINE_DETECTED: "critical",
   FACE_LOST: "high",
   COPY_PASTE: "high",
   MULTIPLE_PEOPLE: "high",
@@ -193,7 +197,8 @@ export default function InstructorDashboard() {
                   />
                   <div className="flex-1">
                     <div className="text-xs text-foreground/80">
-                      {VIOLATION_META[e.event_type]?.label ?? e.event_type} · {e.student_number}
+                      {VIOLATION_META[e.event_type]?.label ?? e.event_type}
+                      {e.detail ? ` · ${e.detail}` : ""} · {e.student_number}
                     </div>
                     <div className="font-mono text-[10px] text-muted-foreground">
                       {new Date(e.created_at).toLocaleTimeString()}

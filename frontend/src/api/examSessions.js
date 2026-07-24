@@ -10,9 +10,8 @@ export async function getExamSession(id) {
   return response.data;
 }
 
-export async function startExamSession(studentId, examId) {
+export async function startExamSession(examId) {
   const response = await apiClient.post("/exam-sessions/start", {
-    student_id: studentId,
     exam_id: examId,
   });
   return response.data;

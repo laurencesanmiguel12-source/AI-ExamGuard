@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, HelpCircle, ListChecks, Award, BarChart3 } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
@@ -10,8 +10,6 @@ const NAV_ITEMS = [
   { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin"] },
   { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
   { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["instructor"] },
-  { to: "/questions", label: "Questions", icon: HelpCircle, roles: ["instructor"] },
-  { to: "/choices", label: "Choices", icon: ListChecks, roles: ["instructor"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["instructor"] },
 ];
 

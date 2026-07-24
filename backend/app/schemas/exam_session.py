@@ -3,13 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
-class ExamSessionBase(BaseModel):
-    student_id: int
+class ExamSessionCreate(BaseModel):
     exam_id: int
-
-
-class ExamSessionCreate(ExamSessionBase):
-    pass
 
 
 class ExamSessionUpdate(BaseModel):

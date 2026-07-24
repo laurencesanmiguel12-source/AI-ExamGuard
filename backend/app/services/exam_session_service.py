@@ -7,34 +7,23 @@ from app.models.exam import Exam
 from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.exam_session import (
-    ExamSessionCreate,
     ExamSessionUpdate,
 )
+from app.services.exam_service import ExamService
 
 
 class ExamSessionService:
 
     @staticmethod
     def start_exam(
-        request: ExamSessionCreate,
+        student: Student,
+        exam_id: int,
         db: Session
     ):
 
-        student = (
-            db.query(Student)
-            .filter(Student.id == request.student_id)
-            .first()
-        )
-
-        if student is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Student not found."
-            )
-
         exam = (
             db.query(Exam)
-            .filter(Exam.id == request.exam_id)
+            .filter(Exam.id == exam_id)
             .first()
         )
 
@@ -50,11 +39,17 @@ class ExamSessionService:
                 detail="Exam is not active."
             )
 
+        if not ExamService.is_student_eligible(student, exam, db):
+            raise HTTPException(
+                status_code=403,
+                detail="This exam is not available for your course."
+            )
+
         existing_session = (
             db.query(ExamSession)
             .filter(
-                ExamSession.student_id == request.student_id,
-                ExamSession.exam_id == request.exam_id,
+                ExamSession.student_id == student.id,
+                ExamSession.exam_id == exam_id,
                 ExamSession.status == "IN_PROGRESS"
             )
             .first()
@@ -67,8 +62,8 @@ class ExamSessionService:
             )
 
         session = ExamSession(
-            student_id=request.student_id,
-            exam_id=request.exam_id,
+            student_id=student.id,
+            exam_id=exam_id,
             started_at=datetime.now(),
             status="IN_PROGRESS"
         )

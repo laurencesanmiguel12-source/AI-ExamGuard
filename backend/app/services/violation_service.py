@@ -35,7 +35,8 @@ class ViolationService:
 
         violation = Violation(
             exam_session_id=session_id,
-            event_type=request.event_type
+            event_type=request.event_type,
+            detail=request.detail
         )
 
         db.add(violation)

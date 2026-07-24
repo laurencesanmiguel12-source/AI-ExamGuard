@@ -4,8 +4,7 @@ import { ArrowLeft, CheckCircle, XCircle, MinusCircle } from "lucide-react";
 import { getExamSession } from "../../api/examSessions";
 import { getAnswers } from "../../api/studentAnswers";
 import { getExam } from "../../api/exams";
-import { getQuestions } from "../../api/questions";
-import { getChoices } from "../../api/choices";
+import { getExamQuestions } from "../../api/questions";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 
@@ -28,21 +27,18 @@ export default function ResultDetail() {
         const sessionData = await getExamSession(sessionId);
         if (cancelled) return;
 
-        const [examData, answers, allQuestions, allChoices] = await Promise.all([
+        const [examData, answers, examQuestionsRaw] = await Promise.all([
           getExam(sessionData.exam_id),
           getAnswers(sessionId),
-          getQuestions(),
-          getChoices(),
+          getExamQuestions(sessionData.exam_id),
         ]);
         if (cancelled) return;
 
-        const examQuestions = allQuestions
-          .filter((q) => q.exam_id === sessionData.exam_id)
-          .sort((a, b) => a.order_number - b.order_number);
+        const examQuestions = [...examQuestionsRaw].sort((a, b) => a.order_number - b.order_number);
 
         const grouped = {};
         for (const q of examQuestions) {
-          grouped[q.id] = allChoices.filter((c) => c.question_id === q.id);
+          grouped[q.id] = q.choices;
         }
 
         const answerMap = Object.fromEntries(answers.map((a) => [a.question_id, a]));

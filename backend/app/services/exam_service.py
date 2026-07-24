@@ -2,16 +2,36 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.exam import Exam
-from app.models.subject import Subject
 from app.models.instructor import Instructor
+from app.models.student import Student
+from app.models.subject import Subject
+from app.models.user import User
 from app.schemas.exam import ExamCreate, ExamUpdate
 
 
 class ExamService:
 
     @staticmethod
-    def get_all(db: Session):
-        return db.query(Exam).all()
+    def is_student_eligible(student: Student, exam: Exam, db: Session) -> bool:
+        subject = db.query(Subject).filter(Subject.id == exam.subject_id).first()
+        return subject is not None and subject.course_id == student.course_id
+
+    @staticmethod
+    def get_all(current_user: User, db: Session):
+
+        if current_user.role.name.lower() != "student":
+            return db.query(Exam).all()
+
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if student is None:
+            return []
+
+        return (
+            db.query(Exam)
+            .join(Subject, Exam.subject_id == Subject.id)
+            .filter(Subject.course_id == student.course_id)
+            .all()
+        )
 
     @staticmethod
     def get_by_id(exam_id: int, db: Session):
@@ -27,6 +47,21 @@ class ExamService:
                 status_code=404,
                 detail="Exam not found."
             )
+
+        return exam
+
+    @staticmethod
+    def get_by_id_for_user(exam_id: int, current_user: User, db: Session):
+
+        exam = ExamService.get_by_id(exam_id, db)
+
+        if current_user.role.name.lower() == "student":
+            student = db.query(Student).filter(Student.user_id == current_user.id).first()
+            if student is None or not ExamService.is_student_eligible(student, exam, db):
+                raise HTTPException(
+                    status_code=403,
+                    detail="This exam is not available for your course."
+                )
 
         return exam
 

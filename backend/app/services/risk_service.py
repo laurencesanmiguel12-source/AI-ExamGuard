@@ -15,6 +15,8 @@ WEIGHTS = {
     "IDENTITY_MISMATCH": 30,
     "PHONE_DETECTED": 30,
     "MULTIPLE_PEOPLE": 25,
+    "AI_TOOL_DETECTED": 40,
+    "SEARCH_ENGINE_DETECTED": 35,
 }
 
 WINDOW_SECONDS = 120
@@ -102,6 +104,7 @@ class RiskService:
                 ),
                 "exam_id": sessions_by_id[v.exam_session_id].exam_id,
                 "event_type": v.event_type,
+                "detail": v.detail,
                 "created_at": v.created_at,
             }
             for v in all_violations[:10]

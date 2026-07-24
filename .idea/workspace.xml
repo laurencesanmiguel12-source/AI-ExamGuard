@@ -5,17 +5,31 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b8a5ae58-1713-41d1-9140-c194bfb05b0a" name="Changes" comment="Exam Session  Module created">
-      <change afterPath="$PROJECT_DIR$/backend/app/models/student_answer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/routes/student_answer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/schemas/student_answer.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/backend/app/services/student_answer_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/exam.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/exam.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/exam_session.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/exam_session.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/schemas/exam_session.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/exam_session.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/exam_session_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/exam_session_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/violation.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/violation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routes/choice.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/routes/question.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/choice.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/choice.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/question.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/question.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/violation.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/violation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/choice_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/choice_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/question_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/question_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/risk_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/risk_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/violation_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/violation_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/choices.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/choices.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/questions.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/questions.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/api/violations.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/api/violations.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/Sidebar.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/Sidebar.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Choices/Choices.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Dashboard/InstructorDashboard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard/InstructorDashboard.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ExamRoom/ExamRoom.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ExamRoom/ExamRoom.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Exams/Exams.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Exams/Exams.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Questions/Questions.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Results/ResultDetail.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Results/ResultDetail.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +55,7 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/laurencesanmiguel12-source/AI-ExamGuard.git&quot;,
-    &quot;accountId&quot;: &quot;9afd2010-501c-4ed8-a976-b6b27860ddc6&quot;
+    &quot;accountId&quot;: &quot;be12ae84-3f73-488a-8f77-3b4087500aa2&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
@@ -60,7 +74,7 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;org.jetbrains.plugins.github.ui.GithubSettingsConfigurable&quot;
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
   }
 }</component>
   <component name="RecentsManager">
@@ -78,7 +92,6 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="SDK_NAME" value="Python 3.12 (AI-ExamGuard)" />
       <option name="WORKING_DIRECTORY" value="C:\Users\Ren\Documents\PythonProject\AI-ExamGuard\backend" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
