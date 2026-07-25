@@ -6,16 +6,59 @@ import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getExamSessions } from "../../api/examSessions";
 import { getStudents } from "../../api/students";
+import { getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
-import PreviewBadge from "../../components/ui/PreviewBadge";
 
-const riskTimeline = [
-  { time: "09:00", risk: 5 }, { time: "09:05", risk: 8 }, { time: "09:10", risk: 12 },
-  { time: "09:15", risk: 55 }, { time: "09:20", risk: 48 }, { time: "09:25", risk: 20 },
-  { time: "09:30", risk: 72 }, { time: "09:35", risk: 88 }, { time: "09:40", risk: 61 },
-  { time: "09:45", risk: 30 }, { time: "09:50", risk: 18 },
-];
+// Mirrors backend/app/services/risk_service.py's WEIGHTS/WINDOW_SECONDS - keep in sync (same
+// duplication convention as InstructorDashboard.jsx's VIOLATION_META). The backend's /risk
+// endpoint only scores a trailing 120s window from *now*, which is only meaningful for a live
+// in-progress session, so a finished exam's timeline/summary is recomputed here from its raw
+// violations instead of calling that endpoint.
+const RISK_WEIGHTS = {
+  TAB_SWITCH: 15,
+  FULLSCREEN_EXIT: 20,
+  COPY_PASTE: 10,
+  RIGHT_CLICK: 5,
+  FACE_LOST: 25,
+  IDENTITY_MISMATCH: 30,
+  PHONE_DETECTED: 30,
+  MULTIPLE_PEOPLE: 25,
+  AI_TOOL_DETECTED: 40,
+  SEARCH_ENGINE_DETECTED: 35,
+};
+const RISK_WINDOW_MS = 120 * 1000;
+const TIMELINE_POINTS = 11;
+
+function windowedRiskScore(violations, atTime) {
+  const windowStart = atTime - RISK_WINDOW_MS;
+  const total = violations
+    .filter((v) => {
+      const t = new Date(v.created_at).getTime();
+      return t > windowStart && t <= atTime;
+    })
+    .reduce((sum, v) => sum + (RISK_WEIGHTS[v.event_type] ?? 0), 0);
+  return Math.min(100, total);
+}
+
+function buildRiskTimeline(session, violations) {
+  // Violation timestamps are expected to fall within [started_at, submitted_at] (logging is only
+  // allowed while a session is IN_PROGRESS), but the window is widened to cover them anyway in
+  // case of clock skew or inconsistent seed/test data - otherwise a violation just outside the
+  // nominal session bounds would silently vanish from the chart despite still counting toward the
+  // Avg Risk/Violations stats above.
+  const violationTimes = violations.map((v) => new Date(v.created_at).getTime());
+  const start = Math.min(new Date(session.started_at).getTime(), ...violationTimes);
+  const end = Math.max(new Date(session.submitted_at).getTime(), ...violationTimes);
+
+  return Array.from({ length: TIMELINE_POINTS }, (_, i) => {
+    const t = start + ((end - start) * i) / (TIMELINE_POINTS - 1);
+    return {
+      time: new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      risk: windowedRiskScore(violations, t),
+    };
+  });
+}
 
 const TT = { background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono", color: "#0f172a" };
 const TT_LABEL = { color: "#64748b" };
@@ -29,6 +72,7 @@ export default function StudentDashboard() {
   const [errored, setErrored] = useState(false);
   const [stats, setStats] = useState(null);
   const [me, setMe] = useState(null);
+  const [riskTimeline, setRiskTimeline] = useState([]);
 
   useEffect(() => {
     getExams()
@@ -41,7 +85,7 @@ export default function StudentDashboard() {
     let cancelled = false;
 
     Promise.all([getExamSessions(), getStudents()])
-      .then(([sessions, students]) => {
+      .then(async ([sessions, students]) => {
         if (cancelled) return;
         const found = students.find((s) => s.user_id === user.id);
         if (!found) return;
@@ -51,7 +95,33 @@ export default function StudentDashboard() {
           submitted.length === 0
             ? null
             : submitted.reduce((sum, s) => sum + s.percentage, 0) / submitted.length;
-        setStats({ examsTaken: submitted.length, avgScore });
+
+        if (submitted.length === 0) {
+          setStats({ examsTaken: 0, avgScore, avgRisk: null, violationsCount: null });
+          return;
+        }
+
+        const violationsBySession = await Promise.all(
+          submitted.map((s) => getSessionViolations(s.id).catch(() => []))
+        );
+        if (cancelled) return;
+
+        const sessionScores = violationsBySession.map((violations) =>
+          Math.min(
+            100,
+            violations.reduce((sum, v) => sum + (RISK_WEIGHTS[v.event_type] ?? 0), 0)
+          )
+        );
+        const avgRisk = sessionScores.reduce((sum, s) => sum + s, 0) / sessionScores.length;
+        const violationsCount = violationsBySession.reduce((sum, v) => sum + v.length, 0);
+        setStats({ examsTaken: submitted.length, avgScore, avgRisk, violationsCount });
+
+        const lastIndex = submitted.reduce(
+          (bestIdx, s, idx, arr) =>
+            new Date(s.submitted_at) > new Date(arr[bestIdx].submitted_at) ? idx : bestIdx,
+          0
+        );
+        setRiskTimeline(buildRiskTimeline(submitted[lastIndex], violationsBySession[lastIndex]));
       })
       .catch(() => {});
 
@@ -130,27 +200,32 @@ export default function StudentDashboard() {
           </Card>
 
           <Card>
-            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+            <div className="px-6 py-4 border-b border-border">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
                 Last Exam — Risk Timeline
               </div>
-              <PreviewBadge />
             </div>
             <div className="p-6">
-              <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={riskTimeline}>
-                  <defs>
-                    <linearGradient id="rg1" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#c8192e" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#c8192e" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" tick={TICK} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={TICK} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={TT} labelStyle={TT_LABEL} />
-                  <Area type="monotone" dataKey="risk" stroke="#c8192e" strokeWidth={2} fill="url(#rg1)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {riskTimeline.length === 0 ? (
+                <div className="h-[180px] flex items-center justify-center text-sm text-muted-foreground">
+                  No submitted exams yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={riskTimeline}>
+                    <defs>
+                      <linearGradient id="rg1" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#c8192e" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#c8192e" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="time" tick={TICK} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={TICK} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={TT} labelStyle={TT_LABEL} />
+                    <Area type="monotone" dataKey="risk" stroke="#c8192e" strokeWidth={2} fill="url(#rg1)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
         </div>
@@ -235,13 +310,21 @@ export default function StudentDashboard() {
                   label: "Avg Score",
                   color: "text-emerald-600",
                 },
-                { val: "—", label: "Avg Risk", color: "text-emerald-600", preview: true },
-                { val: "—", label: "Violations", color: "text-orange-600", preview: true },
-              ].map(({ val, label, color, preview }) => (
+                {
+                  val: stats?.avgRisk != null ? stats.avgRisk.toFixed(0) : "—",
+                  label: "Avg Risk",
+                  color: "text-emerald-600",
+                },
+                {
+                  val: stats?.violationsCount != null ? String(stats.violationsCount) : "—",
+                  label: "Violations",
+                  color: "text-orange-600",
+                },
+              ].map(({ val, label, color }) => (
                 <div key={label} className="bg-secondary border border-border rounded-xl p-3 text-center">
                   <div className={`font-display text-2xl font-black ${color}`}>{val}</div>
                   <div className="text-[10px] font-mono text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
-                    {label} {preview && <PreviewBadge />}
+                    {label}
                   </div>
                 </div>
               ))}
