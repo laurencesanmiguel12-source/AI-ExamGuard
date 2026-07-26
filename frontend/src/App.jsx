@@ -11,6 +11,7 @@ import Students from "./pages/Students/Students";
 import Instructors from "./pages/Instructors/Instructors";
 import Exams from "./pages/Exams/Exams";
 import ExamContent from "./pages/ExamContent/ExamContent";
+import ExamRoster from "./pages/ExamRoster/ExamRoster";
 import ExamRoom from "./pages/ExamRoom/ExamRoom";
 import Results from "./pages/Results/Results";
 import ResultDetail from "./pages/Results/ResultDetail";
@@ -44,6 +45,7 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>
                 <Route path="/exams" element={<Exams />} />
                 <Route path="/exams/:examId/content" element={<ExamContent />} />
+                <Route path="/exams/:examId/roster" element={<ExamRoster />} />
                 <Route path="/reports" element={<Reports />} />
               </Route>
 

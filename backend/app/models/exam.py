@@ -77,3 +77,8 @@ class Exam(Base, TimestampMixin):
         back_populates="exam",
         cascade="all, delete-orphan"
     )
+    roster_entries = relationship(
+        "ExamRoster",
+        back_populates="exam",
+        cascade="all, delete-orphan"
+    )

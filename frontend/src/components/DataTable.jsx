@@ -31,13 +31,15 @@ export default function DataTable({ columns, rows, loading, emptyLabel = "No rec
                 </span>
               ))}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onEdit(row)}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label="Edit"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(row)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => onDelete(row)}
                   className="text-muted-foreground hover:text-red-600 transition-colors"

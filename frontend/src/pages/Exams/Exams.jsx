@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, ListChecks } from "lucide-react";
+import { Plus, ListChecks, Users } from "lucide-react";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
@@ -70,6 +70,18 @@ export default function Exams() {
           className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
         >
           <ListChecks className="w-3.5 h-3.5" /> Manage Content
+        </Link>
+      ),
+    },
+    {
+      key: "roster",
+      label: "Roster",
+      render: (row) => (
+        <Link
+          to={`/exams/${row.id}/roster`}
+          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
+        >
+          <Users className="w-3.5 h-3.5" /> Manage Roster
         </Link>
       ),
     },

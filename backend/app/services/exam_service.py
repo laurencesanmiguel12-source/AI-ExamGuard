@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.exam import Exam
+from app.models.exam_roster import ExamRoster
 from app.models.instructor import Instructor
 from app.models.student import Student
 from app.models.subject import Subject
@@ -14,7 +15,26 @@ class ExamService:
     @staticmethod
     def is_student_eligible(student: Student, exam: Exam, db: Session) -> bool:
         subject = db.query(Subject).filter(Subject.id == exam.subject_id).first()
-        return subject is not None and subject.course_id == student.course_id
+        if subject is None or subject.course_id != student.course_id:
+            return False
+
+        # Opt-in narrowing: an exam with no roster rows stays course-wide (today's default
+        # behavior). The moment an instructor rosters >=1 student, it's restricted to just them.
+        has_roster = (
+            db.query(ExamRoster)
+            .filter(ExamRoster.exam_id == exam.id)
+            .first()
+            is not None
+        )
+        if not has_roster:
+            return True
+
+        return (
+            db.query(ExamRoster)
+            .filter(ExamRoster.exam_id == exam.id, ExamRoster.student_id == student.id)
+            .first()
+            is not None
+        )
 
     @staticmethod
     def get_all(current_user: User, db: Session):
@@ -26,12 +46,17 @@ class ExamService:
         if student is None:
             return []
 
-        return (
+        course_wide_candidates = (
             db.query(Exam)
             .join(Subject, Exam.subject_id == Subject.id)
             .filter(Subject.course_id == student.course_id)
             .all()
         )
+
+        return [
+            exam for exam in course_wide_candidates
+            if ExamService.is_student_eligible(student, exam, db)
+        ]
 
     @staticmethod
     def get_by_id(exam_id: int, db: Session):
