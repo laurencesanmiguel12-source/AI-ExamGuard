@@ -16,7 +16,6 @@ import useCamera from "../../hooks/useCamera";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
-import PreviewBadge from "../../components/ui/PreviewBadge";
 
 function useCountdown(deadline) {
   const [now, setNow] = useState(() => Date.now());
@@ -560,21 +559,18 @@ export default function ExamRoom() {
             <Card className="p-4 space-y-2.5">
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                { label: "Face Detected", ok: faceDetected, preview: false, alertLabel: "ALERT" },
-                { label: "Phone", ok: !phoneDetected, preview: false, alertLabel: "ALERT" },
-                { label: "Tab Focus", ok: tabFocusOk, preview: false, alertLabel: "ALERT" },
+                { label: "Face Detected", ok: faceDetected, alertLabel: "ALERT" },
+                { label: "Phone", ok: !phoneDetected, alertLabel: "ALERT" },
+                { label: "Tab Focus", ok: tabFocusOk, alertLabel: "ALERT" },
                 {
                   label: "Tab Monitor",
                   ok: !extensionAlert,
-                  preview: false,
                   alertLabel:
                     extensionAlert?.eventType === "AI_TOOL_DETECTED" ? "AI TOOL" : "SEARCH ENGINE",
                 },
-              ].map(({ label, ok, preview, alertLabel }) => (
+              ].map(({ label, ok, alertLabel }) => (
                 <div key={label} className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    {label} {preview && <PreviewBadge />}
-                  </span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">{label}</span>
                   <span className={`text-[10px] font-mono font-bold ${ok ? "text-emerald-600" : "text-red-600"}`}>
                     {ok ? "OK" : alertLabel}
                   </span>
