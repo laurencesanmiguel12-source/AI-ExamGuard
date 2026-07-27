@@ -91,7 +91,7 @@ class ExamService:
         return exam
 
     @staticmethod
-    def create(request: ExamCreate, db: Session):
+    def create(instructor: Instructor, request: ExamCreate, db: Session):
 
         subject = (
             db.query(Subject)
@@ -105,19 +105,10 @@ class ExamService:
                 detail="Subject not found."
             )
 
-        instructor = (
-            db.query(Instructor)
-            .filter(Instructor.id == request.instructor_id)
-            .first()
-        )
-
-        if instructor is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Instructor not found."
-            )
-
-        exam = Exam(**request.model_dump())
+        # instructor_id is always the caller's own instructor record, never taken from the
+        # request body - see backend/app/auth/instructor_context.py's get_current_instructor.
+        exam_data = request.model_dump(exclude={"instructor_id"})
+        exam = Exam(**exam_data, instructor_id=instructor.id)
 
         db.add(exam)
         db.commit()

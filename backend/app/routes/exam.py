@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user, require_instructor
+from app.auth.dependencies import get_current_user
+from app.auth.instructor_context import get_current_instructor
+from app.auth.ownership import require_exam_owner
 from app.core.database import get_db
+from app.models.exam import Exam
+from app.models.instructor import Instructor
 from app.models.user import User
 from app.schemas.exam import ExamCreate, ExamUpdate, ExamResponse
 from app.services.exam_service import ExamService
@@ -34,9 +38,9 @@ def get_exam(
 def create_exam(
     request: ExamCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_instructor)
+    instructor: Instructor = Depends(get_current_instructor)
 ):
-    return ExamService.create(request, db)
+    return ExamService.create(instructor, request, db)
 
 
 @router.put("/{exam_id}", response_model=ExamResponse)
@@ -44,7 +48,7 @@ def update_exam(
     exam_id: int,
     request: ExamUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_instructor)
+    exam: Exam = Depends(require_exam_owner)
 ):
     return ExamService.update(exam_id, request, db)
 
@@ -53,6 +57,6 @@ def update_exam(
 def delete_exam(
     exam_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_instructor)
+    exam: Exam = Depends(require_exam_owner)
 ):
     return ExamService.delete(exam_id, db)

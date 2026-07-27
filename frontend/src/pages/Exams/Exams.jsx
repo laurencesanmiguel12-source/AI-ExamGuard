@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ListChecks, Users } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
@@ -9,6 +10,13 @@ import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
+
+function ownershipMessage(err) {
+  if (err?.response?.status === 403) {
+    return "You don't have permission to manage this exam — only its assigned instructor can.";
+  }
+  return null;
+}
 
 const EMPTY_FORM = {
   title: "",
@@ -31,6 +39,7 @@ function toLocalInput(iso) {
 }
 
 export default function Exams() {
+  const { user } = useAuth();
   const [exams, setExams] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [instructors, setInstructors] = useState([]);
@@ -39,6 +48,7 @@ export default function Exams() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   function refresh() {
     setLoading(true);
@@ -55,6 +65,7 @@ export default function Exams() {
 
   const subjectName = (id) => subjects.find((s) => s.id === id)?.code ?? `#${id}`;
   const instructorName = (id) => instructors.find((i) => i.id === id)?.employee_number ?? `#${id}`;
+  const myInstructor = instructors.find((i) => i.user_id === user.id) ?? null;
 
   const columns = [
     { key: "title", label: "Title" },
@@ -88,7 +99,7 @@ export default function Exams() {
   ];
 
   function openCreate() {
-    setForm({ ...EMPTY_FORM, subject_id: subjects[0]?.id ?? "", instructor_id: instructors[0]?.id ?? "" });
+    setForm({ ...EMPTY_FORM, subject_id: subjects[0]?.id ?? "", instructor_id: myInstructor?.id ?? "" });
     setError("");
     setEditing({});
   }
@@ -131,18 +142,23 @@ export default function Exams() {
       }
       setEditing(null);
       refresh();
-    } catch {
-      setError("Couldn't save this exam.");
+    } catch (err) {
+      setError(ownershipMessage(err) ?? "Couldn't save this exam.");
     }
   }
 
   async function confirmDelete() {
-    await deleteExam(deleting.id);
-    setDeleting(null);
-    refresh();
+    try {
+      await deleteExam(deleting.id);
+      setDeleting(null);
+      refresh();
+    } catch (err) {
+      setDeleteError(ownershipMessage(err) ?? "Couldn't delete this exam.");
+      setDeleting(null);
+    }
   }
 
-  const canCreate = subjects.length > 0 && instructors.length > 0;
+  const canCreate = subjects.length > 0 && !!myInstructor;
 
   return (
     <div>
@@ -161,7 +177,17 @@ export default function Exams() {
       </div>
 
       {!canCreate && !loading && (
-        <div className="mb-4 text-sm text-muted-foreground">Create a subject and an instructor first before adding exams.</div>
+        <div className="mb-4 text-sm text-muted-foreground">
+          {myInstructor
+            ? "Create a subject first before adding exams."
+            : "Your account has no linked instructor profile yet — contact an admin before adding exams."}
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {deleteError}
+        </div>
       )}
 
       <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet." />
@@ -234,18 +260,20 @@ export default function Exams() {
                 </option>
               ))}
             </SelectField>
-            <SelectField
-              label="Instructor"
-              required
-              value={form.instructor_id}
-              onChange={(e) => setForm({ ...form, instructor_id: e.target.value })}
-            >
-              {instructors.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.employee_number}
-                </option>
-              ))}
-            </SelectField>
+            {editing?.id && (
+              <SelectField
+                label="Instructor (reassign)"
+                required
+                value={form.instructor_id}
+                onChange={(e) => setForm({ ...form, instructor_id: e.target.value })}
+              >
+                {instructors.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.employee_number}
+                  </option>
+                ))}
+              </SelectField>
+            )}
             <CheckboxField
               label="Active"
               checked={form.is_active}
