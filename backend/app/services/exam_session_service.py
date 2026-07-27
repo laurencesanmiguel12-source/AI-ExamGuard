@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.models.student_answer import StudentAnswer
 from app.models.exam import Exam
 from app.models.exam_session import ExamSession
+from app.models.instructor import Instructor
 from app.models.student import Student
+from app.models.user import User
 from app.schemas.exam_session import (
     ExamSessionUpdate,
 )
@@ -75,31 +77,33 @@ class ExamSessionService:
         return session
 
     @staticmethod
-    def get_all(db: Session):
+    def get_all(current_user: User, db: Session):
 
-        return db.query(ExamSession).all()
+        role = current_user.role.name.lower()
 
-    @staticmethod
-    def get_by_id(
-        session_id: int,
-        db: Session
-    ):
+        if role == "admin":
+            return db.query(ExamSession).all()
 
-        session = (
-            db.query(ExamSession)
-            .filter(ExamSession.id == session_id)
-            .first()
-        )
-
-        if session is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Session not found."
+        if role == "instructor":
+            instructor = (
+                db.query(Instructor)
+                .filter(Instructor.user_id == current_user.id)
+                .first()
+            )
+            if instructor is None:
+                return []
+            return (
+                db.query(ExamSession)
+                .join(Exam, ExamSession.exam_id == Exam.id)
+                .filter(Exam.instructor_id == instructor.id)
+                .all()
             )
 
-        return session
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if student is None:
+            return []
+        return db.query(ExamSession).filter(ExamSession.student_id == student.id).all()
 
-    @staticmethod
     @staticmethod
     def submit_exam(
             session_id: int,

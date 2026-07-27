@@ -1,9 +1,17 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.auth.session_access import (
+    require_session_manage_access,
+    require_session_owner_student,
+    require_session_read_access,
+)
 from app.auth.student_context import get_current_student
 from app.core.database import get_db
+from app.models.exam_session import ExamSession
 from app.models.student import Student
+from app.models.user import User
 from app.schemas.exam_session import (
     ExamSessionCreate,
     ExamSessionResponse,
@@ -34,9 +42,10 @@ def start_exam(
     response_model=list[ExamSessionResponse]
 )
 def get_sessions(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    return ExamSessionService.get_all(db)
+    return ExamSessionService.get_all(current_user, db)
 
 
 @router.get(
@@ -44,10 +53,9 @@ def get_sessions(
     response_model=ExamSessionResponse
 )
 def get_session(
-    session_id: int,
-    db: Session = Depends(get_db)
+    session: ExamSession = Depends(require_session_read_access)
 ):
-    return ExamSessionService.get_by_id(session_id, db)
+    return session
 
 
 @router.put(
@@ -56,7 +64,8 @@ def get_session(
 )
 def submit_exam(
     session_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    session: ExamSession = Depends(require_session_owner_student)
 ):
     return ExamSessionService.submit_exam(session_id, db)
 
@@ -68,7 +77,8 @@ def submit_exam(
 def update_session(
     session_id: int,
     request: ExamSessionUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    session: ExamSession = Depends(require_session_manage_access)
 ):
     return ExamSessionService.update(
         session_id,
@@ -80,7 +90,8 @@ def update_session(
 @router.delete("/{session_id}")
 def delete_session(
     session_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    session: ExamSession = Depends(require_session_manage_access)
 ):
     return ExamSessionService.delete(
         session_id,
