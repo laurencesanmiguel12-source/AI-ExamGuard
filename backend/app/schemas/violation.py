@@ -14,10 +14,24 @@ class ViolationResponse(BaseModel):
     event_type: str
     detail: str | None = None
     created_at: datetime
+    has_evidence: bool = False
+    appeal_reason: str | None = None
+    appeal_status: str | None = None
+    appeal_response: str | None = None
+    appeal_reviewed_at: datetime | None = None
 
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+class ViolationAppealRequest(BaseModel):
+    reason: str
+
+
+class ViolationAppealReviewRequest(BaseModel):
+    status: str  # "UPHELD" or "OVERTURNED"
+    response: str
 
 
 class LiveSessionResponse(BaseModel):

@@ -5,8 +5,10 @@ import { getExamSession } from "../../api/examSessions";
 import { getAnswers } from "../../api/studentAnswers";
 import { getExam } from "../../api/exams";
 import { getExamQuestions } from "../../api/questions";
+import { getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+import ViolationsPanel from "../../components/ViolationsPanel";
 
 export default function ResultDetail() {
   const { sessionId } = useParams();
@@ -18,6 +20,7 @@ export default function ResultDetail() {
   const [questions, setQuestions] = useState([]);
   const [choicesByQuestion, setChoicesByQuestion] = useState({});
   const [answersByQuestion, setAnswersByQuestion] = useState({});
+  const [violations, setViolations] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,10 +30,11 @@ export default function ResultDetail() {
         const sessionData = await getExamSession(sessionId);
         if (cancelled) return;
 
-        const [examData, answers, examQuestionsRaw] = await Promise.all([
+        const [examData, answers, examQuestionsRaw, sessionViolations] = await Promise.all([
           getExam(sessionData.exam_id),
           getAnswers(sessionId),
           getExamQuestions(sessionData.exam_id),
+          getSessionViolations(sessionId),
         ]);
         if (cancelled) return;
 
@@ -48,6 +52,7 @@ export default function ResultDetail() {
         setQuestions(examQuestions);
         setChoicesByQuestion(grouped);
         setAnswersByQuestion(answerMap);
+        setViolations(sessionViolations);
         setPhase("ready");
       } catch {
         if (!cancelled) setPhase("error");
@@ -59,6 +64,10 @@ export default function ResultDetail() {
       cancelled = true;
     };
   }, [sessionId]);
+
+  function handleAppealed(updated) {
+    setViolations((vs) => vs.map((v) => (v.id === updated.id ? updated : v)));
+  }
 
   if (phase === "loading") {
     return (
@@ -107,6 +116,13 @@ export default function ResultDetail() {
           <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Result</div>
         </Card>
       </div>
+
+      <Card className="p-6 mb-8">
+        <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-4">
+          Proctoring Violations
+        </div>
+        <ViolationsPanel violations={violations} mode="appeal" onAppealed={handleAppealed} />
+      </Card>
 
       <div className="space-y-4">
         {questions.map((q, i) => {

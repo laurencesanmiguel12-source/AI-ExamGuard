@@ -27,3 +27,18 @@ export async function getLiveSessions() {
   const response = await apiClient.get("/exam-sessions/live");
   return response.data;
 }
+
+export async function fileAppeal(violationId, reason) {
+  const response = await apiClient.post(`/violations/${violationId}/appeal`, { reason });
+  return response.data;
+}
+
+export async function reviewAppeal(violationId, status, response) {
+  const res = await apiClient.put(`/violations/${violationId}/appeal-review`, { status, response });
+  return res.data;
+}
+
+export async function getEvidenceBlobUrl(violationId) {
+  const response = await apiClient.get(`/violations/${violationId}/evidence`, { responseType: "blob" });
+  return URL.createObjectURL(response.data);
+}

@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
 import { getExamReport } from "../../api/reports";
+import { getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 import { SelectField } from "../../components/ui/FormField";
+import ViolationsPanel from "../../components/ViolationsPanel";
 
 const TT = { background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono", color: "#0f172a" };
 const TT_LABEL = { color: "#64748b" };
@@ -34,6 +36,8 @@ export default function Reports() {
   const [report, setReport] = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState("");
+  const [expandedSessionId, setExpandedSessionId] = useState(null);
+  const [violationsBySession, setViolationsBySession] = useState({});
 
   useEffect(() => {
     Promise.all([getInstructors(), getExams()])
@@ -74,6 +78,25 @@ export default function Reports() {
       count: submitted.filter((a) => a.percentage >= b.min && a.percentage < b.max).length,
     }));
   }, [report]);
+
+  async function toggleViolations(sessionId) {
+    if (expandedSessionId === sessionId) {
+      setExpandedSessionId(null);
+      return;
+    }
+    setExpandedSessionId(sessionId);
+    if (!violationsBySession[sessionId]) {
+      const data = await getSessionViolations(sessionId);
+      setViolationsBySession((v) => ({ ...v, [sessionId]: data }));
+    }
+  }
+
+  function handleReviewed(sessionId, updated) {
+    setViolationsBySession((v) => ({
+      ...v,
+      [sessionId]: v[sessionId].map((x) => (x.id === updated.id ? updated : x)),
+    }));
+  }
 
   const passFail = useMemo(() => {
     if (!report) return [];
@@ -242,32 +265,58 @@ export default function Reports() {
                 <div className="px-6 py-6 text-sm text-muted-foreground">No attempts yet.</div>
               )}
               {report.attempts.map((a) => (
-                <div key={a.session_id} className="px-6 py-3 flex items-center gap-4">
-                  <span className="font-mono text-xs text-foreground/80 w-28">{a.student_number}</span>
-                  <span className="text-[11px] font-mono text-muted-foreground flex-1">
-                    {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "In progress"}
-                  </span>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider ${
-                      a.status === "SUBMITTED"
-                        ? "text-blue-700 border-blue-200 bg-blue-50"
-                        : "text-orange-700 border-orange-200 bg-orange-50"
-                    }`}
-                  >
-                    {a.status}
-                  </span>
-                  {a.status === "SUBMITTED" && (
-                    <>
-                      <span className="font-mono text-xs text-foreground/80 w-20 text-right">
-                        {a.score}/{report.total_points} pts
-                      </span>
-                      <span className="font-mono text-xs font-bold w-16 text-right">{a.percentage.toFixed(1)}%</span>
-                      {a.passed ? (
-                        <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <div key={a.session_id}>
+                  <div className="px-6 py-3 flex items-center gap-4">
+                    <span className="font-mono text-xs text-foreground/80 w-28">{a.student_number}</span>
+                    <span className="text-[11px] font-mono text-muted-foreground flex-1">
+                      {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "In progress"}
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider ${
+                        a.status === "SUBMITTED"
+                          ? "text-blue-700 border-blue-200 bg-blue-50"
+                          : "text-orange-700 border-orange-200 bg-orange-50"
+                      }`}
+                    >
+                      {a.status}
+                    </span>
+                    {a.status === "SUBMITTED" && (
+                      <>
+                        <span className="font-mono text-xs text-foreground/80 w-20 text-right">
+                          {a.score}/{report.total_points} pts
+                        </span>
+                        <span className="font-mono text-xs font-bold w-16 text-right">{a.percentage.toFixed(1)}%</span>
+                        {a.passed ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        )}
+                      </>
+                    )}
+                    <button
+                      onClick={() => toggleViolations(a.session_id)}
+                      className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                    >
+                      Violations
+                      {expandedSessionId === a.session_id ? (
+                        <ChevronUp className="w-3 h-3" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        <ChevronDown className="w-3 h-3" />
                       )}
-                    </>
+                    </button>
+                  </div>
+                  {expandedSessionId === a.session_id && (
+                    <div className="px-6 pb-4 bg-secondary/20">
+                      {violationsBySession[a.session_id] ? (
+                        <ViolationsPanel
+                          violations={violationsBySession[a.session_id]}
+                          mode="review"
+                          onReviewed={(updated) => handleReviewed(a.session_id, updated)}
+                        />
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-2">Loading violations…</p>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
