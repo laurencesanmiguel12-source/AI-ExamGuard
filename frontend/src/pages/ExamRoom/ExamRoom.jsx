@@ -16,6 +16,7 @@ import useCamera from "../../hooks/useCamera";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
+import PreExamModal from "./PreExamModal";
 
 function useCountdown(deadline) {
   const [now, setNow] = useState(() => Date.now());
@@ -106,7 +107,7 @@ export default function ExamRoom() {
           if (a.choice_id != null) answerMap[a.question_id] = a.choice_id;
         }
         setAnswers(answerMap);
-        setPhase("extension-check");
+        setPhase("guidelines");
       } catch (err) {
         if (cancelled) return;
         if (err.response?.status === 403) {
@@ -343,6 +344,16 @@ export default function ExamRoom() {
           </button>
         </Card>
       </div>
+    );
+  }
+
+  if (phase === "guidelines") {
+    return (
+      <PreExamModal
+        examTitle={exam.title}
+        onConfirm={() => setPhase("extension-check")}
+        onCancel={() => navigate("/dashboard")}
+      />
     );
   }
 
