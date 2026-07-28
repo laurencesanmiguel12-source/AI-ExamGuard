@@ -41,6 +41,7 @@ export default function ExamRoom() {
   const [phase, setPhase] = useState("loading");
   const [error, setError] = useState("");
   const [exam, setExam] = useState(null);
+  const [student, setStudent] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [choicesByQuestion, setChoicesByQuestion] = useState({});
   const [session, setSession] = useState(null);
@@ -77,6 +78,7 @@ export default function ExamRoom() {
           setPhase("no-profile");
           return;
         }
+        setStudent(me);
 
         const examQuestions = [...examQuestionsRaw].sort((a, b) => a.order_number - b.order_number);
 
@@ -127,8 +129,9 @@ export default function ExamRoom() {
 
   const deadline = useMemo(() => {
     if (!session || !exam) return Infinity;
-    return new Date(session.started_at).getTime() + exam.duration_minutes * 60 * 1000;
-  }, [session, exam]);
+    const totalMinutes = exam.duration_minutes + (student?.extra_time_minutes ?? 0);
+    return new Date(session.started_at).getTime() + totalMinutes * 60 * 1000;
+  }, [session, exam, student]);
 
   const { mm, ss, expired } = useCountdown(deadline);
 
@@ -172,12 +175,16 @@ export default function ExamRoom() {
     };
   }, [phase, session]);
 
+  const needsFaceCheck = !student?.skip_face_check;
+  const needsObjectCheck = !student?.skip_object_check;
+  const needsCamera = needsFaceCheck || needsObjectCheck;
+
   const { videoRef, error: cameraError, ready: cameraReady, captureFrame } = useCamera(
-    phase === "in-progress"
+    phase === "in-progress" && needsCamera
   );
 
   useEffect(() => {
-    if (phase !== "in-progress" || !session || !cameraReady) return;
+    if (phase !== "in-progress" || !session || !needsCamera || !cameraReady) return;
     let cancelled = false;
 
     async function checkOnce() {
@@ -185,14 +192,18 @@ export default function ExamRoom() {
         const blob = await captureFrame();
         if (!blob || cancelled) return;
 
-        const faceResult = await checkFace(session.id, blob).catch(() => null);
-        if (!cancelled && faceResult?.face_detected !== null && faceResult?.face_detected !== undefined) {
-          setFaceDetected(faceResult.face_detected);
+        if (needsFaceCheck) {
+          const faceResult = await checkFace(session.id, blob).catch(() => null);
+          if (!cancelled && faceResult?.face_detected !== null && faceResult?.face_detected !== undefined) {
+            setFaceDetected(faceResult.face_detected);
+          }
         }
 
-        const objectResult = await checkObjects(session.id, blob).catch(() => null);
-        if (!cancelled && objectResult) {
-          setPhoneDetected(objectResult.phone_detected);
+        if (needsObjectCheck) {
+          const objectResult = await checkObjects(session.id, blob).catch(() => null);
+          if (!cancelled && objectResult) {
+            setPhoneDetected(objectResult.phone_detected);
+          }
         }
       } catch {
         // best-effort; next check will retry naturally
@@ -206,7 +217,7 @@ export default function ExamRoom() {
       clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, session, cameraReady]);
+  }, [phase, session, cameraReady, needsCamera, needsFaceCheck, needsObjectCheck]);
 
   async function handleSelectChoice(questionId, choiceId) {
     setAnswers((a) => ({ ...a, [questionId]: choiceId }));
@@ -557,7 +568,11 @@ export default function ExamRoom() {
                 <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">AI Monitor</span>
               </div>
               <div className="relative aspect-[4/3] bg-secondary flex items-center justify-center">
-                {cameraError ? (
+                {!needsCamera ? (
+                  <span className="text-[11px] font-mono text-muted-foreground px-4 text-center">
+                    Camera not required — accommodation active
+                  </span>
+                ) : cameraError ? (
                   <span className="text-[11px] font-mono text-muted-foreground px-4 text-center">
                     Camera unavailable
                   </span>
@@ -570,8 +585,12 @@ export default function ExamRoom() {
             <Card className="p-4 space-y-2.5">
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                { label: "Face Detected", ok: faceDetected, alertLabel: "ALERT" },
-                { label: "Phone", ok: !phoneDetected, alertLabel: "ALERT" },
+                needsFaceCheck
+                  ? { label: "Face Detected", ok: faceDetected, alertLabel: "ALERT" }
+                  : { label: "Face Detected", ok: true, alertLabel: "ALERT", accommodation: true },
+                needsObjectCheck
+                  ? { label: "Phone", ok: !phoneDetected, alertLabel: "ALERT" }
+                  : { label: "Phone", ok: true, alertLabel: "ALERT", accommodation: true },
                 { label: "Tab Focus", ok: tabFocusOk, alertLabel: "ALERT" },
                 {
                   label: "Tab Monitor",
@@ -579,11 +598,15 @@ export default function ExamRoom() {
                   alertLabel:
                     extensionAlert?.eventType === "AI_TOOL_DETECTED" ? "AI TOOL" : "SEARCH ENGINE",
                 },
-              ].map(({ label, ok, alertLabel }) => (
+              ].map(({ label, ok, alertLabel, accommodation }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5">{label}</span>
-                  <span className={`text-[10px] font-mono font-bold ${ok ? "text-emerald-600" : "text-red-600"}`}>
-                    {ok ? "OK" : alertLabel}
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      accommodation ? "text-muted-foreground" : ok ? "text-emerald-600" : "text-red-600"
+                    }`}
+                  >
+                    {accommodation ? "N/A" : ok ? "OK" : alertLabel}
                   </span>
                 </div>
               ))}

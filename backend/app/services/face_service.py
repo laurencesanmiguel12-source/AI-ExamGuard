@@ -148,7 +148,7 @@ class FaceService:
             .first()
         )
 
-        if student is None or student.face_model_path is None:
+        if student is None or student.face_model_path is None or student.skip_face_check:
             return {
                 "face_detected": None,
                 "identity_match": None,
@@ -161,7 +161,8 @@ class FaceService:
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(event_type="FACE_LOST"),
-                db
+                db,
+                evidence_bytes=image_bytes
             )
             return {
                 "face_detected": False,
@@ -179,7 +180,8 @@ class FaceService:
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(event_type="IDENTITY_MISMATCH"),
-                db
+                db,
+                evidence_bytes=image_bytes
             )
 
         return {

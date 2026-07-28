@@ -100,6 +100,18 @@ class StudentService:
         if request.course_id is not None:
             student.course_id = request.course_id
 
+        if request.accommodation_notes is not None:
+            student.accommodation_notes = request.accommodation_notes
+
+        if request.skip_face_check is not None:
+            student.skip_face_check = request.skip_face_check
+
+        if request.skip_object_check is not None:
+            student.skip_object_check = request.skip_object_check
+
+        if request.extra_time_minutes is not None:
+            student.extra_time_minutes = request.extra_time_minutes
+
         db.commit()
         db.refresh(student)
 

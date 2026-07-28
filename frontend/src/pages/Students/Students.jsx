@@ -6,9 +6,17 @@ import SectionTag from "../../components/ui/SectionTag";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import { TextField, SelectField } from "../../components/ui/FormField";
+import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
 
-const EMPTY_FORM = { student_number: "", user_id: "", course_id: "" };
+const EMPTY_FORM = {
+  student_number: "",
+  user_id: "",
+  course_id: "",
+  accommodation_notes: "",
+  skip_face_check: false,
+  skip_object_check: false,
+  extra_time_minutes: 0,
+};
 
 export default function Students() {
   const [students, setStudents] = useState([]);
@@ -37,6 +45,18 @@ export default function Students() {
     { key: "student_number", label: "Student No." },
     { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
     { key: "course_id", label: "Course", render: (row) => courseName(row.course_id) },
+    {
+      key: "accommodation",
+      label: "Accommodation",
+      render: (row) =>
+        row.skip_face_check || row.skip_object_check || row.extra_time_minutes > 0 ? (
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 uppercase tracking-wider">
+            Active
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
   ];
 
   function openCreate() {
@@ -50,6 +70,10 @@ export default function Students() {
       student_number: student.student_number,
       user_id: student.user_id,
       course_id: student.course_id,
+      accommodation_notes: student.accommodation_notes ?? "",
+      skip_face_check: student.skip_face_check ?? false,
+      skip_object_check: student.skip_object_check ?? false,
+      extra_time_minutes: student.extra_time_minutes ?? 0,
     });
     setError("");
     setEditing(student);
@@ -62,6 +86,7 @@ export default function Students() {
       ...form,
       user_id: Number(form.user_id),
       course_id: Number(form.course_id),
+      extra_time_minutes: Number(form.extra_time_minutes) || 0,
     };
     try {
       if (editing.id) {
@@ -140,6 +165,37 @@ export default function Students() {
                 </option>
               ))}
             </SelectField>
+            {editing.id && (
+              <>
+                <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-3 mt-2 pt-4 border-t border-border">
+                  Accessibility Accommodation
+                </div>
+                <TextField
+                  label="Accommodation Notes"
+                  value={form.accommodation_notes}
+                  onChange={(e) => setForm({ ...form, accommodation_notes: e.target.value })}
+                  placeholder="e.g. Extended time and no camera monitoring — visual impairment, on file with the registrar"
+                />
+                <CheckboxField
+                  label="Skip face detection/verification checks"
+                  checked={form.skip_face_check}
+                  onChange={(e) => setForm({ ...form, skip_face_check: e.target.checked })}
+                />
+                <CheckboxField
+                  label="Skip phone/object detection checks"
+                  checked={form.skip_object_check}
+                  onChange={(e) => setForm({ ...form, skip_object_check: e.target.checked })}
+                />
+                <TextField
+                  label="Extra Time (minutes)"
+                  type="number"
+                  min="0"
+                  value={form.extra_time_minutes}
+                  onChange={(e) => setForm({ ...form, extra_time_minutes: e.target.value })}
+                  placeholder="0"
+                />
+              </>
+            )}
             <button
               type="submit"
               className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"

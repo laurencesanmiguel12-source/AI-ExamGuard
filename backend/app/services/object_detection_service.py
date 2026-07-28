@@ -5,6 +5,8 @@ import numpy as np
 from sqlalchemy.orm import Session
 from ultralytics import YOLO
 
+from app.models.exam_session import ExamSession
+from app.models.student import Student
 from app.schemas.violation import ViolationCreate
 from app.services.violation_service import ViolationService
 
@@ -124,6 +126,17 @@ class ObjectDetectionService:
         db: Session
     ):
 
+        session = db.query(ExamSession).filter(ExamSession.id == session_id).first()
+        student = (
+            db.query(Student).filter(Student.id == session.student_id).first()
+            if session is not None else None
+        )
+
+        # Skip inference entirely for an accommodated student, not just the violation-logging
+        # step - avoids burning CPU on a check whose result will never be used.
+        if student is not None and student.skip_object_check:
+            return {"phone_detected": False, "person_count": 0}
+
         image = _decode(image_bytes)
 
         if image is None:
@@ -147,14 +160,16 @@ class ObjectDetectionService:
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(event_type="PHONE_DETECTED"),
-                db
+                db,
+                evidence_bytes=image_bytes
             )
 
         if person_count > 1:
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(event_type="MULTIPLE_PEOPLE"),
-                db
+                db,
+                evidence_bytes=image_bytes
             )
 
         return {
