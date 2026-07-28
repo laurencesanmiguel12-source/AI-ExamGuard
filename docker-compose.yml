@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      # Local-only default, fine for a containerized dev/demo Postgres that isn't exposed beyond
+      # this machine - override by exporting POSTGRES_PASSWORD or adding it to a root .env before
+      # `docker compose up` if that's not good enough for your setup.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+      POSTGRES_DB: ai_examguard
+    volumes:
+      # 18+ images store data in a version-specific subdirectory of /var/lib/postgresql itself
+      # (pg_ctlcluster-style layout) - mounting at .../data (the pre-18 convention) makes the
+      # entrypoint think an incompatible upgrade is needed and refuse to start.
+      - pgdata:/var/lib/postgresql
+    ports:
+      # Host port offset to 5433 - the native Windows Postgres install used for non-Docker local
+      # dev (see backend/.env.example) already binds 5432.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      # Reused for SECRET_KEY/ALGORITHM/ACCESS_TOKEN_EXPIRE_MINUTES - DATABASE_URL below
+      # overrides this file's value, which points at the native Postgres install's localhost:5432,
+      # meaningless from inside a container. Copy backend/.env.example to backend/.env first if it
+      # doesn't exist yet (see backend/.gitignore's .env rule - it's never committed).
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-devpassword}@db:5432/ai_examguard
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

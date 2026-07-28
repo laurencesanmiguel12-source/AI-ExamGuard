@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+storage/
+# Training scripts and datasets are dev-time only - the runtime container only needs the trained
+# resource files already committed under app/resources/ (yolov8s.pt, phone_specialist.pt,
+# risk_model.joblib, etc.), not the scripts that produced them.
+training/
