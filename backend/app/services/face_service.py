@@ -1,4 +1,5 @@
 import os
+import time
 
 import cv2
 import numpy as np
@@ -32,6 +33,10 @@ _DETECTOR = cv2.FaceDetectorYN_create(
     _YUNET_PATH, "", (320, 320), score_threshold=0.9, nms_threshold=0.3, top_k=5000
 )
 
+# Fixed size matching a typical ExamRoom capture frame - reused across benchmark calls so the
+# Admin System tab measures real detector latency on this hardware, not a fabricated number.
+_BENCHMARK_IMAGE = np.zeros((480, 640, 3), dtype=np.uint8)
+
 
 def _detect_and_crop(image_bytes: bytes):
     array = np.frombuffer(image_bytes, dtype=np.uint8)
@@ -62,6 +67,13 @@ def _detect_and_crop(image_bytes: bytes):
 
 
 class FaceService:
+
+    @staticmethod
+    def benchmark_latency_ms() -> float:
+        start = time.perf_counter()
+        _DETECTOR.setInputSize((640, 480))
+        _DETECTOR.detect(_BENCHMARK_IMAGE)
+        return round((time.perf_counter() - start) * 1000, 1)
 
     @staticmethod
     def enroll(

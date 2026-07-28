@@ -1,23 +1,42 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, Users, ClipboardList, BookOpen } from "lucide-react";
+import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw } from "lucide-react";
 import { getStudents } from "../../api/students";
 import { getInstructors } from "../../api/instructors";
 import { getCourses } from "../../api/courses";
 import { getExams } from "../../api/exams";
+import { getSystemStatus } from "../../api/system";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
-import PreviewBadge from "../../components/ui/PreviewBadge";
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({ students: [], instructors: [], courses: [], exams: [] });
   const [loading, setLoading] = useState(true);
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [systemLoading, setSystemLoading] = useState(false);
+  const [systemError, setSystemError] = useState(false);
 
   useEffect(() => {
     Promise.all([getStudents(), getInstructors(), getCourses(), getExams()])
       .then(([students, instructors, courses, exams]) => setData({ students, instructors, courses, exams }))
       .finally(() => setLoading(false));
   }, []);
+
+  function loadSystemStatus() {
+    setSystemLoading(true);
+    setSystemError(false);
+    getSystemStatus()
+      .then(setSystemStatus)
+      .catch(() => setSystemError(true))
+      .finally(() => setSystemLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab === "system" && systemStatus === null && !systemLoading) {
+      loadSystemStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const activeExams = data.exams.filter((e) => e.is_active).length;
 
@@ -138,29 +157,112 @@ export default function AdminDashboard() {
 
       {tab === "system" && (
         <div>
-          <div className="mb-4"><PreviewBadge label="PREVIEW — PHASE 9" /></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { label: "YOLOv8 Engine", metric: "28–30 FPS", detail: "v8.0.196 · COCO weights" },
-              { label: "FaceNet Service", metric: "< 80ms", detail: "face_recognition 1.3.0" },
-              { label: "LSTM Predictor", metric: "94.2% Acc", detail: "Keras 2.x · 30s window" },
-              { label: "Risk Engine", metric: "< 10ms", detail: "Scikit-learn 1.4" },
-            ].map(({ label, metric, detail }) => (
-              <Card key={label} className="p-5 flex items-center gap-4 opacity-70">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-muted-foreground">
+              Live status pulled from the running backend - model versions, real hardware, and a
+              measured latency for each pipeline stage.
+            </p>
+            <button
+              onClick={loadSystemStatus}
+              disabled={systemLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`w-3 h-3 ${systemLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {systemError && (
+            <Card className="p-5 text-sm text-red-600">Couldn't load system status. Try refreshing.</Card>
+          )}
+
+          {!systemError && !systemStatus && (
+            <Card className="p-5 text-sm text-muted-foreground">Loading system status…</Card>
+          )}
+
+          {systemStatus && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="p-5 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
-                  <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+                  <div className={`w-3 h-3 rounded-full ${systemStatus.face.recognizer_available ? "bg-emerald-500" : "bg-red-500"}`} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-foreground text-sm font-medium">{label}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">● not deployed</span>
+                    <span className="text-foreground text-sm font-medium">Face Detection &amp; Recognition</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {systemStatus.face.recognizer_available ? "● loaded" : "● unavailable"}
+                    </span>
                   </div>
-                  <div className="text-[11px] font-mono text-muted-foreground">{detail}</div>
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {systemStatus.face.detector} · {systemStatus.face.recognizer} · OpenCV {systemStatus.face.opencv_version}
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                    {systemStatus.face.enrolled_profiles} enrolled profile{systemStatus.face.enrolled_profiles === 1 ? "" : "s"}
+                  </div>
                 </div>
-                <div className="font-mono text-sm text-muted-foreground font-bold">{metric}</div>
+                <div className="font-mono text-sm text-foreground font-bold">{systemStatus.face.latency_ms}ms</div>
               </Card>
-            ))}
-          </div>
+
+              <Card className="p-5 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-foreground text-sm font-medium">Object Detection</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">● loaded</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {systemStatus.object_detection.base_model}
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {systemStatus.object_detection.phone_model}
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                    Ultralytics {systemStatus.object_detection.ultralytics_version} · Torch {systemStatus.object_detection.torch_version}
+                  </div>
+                </div>
+                <div className="font-mono text-sm text-foreground font-bold">{systemStatus.object_detection.latency_ms}ms</div>
+              </Card>
+
+              <Card className="p-5 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-foreground text-sm font-medium">Risk Engine</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">● loaded</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {systemStatus.risk_engine.vision_model}
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                    scikit-learn {systemStatus.risk_engine.sklearn_version} · {systemStatus.risk_engine.behavioral_signal_count} hand-weighted behavioral signals
+                  </div>
+                </div>
+                <div className="font-mono text-sm text-foreground font-bold">{systemStatus.risk_engine.latency_ms}ms</div>
+              </Card>
+
+              <Card className="p-5 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-foreground text-sm font-medium">Tab Monitor Extension</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">● active</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground">
+                    {systemStatus.tab_monitor.extension_type}
+                  </div>
+                </div>
+                <div className="font-mono text-sm text-foreground font-bold">
+                  {systemStatus.tab_monitor.violations_logged} logged
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
       )}
     </div>

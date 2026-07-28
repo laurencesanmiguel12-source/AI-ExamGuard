@@ -1,4 +1,5 @@
 import os
+import time
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -49,6 +50,12 @@ HAND_REGION_PHONE_THRESHOLD = 0.20
 _MODEL = YOLO(MODEL_PATH)
 _PHONE_MODEL = YOLO(PHONE_MODEL_PATH)
 _POSE_MODEL = YOLO(POSE_MODEL_PATH)
+
+# Matches a typical ExamRoom capture frame - reused across benchmark calls so the Admin System
+# tab measures real inference latency on this hardware, not a fabricated number. Only the base +
+# phone-specialist models are timed, matching the common-case path in `check()` below - the pose
+# model only runs when the specialist misses, so isn't part of the steady-state cost.
+_BENCHMARK_IMAGE = np.zeros((480, 640, 3), dtype=np.uint8)
 
 
 def _decode(image_bytes: bytes):
@@ -102,6 +109,13 @@ def _phone_near_hands(image, pose_results):
 
 
 class ObjectDetectionService:
+
+    @staticmethod
+    def benchmark_latency_ms() -> float:
+        start = time.perf_counter()
+        _MODEL.predict(_BENCHMARK_IMAGE, verbose=False, conf=CONFIDENCE_THRESHOLD)
+        _PHONE_MODEL.predict(_BENCHMARK_IMAGE, verbose=False, conf=PHONE_SPECIALIST_CONFIDENCE_THRESHOLD)
+        return round((time.perf_counter() - start) * 1000, 1)
 
     @staticmethod
     def check(

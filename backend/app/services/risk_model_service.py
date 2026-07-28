@@ -1,4 +1,5 @@
 import os
+import time
 
 import joblib
 import pandas as pd
@@ -29,6 +30,12 @@ _ZERO_EVIDENCE_FLOOR = float(
 
 
 class RiskModelService:
+
+    @staticmethod
+    def benchmark_latency_ms() -> float:
+        start = time.perf_counter()
+        RiskModelService.predict(0, 0, 0)
+        return round((time.perf_counter() - start) * 1000, 1)
 
     @staticmethod
     def predict(face_lost_count: int, phone_detected_count: int, multiple_people_count: int) -> float:
