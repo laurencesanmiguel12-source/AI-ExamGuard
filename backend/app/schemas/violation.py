@@ -43,3 +43,13 @@ class RecentViolation(BaseModel):
 class LiveMonitorResponse(BaseModel):
     sessions: list[LiveSessionResponse]
     recent_events: list[RecentViolation]
+
+
+class RiskTimelinePoint(BaseModel):
+    time: datetime
+    risk: float
+
+
+class RiskSummaryResponse(BaseModel):
+    risk_score: float
+    timeline: list[RiskTimelinePoint]

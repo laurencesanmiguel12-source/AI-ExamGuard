@@ -6,59 +6,15 @@ import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getExamSessions } from "../../api/examSessions";
 import { getStudents } from "../../api/students";
-import { getSessionViolations } from "../../api/violations";
+import { getSessionRiskSummary, getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 
-// Mirrors backend/app/services/risk_service.py's WEIGHTS/WINDOW_SECONDS - keep in sync (same
-// duplication convention as InstructorDashboard.jsx's VIOLATION_META). The backend's /risk
-// endpoint only scores a trailing 120s window from *now*, which is only meaningful for a live
-// in-progress session, so a finished exam's timeline/summary is recomputed here from its raw
-// violations instead of calling that endpoint.
-const RISK_WEIGHTS = {
-  TAB_SWITCH: 15,
-  FULLSCREEN_EXIT: 20,
-  COPY_PASTE: 10,
-  RIGHT_CLICK: 5,
-  FACE_LOST: 25,
-  IDENTITY_MISMATCH: 30,
-  PHONE_DETECTED: 30,
-  MULTIPLE_PEOPLE: 25,
-  AI_TOOL_DETECTED: 40,
-  SEARCH_ENGINE_DETECTED: 35,
-};
-const RISK_WINDOW_MS = 120 * 1000;
-const TIMELINE_POINTS = 11;
-
-function windowedRiskScore(violations, atTime) {
-  const windowStart = atTime - RISK_WINDOW_MS;
-  const total = violations
-    .filter((v) => {
-      const t = new Date(v.created_at).getTime();
-      return t > windowStart && t <= atTime;
-    })
-    .reduce((sum, v) => sum + (RISK_WEIGHTS[v.event_type] ?? 0), 0);
-  return Math.min(100, total);
-}
-
-function buildRiskTimeline(session, violations) {
-  // Violation timestamps are expected to fall within [started_at, submitted_at] (logging is only
-  // allowed while a session is IN_PROGRESS), but the window is widened to cover them anyway in
-  // case of clock skew or inconsistent seed/test data - otherwise a violation just outside the
-  // nominal session bounds would silently vanish from the chart despite still counting toward the
-  // Avg Risk/Violations stats above.
-  const violationTimes = violations.map((v) => new Date(v.created_at).getTime());
-  const start = Math.min(new Date(session.started_at).getTime(), ...violationTimes);
-  const end = Math.max(new Date(session.submitted_at).getTime(), ...violationTimes);
-
-  return Array.from({ length: TIMELINE_POINTS }, (_, i) => {
-    const t = start + ((end - start) * i) / (TIMELINE_POINTS - 1);
-    return {
-      time: new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      risk: windowedRiskScore(violations, t),
-    };
-  });
-}
+// A finished exam's risk score/timeline used to be recomputed here in JS, mirroring
+// risk_service.py's WEIGHTS by hand (the backend's /risk endpoint only scores a trailing 120s
+// window from *now*, meaningful only for a live in-progress session). That stopped being viable
+// once part of the backend's scoring became a fitted model (RiskModelService) rather than a fixed
+// weight dict - GET /exam-sessions/{id}/risk-summary now does this server-side instead.
 
 const TT = { background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono", color: "#0f172a" };
 const TT_LABEL = { color: "#64748b" };
@@ -101,17 +57,13 @@ export default function StudentDashboard() {
           return;
         }
 
-        const violationsBySession = await Promise.all(
-          submitted.map((s) => getSessionViolations(s.id).catch(() => []))
-        );
+        const [violationsBySession, riskSummaries] = await Promise.all([
+          Promise.all(submitted.map((s) => getSessionViolations(s.id).catch(() => []))),
+          Promise.all(submitted.map((s) => getSessionRiskSummary(s.id).catch(() => null))),
+        ]);
         if (cancelled) return;
 
-        const sessionScores = violationsBySession.map((violations) =>
-          Math.min(
-            100,
-            violations.reduce((sum, v) => sum + (RISK_WEIGHTS[v.event_type] ?? 0), 0)
-          )
-        );
+        const sessionScores = riskSummaries.map((r) => r?.risk_score ?? 0);
         const avgRisk = sessionScores.reduce((sum, s) => sum + s, 0) / sessionScores.length;
         const violationsCount = violationsBySession.reduce((sum, v) => sum + v.length, 0);
         setStats({ examsTaken: submitted.length, avgScore, avgRisk, violationsCount });
@@ -121,7 +73,13 @@ export default function StudentDashboard() {
             new Date(s.submitted_at) > new Date(arr[bestIdx].submitted_at) ? idx : bestIdx,
           0
         );
-        setRiskTimeline(buildRiskTimeline(submitted[lastIndex], violationsBySession[lastIndex]));
+        const lastTimeline = riskSummaries[lastIndex]?.timeline ?? [];
+        setRiskTimeline(
+          lastTimeline.map((point) => ({
+            time: new Date(point.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            risk: point.risk,
+          }))
+        );
       })
       .catch(() => {});
 

@@ -8,6 +8,7 @@ from app.models.exam_session import ExamSession
 from app.models.user import User
 from app.schemas.violation import (
     LiveMonitorResponse,
+    RiskSummaryResponse,
     ViolationCreate,
     ViolationResponse,
 )
@@ -65,3 +66,14 @@ def get_risk(
     session: ExamSession = Depends(require_session_read_access)
 ):
     return {"risk_score": RiskService.compute_risk(session_id, db)}
+
+
+@router.get(
+    "/{session_id}/risk-summary",
+    response_model=RiskSummaryResponse
+)
+def get_risk_summary(
+    db: Session = Depends(get_db),
+    session: ExamSession = Depends(require_session_read_access)
+):
+    return RiskService.get_session_summary(session, db)

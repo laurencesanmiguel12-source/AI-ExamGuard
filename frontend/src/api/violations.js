@@ -13,6 +13,11 @@ export async function getSessionRisk(sessionId) {
   return response.data.risk_score;
 }
 
+export async function getSessionRiskSummary(sessionId) {
+  const response = await apiClient.get(`/exam-sessions/${sessionId}/risk-summary`);
+  return response.data;
+}
+
 export async function getSessionViolations(sessionId) {
   const response = await apiClient.get(`/exam-sessions/${sessionId}/violations`);
   return response.data;
