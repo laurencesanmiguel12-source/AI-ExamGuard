@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: letter; margin: 2.2cm 2cm; }
+  body { font-family: "Helvetica", Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; line-height: 1.45; }
+  h1 { font-size: 20pt; color: #0f172a; margin-bottom: 4px; }
+  h2 { font-size: 15pt; color: #0f172a; border-bottom: 1.5px solid #334155; padding-bottom: 4px; margin-top: 26px; }
+  h3 { font-size: 12.5pt; color: #1e293b; margin-top: 16px; }
+  h4 { font-size: 11pt; color: #334155; margin-top: 10px; margin-bottom: 4px; }
+  p { margin: 6px 0; text-align: justify; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px 0; }
+  th, td { border: 1px solid #cbd5e1; padding: 5px 8px; font-size: 9.5pt; text-align: left; vertical-align: top; }
+  th { background-color: #f1f5f9; font-weight: bold; }
+  .cover { text-align: center; padding-top: 120px; }
+  .cover h1 { font-size: 28pt; margin-bottom: 10px; }
+  .cover .subtitle { font-size: 13pt; color: #475569; margin-bottom: 60px; }
+  .cover .meta { font-size: 10pt; color: #64748b; margin-top: 100px; }
+  .pagebreak { page-break-before: always; }
+  ul, ol { margin: 4px 0; padding-left: 22px; }
+  li { margin: 2px 0; }
+  .note { background-color: #fef3c7; border: 1px solid #fbbf24; padding: 8px 12px; border-radius: 4px; font-size: 9.5pt; margin: 10px 0; }
+  .caption { font-size: 9pt; color: #64748b; text-align: center; margin-top: 4px; margin-bottom: 16px; }
+  code { background-color: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-family: monospace; font-size: 9.5pt; }
+  .small { font-size: 9pt; color: #475569; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>AI ExamGuard</h1>
+  <div class="subtitle">An AI-Powered Online Examination and Proctoring System<br/>Technical Documentation for Thesis Reference</div>
+  <div class="meta">
+    System Requirements &middot; Architecture &middot; Workflow &middot; AI/ML Components<br/>
+    Security &amp; Privacy Measures &middot; Testing &amp; Validation &middot; Limitations &amp; Future Work<br/><br/>
+    Arellano University<br/>
+    Prepared July 2026
+  </div>
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>Table of Contents</h2>
+<ol>
+  <li>Introduction and Project Overview</li>
+  <li>System Requirements
+    <ul><li>Functional Requirements</li><li>Non-Functional Requirements</li><li>Hardware and Software Requirements</li></ul>
+  </li>
+  <li>System Architecture</li>
+  <li>Database Design</li>
+  <li>System Workflow</li>
+  <li>Artificial Intelligence Components
+    <ul><li>Face Detection and Verification</li><li>Object (Phone/Person) Detection</li><li>Composite Risk Scoring</li><li>Training Methodology and Data</li></ul>
+  </li>
+  <li>Security and Access Control</li>
+  <li>Accessibility and Due-Process Features</li>
+  <li>Testing and Validation</li>
+  <li>Limitations and Recommendations for Future Work</li>
+  <li>Conclusion</li>
+</ol>
+
+<div class="pagebreak"></div>
+
+<h2>1. Introduction and Project Overview</h2>
+<p>
+AI ExamGuard is a full-stack online examination platform with integrated AI-based proctoring,
+built for Arellano University. It allows instructors to create and manage examinations, students
+to take them remotely under automated monitoring, and administrators to oversee the system as a
+whole. Unlike many commercial proctoring products, which operate as opaque, vendor-controlled
+services, every detection mechanism in this system is implemented, trained, and evaluated
+in-house, using real measured data rather than vendor claims.
+</p>
+<p>
+The system evolved through a deliberate, incremental methodology: rather than building the full
+originally-envisioned AI stack at once, each capability (behavioral proctoring, face verification,
+object detection, and finally a trained composite risk model) was added as its own validated,
+independently-tested slice. This documentation describes the system as actually implemented and
+verified, not as originally conceived in the design mockup, and is intended to support the systems
+requirements, architecture, and methodology chapters of the accompanying undergraduate thesis.
+</p>
+
+<h2>2. System Requirements</h2>
+
+<h3>2.1 Functional Requirements</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th><th>Description</th></tr>
+<tr><td>FR-1</td><td>User Authentication</td><td>JWT-based login for three roles: Student, Instructor, Administrator.</td></tr>
+<tr><td>FR-2</td><td>Academic Records Management</td><td>Administrators manage Courses, Subjects, Students, and Instructors (full CRUD).</td></tr>
+<tr><td>FR-3</td><td>Exam Management</td><td>Instructors create, edit, and delete exams, questions, and choices scoped to their own exams; ownership is enforced at creation via the caller's linked instructor record, not a client-supplied value.</td></tr>
+<tr><td>FR-4</td><td>Bulk Question Import</td><td>CSV import for questions and choices, reducing manual entry for large exams.</td></tr>
+<tr><td>FR-5</td><td>Exam Rosters</td><td>Instructors may optionally narrow an exam's eligible students to a specific roster; exams with no roster remain course-wide by default.</td></tr>
+<tr><td>FR-6</td><td>Exam Taking</td><td>Students start/resume a session, answer autosaves per choice, a live countdown auto-submits on expiry, and grading is computed server-side.</td></tr>
+<tr><td>FR-7</td><td>Pre-Exam Guidelines</td><td>A gating modal presents proctoring rules and a checklist the student must acknowledge before the system verifies the browser extension and camera.</td></tr>
+<tr><td>FR-8</td><td>Behavioral Proctoring</td><td>Detects tab switching, fullscreen exit, copy/paste, and right-click during an active session.</td></tr>
+<tr><td>FR-9</td><td>Browser Extension Monitoring</td><td>A companion Manifest V3 extension detects navigation to AI-tool or search-engine domains in other tabs and relays it to the session.</td></tr>
+<tr><td>FR-10</td><td>Face Verification</td><td>Enrolls a student's face profile and periodically verifies webcam frames against it during an exam.</td></tr>
+<tr><td>FR-11</td><td>Object Detection</td><td>Periodically scans the webcam feed for a visible mobile phone or multiple people in frame.</td></tr>
+<tr><td>FR-12</td><td>Composite Risk Scoring</td><td>Combines behavioral and vision-based signals into a single 0-100 risk score, visible live to instructors.</td></tr>
+<tr><td>FR-13</td><td>Results and Reporting</td><td>Students review their own graded results; instructors view aggregate exam analytics (score distribution, pass rate, per-question accuracy).</td></tr>
+<tr><td>FR-14</td><td>Live Proctoring Dashboard</td><td>Instructors monitor all in-progress sessions for their own exams in real time.</td></tr>
+<tr><td>FR-15</td><td>Violation Evidence &amp; Appeals</td><td>Vision-based violations capture the triggering webcam frame; students may contest a violation, and an instructor or admin resolves the appeal with a written decision.</td></tr>
+<tr><td>FR-16</td><td>Accessibility Accommodations</td><td>Administrators may exempt a student from face and/or object checks and grant extra exam time, with a mandatory documented reason.</td></tr>
+<tr><td>FR-17</td><td>Audit Logging</td><td>Staff access to another student's violations, evidence photos, or accommodation changes is recorded for accountability.</td></tr>
+<tr><td>FR-18</td><td>System Status Dashboard</td><td>Administrators view live, measured status (model versions, inference latency) of every AI subsystem.</td></tr>
+</table>
+
+<h3>2.2 Non-Functional Requirements</h3>
+<table>
+<tr><th>Category</th><th>Requirement</th></tr>
+<tr><td>Security</td><td>Passwords hashed (bcrypt); JWT-signed sessions; every session-scoped and violation-scoped endpoint enforces ownership (a student can only ever act on their own session; an instructor only on their own exams); no static file mount exposes stored face models or evidence images - both are served only through authenticated, access-checked routes.</td></tr>
+<tr><td>Transparency</td><td>Every AI signal that feeds the risk score is inspectable: rule-based behavioral weights are fixed constants in code, and the trained model's learned coefficients are directly interpretable (logistic regression, not a black box).</td></tr>
+<tr><td>Performance</td><td>Vision checks run on a fixed ~15-second polling cadence rather than per-frame, keeping bandwidth and server load bounded during concurrent exams. Measured steady-state latency (this development machine, CPU inference): face check ~20ms, object detection ~190ms, risk-model scoring ~1-2ms.</td></tr>
+<tr><td>Portability</td><td>Backend and database are containerized with Docker Compose for reproducible deployment independent of host machine configuration.</td></tr>
+<tr><td>Data Minimization</td><td>Raw enrollment photos are never persisted, only the trained per-student recognition model; evidence capture is limited to the four violation types where a webcam frame is genuinely relevant.</td></tr>
+<tr><td>Auditability</td><td>Every migration to the database schema is version-controlled and reversible (Alembic); every dependency version is pinned.</td></tr>
+</table>
+
+<h3>2.3 Hardware and Software Requirements</h3>
+<table>
+<tr><th>Component</th><th>Technology</th></tr>
+<tr><td>Backend framework</td><td>FastAPI 0.139 (Python), Uvicorn ASGI server</td></tr>
+<tr><td>ORM / Migrations</td><td>SQLAlchemy 2.0, Alembic (17 applied migrations)</td></tr>
+<tr><td>Database</td><td>PostgreSQL 18</td></tr>
+<tr><td>Authentication</td><td>python-jose (JWT), passlib + bcrypt (password hashing)</td></tr>
+<tr><td>Frontend framework</td><td>React 19, Vite 8, Tailwind CSS 4, React Router 7</td></tr>
+<tr><td>Charts</td><td>Recharts 3</td></tr>
+<tr><td>Computer vision</td><td>OpenCV-contrib 5 (YuNet face detector, LBPH recognizer)</td></tr>
+<tr><td>Object detection</td><td>Ultralytics YOLOv8 8.4, PyTorch 2.13 + Torchvision 0.28 (CPU or CUDA build)</td></tr>
+<tr><td>Risk model</td><td>scikit-learn 1.9 (LogisticRegression), pandas, joblib</td></tr>
+<tr><td>Browser extension</td><td>Manifest V3 (Chrome/Chromium-based browsers)</td></tr>
+<tr><td>Containerization</td><td>Docker Compose (backend + Postgres 18 services)</td></tr>
+<tr><td>Minimum client hardware</td><td>Webcam and microphone-capable device; Chrome/Chromium browser for extension support</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>3. System Architecture</h2>
+<p>
+The system follows a three-tier architecture: a React single-page application (with a companion
+browser extension) as the client, a FastAPI REST backend enforcing authentication and business
+logic, and a PostgreSQL database. AI monitoring runs as backend services invoked synchronously
+during an exam session rather than as a separate microservice, keeping the deployment simple while
+each model remains independently swappable.
+</p>
+<img src="architecture.png" width="500">
+<div class="caption">Figure 1. System architecture: client tier, API tier, AI services, storage, and containerized deployment.</div>
+
+<h3>3.1 Backend Module Structure</h3>
+<p>The backend is organized by responsibility, following a routes &rarr; services &rarr; models layering:</p>
+<ul>
+<li><b>Routes</b> (17 route modules) define HTTP endpoints and their access-control dependencies.</li>
+<li><b>Services</b> contain business logic (grading, risk computation, violation logging, audit logging), independent of the HTTP layer.</li>
+<li><b>Models</b> (14 SQLAlchemy models) define the persisted schema.</li>
+<li><b>Auth dependencies</b> centralize ownership checks (e.g. <code>require_session_owner_student</code>, <code>require_violation_manage_access</code>) so every route reuses the same verified access-control logic rather than re-implementing it.</li>
+</ul>
+
+<h2>4. Database Design</h2>
+<p>The schema comprises 14 core tables, evolved through 17 incremental, reversible migrations. Key entities:</p>
+<table>
+<tr><th>Entity</th><th>Purpose</th></tr>
+<tr><td>User / Role</td><td>Account credentials and role assignment (Student, Instructor, Admin).</td></tr>
+<tr><td>Student</td><td>Links a user to a course; also holds the enrolled face-model path and accessibility accommodation fields.</td></tr>
+<tr><td>Instructor</td><td>Links a user to their owned exams.</td></tr>
+<tr><td>Course / Subject</td><td>Academic grouping structure.</td></tr>
+<tr><td>Exam / Question / Choice</td><td>Exam content, ownership-scoped to the creating instructor.</td></tr>
+<tr><td>ExamRoster</td><td>Optional per-exam narrowing of eligible students.</td></tr>
+<tr><td>ExamSession / StudentAnswer</td><td>A student's attempt at an exam and their per-question answers; scoring and timing are computed here.</td></tr>
+<tr><td>Violation</td><td>A logged proctoring event; extended with evidence image path and appeal fields (reason, status, response, reviewer, timestamp).</td></tr>
+<tr><td>AuditLog</td><td>Records staff access to another student's sensitive proctoring data.</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>5. System Workflow</h2>
+<p>The primary end-to-end workflow is the student exam-taking session, shown below. Violations
+detected during the session (right branch) can be contested by the student and resolved by staff
+(left branch) after submission.</p>
+<img src="workflow.png" width="440">
+<div class="caption">Figure 2. Exam-taking workflow, including the parallel proctoring and appeals branches.</div>
+
+<h3>5.1 Instructor Workflow</h3>
+<ol>
+<li>Log in and view assigned exams.</li>
+<li>Create/edit an exam, its questions and choices (directly or via CSV import).</li>
+<li>Optionally define a roster narrowing which students may take it.</li>
+<li>Activate the exam for the intended window.</li>
+<li>Monitor in-progress sessions live (risk scores, violation breakdown).</li>
+<li>Review analytics once attempts are submitted.</li>
+<li>Review and resolve any student-filed violation appeals.</li>
+</ol>
+
+<h3>5.2 Administrator Workflow</h3>
+<ol>
+<li>Manage courses, subjects, student and instructor records.</li>
+<li>Grant accessibility accommodations to individual students, with a documented reason.</li>
+<li>Review the live AI subsystem status dashboard.</li>
+<li>Review the audit log of staff access to sensitive student data.</li>
+</ol>
+
+<h2>6. Artificial Intelligence Components</h2>
+
+<h3>6.1 Face Detection and Verification</h3>
+<p>
+Face <i>detection</i> uses YuNet, a small pretrained ONNX detector chosen for robustness to head
+rotation and lighting compared to a classical Haar cascade. Face <i>recognition</i> uses OpenCV's
+LBPH (Local Binary Patterns Histograms) algorithm, trained per-student on their own enrolled
+images at enrollment time (minimum three valid samples) - no external face-recognition dataset or
+service is used. Raw enrollment photographs are discarded immediately after training; only the
+resulting per-student model file is retained.
+</p>
+
+<h3>6.2 Object (Phone/Person) Detection</h3>
+<p>
+Object detection runs two YOLOv8 passes per check: the unmodified pretrained <code>yolov8s</code>
+weights (COCO classes) for person counting, and a separately fine-tuned single-class phone
+specialist model. If the specialist misses on a whole-frame pass, a secondary pose-based check
+locates wrist keypoints (YOLOv8-pose) and re-examines the cropped hand regions at a lower
+confidence threshold, catching phones held at angles a whole-frame pass tends to miss.
+</p>
+
+<h3>6.3 Composite Risk Scoring</h3>
+<p>
+The risk score (0-100) blends two kinds of signal deliberately, rather than training a single
+end-to-end model on everything:
+</p>
+<ul>
+<li><b>Behavioral signals</b> (tab switch, fullscreen exit, copy/paste, right-click, extension-detected AI-tool/search-engine use, identity mismatch) are scored with fixed, hand-set weights over a rolling time window. These stay rule-based because no video ground truth exists to train them against - they are browser events, not something visible in webcam footage.</li>
+<li><b>Vision signals</b> (face lost, phone detected, multiple people counts) are scored by a trained <code>LogisticRegression</code> model, since real ground truth for these does exist (see 6.4).</li>
+</ul>
+<p>
+The two scores are summed and capped at 100. The vision model's raw output is recalibrated so a
+session with zero detected evidence scores exactly 0, rather than an arbitrary intercept-driven
+baseline.
+</p>
+
+<h3>6.4 Training Methodology and Data</h3>
+<p>
+A guiding principle throughout AI development on this project was to <b>train only what has real
+ground truth behind it</b>, and to leave everything else transparently rule-based rather than
+fabricate labels. Two real, distinct data sources were used:
+</p>
+<ul>
+<li>An external Kaggle-style phone/face dataset (~22,900 images) for general phone-appearance variety.</li>
+<li>The MSU Online Exam Proctoring (OEP) dataset - real webcam footage of students during exams,
+with genuine per-second cheat-event ground truth (reading notes, talking to someone, internet use,
+phone call, phone use). Only cheat codes with a plausible visual correlate (phone use/call) were
+used as positive labels for the vision-based risk model; the others are structurally invisible to
+a camera and were excluded rather than mislabeled.</li>
+</ul>
+<p>
+The fine-tuned phone specialist trained on this combined data measured, on the OEP validation split
+specifically (held out by subject, not by frame, to avoid leaking a person's face/room across the
+split): precision 0.952, recall 0.828, mAP50 0.917 - compared to 0.328/0.113/0.334 for the
+original un-fine-tuned model on the same real footage. The risk model achieved AUC 0.879 on held-out
+validation windows.
+</p>
+<div class="note">
+<b>Known limitation:</b> real phone-positive ground truth in the OEP dataset comes from only
+four subjects. This is disclosed explicitly in Section 9 rather than presented as a
+larger-sample result than it is.
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>7. Security and Access Control</h2>
+<ul>
+<li><b>Authentication:</b> JWT bearer tokens; passwords hashed with bcrypt via passlib.</li>
+<li><b>Authorization:</b> role-based (Student / Instructor / Admin) plus resource-ownership checks
+on every session-, violation-, and exam-scoped endpoint - an instructor cannot read or modify
+another instructor's exam, and a student cannot access another student's session, violations, or
+evidence.</li>
+<li><b>Closed historical gaps</b> (fixed during development, notable for a security-methodology
+discussion): an early version trusted a client-supplied <code>instructor_id</code> on exam
+creation, and several session-scoped endpoints (violations, face-check, object-check, answers)
+initially had no authentication at all. Both were identified via a deliberate security audit and
+fixed before the corresponding features were considered complete.</li>
+<li><b>No public exposure of stored biometric data:</b> face models and violation evidence images
+are never served through a static file mount; both are only retrievable through authenticated,
+ownership-checked API routes.</li>
+<li><b>Secrets management:</b> the JWT signing secret and database credentials are excluded from
+version control (<code>.env</code>, gitignored) and were rotated after being found to have been
+accidentally committed earlier in development.</li>
+</ul>
+
+<h2>8. Accessibility and Due-Process Features</h2>
+<p>
+Two features address concerns specific to AI-based proctoring's potential for disparate impact and
+unreviewable accusations:
+</p>
+<h4>8.1 Accessibility Accommodations</h4>
+<p>
+An administrator can exempt a specific student from face and/or object detection checks, and/or
+grant extra exam time, with a required documented reason. This is enforced with defense in depth:
+not only does the client skip the relevant camera/check calls, but the corresponding backend
+services independently verify the accommodation flag and will never log a violation for an
+exempted student even if a client-side request is somehow still sent.
+</p>
+<h4>8.2 Violation Evidence and Appeals</h4>
+<p>
+Vision-based violations (face lost, identity mismatch, phone detected, multiple people) capture
+the triggering webcam frame as evidence, since these are the only violation types with a webcam
+frame genuinely available at the moment of detection. A student may contest a violation with a
+written reason; an instructor or administrator with access to that session reviews the evidence and
+decision, recording a written resolution (upheld or overturned). This turns an automated flag into
+a reviewable decision rather than an unappealable accusation.
+</p>
+
+<h2>9. Testing and Validation</h2>
+<table>
+<tr><th>Layer</th><th>Method</th></tr>
+<tr><td>Backend logic</td><td>Direct HTTP calls against the running API covering every access-control boundary (owning vs. non-owning student/instructor, admin override, duplicate-action rejection).</td></tr>
+<tr><td>Frontend</td><td>Static linting (oxlint) and production build on every change; live in-browser verification of each new feature via automated browser interaction, including full end-to-end flows (e.g. a student filing an appeal, an instructor reviewing and overturning it).</td></tr>
+<tr><td>ML models</td><td>Held-out validation split by subject (not frame) to avoid leaking a person's identity across train/val; real precision/recall/mAP/AUC metrics reported rather than assumed.</td></tr>
+<tr><td>Real hardware</td><td>Face detection, phone detection, and tab-focus monitoring were confirmed working end-to-end on the user's own webcam-equipped hardware, not only in the sandboxed development environment.</td></tr>
+<tr><td>Security</td><td>A dedicated audit pass over every route confirmed each carries an authentication dependency and correctly scoped ownership check, with no static file mount exposing stored biometric data.</td></tr>
+</table>
+
+<h2>10. Limitations and Recommendations for Future Work</h2>
+<p>
+The following gaps were identified through a structured self-review of the system against what
+would make it genuinely defensible for university-wide adoption, not just functionally complete:
+</p>
+<ol>
+<li><b>Fairness/bias audit.</b> No evaluation currently exists of detection performance across
+different lighting conditions, skin tones, glasses, head coverings, or camera quality. This is the
+single highest-priority gap, both ethically and as a potential thesis contribution in its own
+right.</li>
+<li><b>Evaluation methodology rigor.</b> Ground truth for the vision-based risk model currently
+comes from only four subjects; a frozen holdout (never touched during iterative tuning) and
+reported confidence intervals or leave-one-subject-out cross-validation would strengthen any
+generalization claim.</li>
+<li><b>Privacy/data governance documentation.</b> A written retention/deletion policy and a Data
+Protection Impact Assessment, reviewed against the Philippine Data Privacy Act, are recommended
+before wider deployment.</li>
+<li><b>Scale and deployment realism.</b> Inference currently runs CPU-side on the backend and has
+not been load-tested for many concurrent exam sessions. Client-side (in-browser) inference is a
+promising direction that would address both scale and privacy simultaneously.</li>
+<li><b>A real user study.</b> Even a small pilot (20-30 real students and instructors in an actual
+exam) surveyed for trust and perceived fairness would materially strengthen the thesis's real-world
+validation claim beyond offline metrics alone.</li>
+</ol>
+<p>
+These limitations are stated explicitly here, following the same principle applied throughout the
+project's AI development: an honestly disclosed limitation is preferable to an unstated one, and is
+itself part of what makes the system's evaluation credible.
+</p>
+
+<h2>11. Conclusion</h2>
+<p>
+AI ExamGuard demonstrates a complete, working online examination and AI-proctoring platform in
+which every automated decision - a face mismatch, a detected phone, a composite risk score - is
+backed by a real, measured, and disclosed methodology rather than an unverifiable vendor claim.
+Its accountability features (evidence-backed appeals, accessibility accommodations, and staff audit
+logging) directly address documented shortcomings of commercial proctoring tools, positioning the
+system not as a replica of existing products but as a transparent, defensible alternative -
+provided the limitations in Section 10 are treated as the project's next real milestones rather
+than left unaddressed.
+</p>
+
+</body>
+</html>
