@@ -34,7 +34,12 @@ PHONE_SPECIALIST_CLASS = 0  # single-class model (see backend/training/prepare_d
 # COCO-17 keypoint indices (confirmed against ultralytics' own coco-pose.yaml, not assumed).
 LEFT_WRIST_KPT = 9
 RIGHT_WRIST_KPT = 10
-WRIST_VISIBILITY_THRESHOLD = 0.5
+# Lowered from 0.5 (2026-07-29): a real missed-phone case on live hardware traced back to the
+# wrist keypoint itself scoring low (0.10-0.15) because the phone held close to the chest partly
+# occludes the wrist joint, blocking the hand-crop fallback from ever running. A sample of OEP val
+# frames showed a clean gap between genuinely-visible wrists (0.2-0.7) and genuinely-absent wrists
+# (0.02-0.06) - 0.10 sits above that noise floor with real margin while still catching this case.
+WRIST_VISIBILITY_THRESHOLD = 0.10
 HAND_CROP_SIZE = 120  # pixels, fixed starting point - see plan notes on scaling to shoulder width
 # Deliberately lower than PHONE_SPECIALIST_CONFIDENCE_THRESHOLD: narrowing the search to "right
 # where a hand is" is what makes a lower threshold safe here, catching phones (e.g. held sideways)
