@@ -23,6 +23,7 @@ Usage: ../../.venv/Scripts/python.exe finetune_phone_face.py [--epochs 30] [--ba
 import argparse
 import os
 
+import torch
 from ultralytics import YOLO
 
 BASE_WEIGHTS = os.path.join(
@@ -39,6 +40,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--imgsz", type=int, default=640)
     parser.add_argument("--patience", type=int, default=8, help="early-stop patience")
+    parser.add_argument("--device", type=str, default=None,
+                         help="override auto-detected device, e.g. 'cpu' or '0' for first GPU")
     args = parser.parse_args()
 
     if not os.path.isfile(DATA_YAML):
@@ -48,9 +51,19 @@ if __name__ == "__main__":
             "downloaded it somewhere other than C:\\baidunetdiskdownload."
         )
 
+    if args.device is not None:
+        device = args.device
+    elif torch.cuda.is_available():
+        device = "0"
+    else:
+        device = "cpu"
+
     print(f"Fine-tuning from {BASE_WEIGHTS} on {DATA_YAML}")
-    print("Running on CPU (no GPU detected in this environment) - this will be slow; "
-          "reduce --epochs or --imgsz if it needs to fit a shorter window.")
+    if device == "cpu":
+        print("Running on CPU (no GPU detected/selected) - this will be slow; "
+              "reduce --epochs or --imgsz if it needs to fit a shorter window.")
+    else:
+        print(f"Running on GPU (device={device}, {torch.cuda.get_device_name(0)})")
 
     model = YOLO(BASE_WEIGHTS)
     model.train(
@@ -59,7 +72,7 @@ if __name__ == "__main__":
         batch=args.batch,
         imgsz=args.imgsz,
         patience=args.patience,
-        device="cpu",
+        device=device,
         project=RUNS_DIR,
         name="phone_face_specialist",
     )
