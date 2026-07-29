@@ -1,3 +1,5 @@
+import os
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -121,6 +123,11 @@ class StudentService:
     def delete(student_id: int, db: Session):
 
         student = StudentService.get_by_id(student_id, db)
+
+        # The enrolled face model is a real biometric artifact on disk, not just a DB row - delete
+        # it here too, otherwise it's silently orphaned forever with no record pointing back to it.
+        if student.face_model_path and os.path.exists(student.face_model_path):
+            os.remove(student.face_model_path)
 
         db.delete(student)
         db.commit()

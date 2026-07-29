@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw } from "lucide-react";
+import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw, Trash2 } from "lucide-react";
 import { getStudents } from "../../api/students";
 import { getInstructors } from "../../api/instructors";
 import { getCourses } from "../../api/courses";
 import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
+import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 const AUDIT_ACTION_LABELS = {
   VIEW_VIOLATIONS: "Viewed violations",
   VIEW_EVIDENCE: "Viewed evidence photo",
   UPDATE_ACCOMMODATION: "Updated accommodation",
+  PURGE_EVIDENCE: "Purged evidence (retention)",
 };
 
 export default function AdminDashboard() {
@@ -25,6 +28,11 @@ export default function AdminDashboard() {
   const [auditLog, setAuditLog] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState(false);
+  const [retentionPreview, setRetentionPreview] = useState(null);
+  const [retentionLoading, setRetentionLoading] = useState(false);
+  const [retentionError, setRetentionError] = useState(false);
+  const [confirmingPurge, setConfirmingPurge] = useState(false);
+  const [purgeResult, setPurgeResult] = useState(null);
 
   useEffect(() => {
     Promise.all([getStudents(), getInstructors(), getCourses(), getExams()])
@@ -64,6 +72,29 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  function loadRetentionPreview() {
+    setRetentionLoading(true);
+    setRetentionError(false);
+    previewPurge()
+      .then(setRetentionPreview)
+      .catch(() => setRetentionError(true))
+      .finally(() => setRetentionLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab === "retention" && retentionPreview === null && !retentionLoading) {
+      loadRetentionPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  async function handlePurge() {
+    setConfirmingPurge(false);
+    const result = await purgeExpiredEvidence();
+    setPurgeResult(result.purged_count);
+    loadRetentionPreview();
+  }
+
   const activeExams = data.exams.filter((e) => e.is_active).length;
 
   return (
@@ -101,6 +132,7 @@ export default function AdminDashboard() {
           ["exams", "Exams"],
           ["system", "System"],
           ["audit", "Audit"],
+          ["retention", "Retention"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -342,6 +374,95 @@ export default function AdminDashboard() {
                 ))}
               </div>
             </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "retention" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-muted-foreground">
+              Violation evidence photos older than the retention window are permanently deleted
+              from disk (the violation record itself is kept - only the image is removed).
+              Evidence for a violation with a PENDING appeal is never purged, regardless of age.
+            </p>
+            <button
+              onClick={loadRetentionPreview}
+              disabled={retentionLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50 transition-colors flex-shrink-0"
+            >
+              <RefreshCw className={`w-3 h-3 ${retentionLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {retentionError && (
+            <Card className="p-5 text-sm text-red-600">Couldn't load the retention preview. Try refreshing.</Card>
+          )}
+
+          {!retentionError && !retentionPreview && (
+            <Card className="p-5 text-sm text-muted-foreground">Loading retention preview…</Card>
+          )}
+
+          {retentionPreview && (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Retention Window</div>
+                  <div className="font-display text-3xl font-black text-foreground">{retentionPreview.retention_days} days</div>
+                </Card>
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Eligible for Purge</div>
+                  <div className="font-display text-3xl font-black text-orange-600">{retentionPreview.eligible_count}</div>
+                </Card>
+              </div>
+
+              {purgeResult !== null && (
+                <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700">
+                  Purged {purgeResult} evidence file{purgeResult === 1 ? "" : "s"}.
+                </div>
+              )}
+
+              <Card className="mb-4">
+                <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  Eligible Violations
+                </div>
+                <div className="divide-y divide-border">
+                  {retentionPreview.violations.length === 0 && (
+                    <div className="px-6 py-6 text-sm text-muted-foreground">Nothing is old enough to purge right now.</div>
+                  )}
+                  {retentionPreview.violations.map((v) => (
+                    <div key={v.id} className="px-6 py-3 flex items-center gap-4">
+                      <span className="text-[11px] font-mono text-muted-foreground w-16 flex-shrink-0">#{v.id}</span>
+                      <span className="text-sm text-foreground flex-1">{v.event_type}</span>
+                      <span className="text-[11px] font-mono text-muted-foreground">{new Date(v.created_at).toLocaleDateString()}</span>
+                      {v.appeal_status && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-border bg-secondary text-muted-foreground uppercase tracking-wider">
+                          {v.appeal_status}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <button
+                onClick={() => setConfirmingPurge(true)}
+                disabled={retentionPreview.eligible_count === 0}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> Purge {retentionPreview.eligible_count} Expired Evidence File{retentionPreview.eligible_count === 1 ? "" : "s"}
+              </button>
+            </>
+          )}
+
+          {confirmingPurge && (
+            <ConfirmDialog
+              title="Purge Expired Evidence"
+              message={`This will permanently delete ${retentionPreview?.eligible_count ?? 0} evidence photo(s) from disk. The violation records themselves are kept. This cannot be undone.`}
+              onConfirm={handlePurge}
+              onCancel={() => setConfirmingPurge(false)}
+            />
           )}
         </div>
       )}
