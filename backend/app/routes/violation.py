@@ -22,6 +22,7 @@ from app.schemas.violation import (
     ViolationCreate,
     ViolationResponse,
 )
+from app.services.audit_log_service import AuditLogService
 from app.services.risk_service import RiskService
 from app.services.violation_service import ViolationService
 
@@ -67,8 +68,16 @@ def log_violation(
 def get_violations(
     session_id: int,
     db: Session = Depends(get_db),
-    session: ExamSession = Depends(require_session_read_access)
+    session: ExamSession = Depends(require_session_read_access),
+    current_user: User = Depends(get_current_user)
 ):
+    # Only audit staff access to another student's data - a student viewing their own
+    # violations isn't the kind of access this trail exists to track.
+    if current_user.role.name.lower() != "student":
+        AuditLogService.log(
+            current_user.id, "VIEW_VIOLATIONS", "exam_session", session_id, db,
+            detail=f"student_id={session.student_id}"
+        )
     return ViolationService.get_violations(session_id, db)
 
 
@@ -100,8 +109,14 @@ def get_risk_summary(
 def get_evidence(
     violation_id: int,
     db: Session = Depends(get_db),
-    violation: Violation = Depends(require_violation_read_access)
+    violation: Violation = Depends(require_violation_read_access),
+    current_user: User = Depends(get_current_user)
 ):
+    if current_user.role.name.lower() != "student":
+        AuditLogService.log(
+            current_user.id, "VIEW_EVIDENCE", "violation", violation_id, db,
+            detail=f"student_id={violation.exam_session.student_id}"
+        )
     path = ViolationService.get_evidence_path(violation_id, db)
     return FileResponse(path, media_type="image/jpeg")
 

@@ -17,6 +17,7 @@ from app.routes.report import router as report_router
 from app.routes.face import router as face_router
 from app.routes.object_detection import router as object_detection_router
 from app.routes.system import router as system_router
+from app.routes.audit_log import router as audit_log_router
 
 app = FastAPI(
     title="AI ExamGuard API",
@@ -48,6 +49,7 @@ app.include_router(report_router)
 app.include_router(face_router)
 app.include_router(object_detection_router)
 app.include_router(system_router)
+app.include_router(audit_log_router)
 
 
 

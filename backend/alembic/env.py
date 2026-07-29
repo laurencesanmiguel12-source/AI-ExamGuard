@@ -20,6 +20,7 @@ from app.models.exam_session import ExamSession
 from app.models.student_answer import StudentAnswer
 from app.models.violation import Violation
 from app.models.exam_roster import ExamRoster
+from app.models.audit_log import AuditLog
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

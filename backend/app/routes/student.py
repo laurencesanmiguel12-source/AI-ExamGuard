@@ -9,7 +9,10 @@ from app.schemas.student import (
     StudentUpdate,
     StudentResponse
 )
+from app.services.audit_log_service import AuditLogService
 from app.services.student_service import StudentService
+
+ACCOMMODATION_FIELDS = ("accommodation_notes", "skip_face_check", "skip_object_check", "extra_time_minutes")
 
 router = APIRouter(
     prefix="/students",
@@ -62,6 +65,13 @@ def update_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
+    touched = [f for f in ACCOMMODATION_FIELDS if getattr(request, f) is not None]
+    if touched:
+        AuditLogService.log(
+            current_user.id, "UPDATE_ACCOMMODATION", "student", student_id, db,
+            detail=f"fields={','.join(touched)}"
+        )
+
     return StudentService.update(
         student_id,
         request,

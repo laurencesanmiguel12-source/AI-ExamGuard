@@ -5,8 +5,15 @@ import { getInstructors } from "../../api/instructors";
 import { getCourses } from "../../api/courses";
 import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
+import { getAuditLog } from "../../api/auditLog";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+
+const AUDIT_ACTION_LABELS = {
+  VIEW_VIOLATIONS: "Viewed violations",
+  VIEW_EVIDENCE: "Viewed evidence photo",
+  UPDATE_ACCOMMODATION: "Updated accommodation",
+};
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
@@ -15,6 +22,9 @@ export default function AdminDashboard() {
   const [systemStatus, setSystemStatus] = useState(null);
   const [systemLoading, setSystemLoading] = useState(false);
   const [systemError, setSystemError] = useState(false);
+  const [auditLog, setAuditLog] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(false);
 
   useEffect(() => {
     Promise.all([getStudents(), getInstructors(), getCourses(), getExams()])
@@ -34,6 +44,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === "system" && systemStatus === null && !systemLoading) {
       loadSystemStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  function loadAuditLog() {
+    setAuditLoading(true);
+    setAuditError(false);
+    getAuditLog()
+      .then(setAuditLog)
+      .catch(() => setAuditError(true))
+      .finally(() => setAuditLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab === "audit" && auditLog === null && !auditLoading) {
+      loadAuditLog();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -74,6 +100,7 @@ export default function AdminDashboard() {
           ["overview", "Overview"],
           ["exams", "Exams"],
           ["system", "System"],
+          ["audit", "Audit"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -262,6 +289,59 @@ export default function AdminDashboard() {
                 </div>
               </Card>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === "audit" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-muted-foreground">
+              Staff access to sensitive student data - viewing another student's violations or
+              evidence photos, and accommodation changes. Most recent 200 entries. Students viewing
+              their own data aren't logged here.
+            </p>
+            <button
+              onClick={loadAuditLog}
+              disabled={auditLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50 transition-colors flex-shrink-0"
+            >
+              <RefreshCw className={`w-3 h-3 ${auditLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {auditError && (
+            <Card className="p-5 text-sm text-red-600">Couldn't load the audit log. Try refreshing.</Card>
+          )}
+
+          {!auditError && !auditLog && (
+            <Card className="p-5 text-sm text-muted-foreground">Loading audit log…</Card>
+          )}
+
+          {auditLog && (
+            <Card>
+              <div className="divide-y divide-border">
+                {auditLog.length === 0 && (
+                  <div className="px-6 py-6 text-sm text-muted-foreground">No audit entries yet.</div>
+                )}
+                {auditLog.map((entry) => (
+                  <div key={entry.id} className="px-6 py-3 flex items-center gap-4">
+                    <span className="text-[11px] font-mono text-muted-foreground w-40 flex-shrink-0">
+                      {new Date(entry.created_at).toLocaleString()}
+                    </span>
+                    <span className="text-sm text-foreground w-56 flex-shrink-0 truncate">{entry.actor_email}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 uppercase tracking-wider flex-shrink-0">
+                      {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                    </span>
+                    <span className="text-[11px] font-mono text-muted-foreground truncate">
+                      {entry.resource_type} #{entry.resource_id}
+                      {entry.detail ? ` · ${entry.detail}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       )}
