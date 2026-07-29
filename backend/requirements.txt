@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cu126
+
 alembic==1.18.5
 
 annotated-doc==0.0.4
@@ -64,6 +66,15 @@ numpy==2.5.1
 
 nvidia-ml-py==13.610.43
 
+# WARNING: ultralytics (below) declares a dependency on opencv-python, which is NEVER satisfied
+# by this line - pip installs them by exact package name, so a plain `pip install -r
+# requirements.txt` will always try to also pull in opencv-python, which corrupts cv2.face's LBPH
+# recognizer if it succeeds (confirmed to still happen on 2026-07-29, on an already-configured
+# venv, not just a fresh one - a Windows file-lock error happened to block it that time, don't
+# rely on that). After ANY `pip install -r requirements.txt` run, verify with
+# `hasattr(cv2.face, 'LBPHFaceRecognizer_create')` and immediately run
+# `pip uninstall opencv-python -y && pip install --force-reinstall --no-deps opencv-contrib-python`
+# if it broke.
 opencv-contrib-python==5.0.0.93
 
 packaging==26.2
@@ -124,9 +135,9 @@ sympy==1.14.0
 
 threadpoolctl==3.6.0
 
-torch==2.13.0
+torch==2.13.0+cu126
 
-torchvision==0.28.0
+torchvision==0.28.0+cu126
 
 typing-inspection==0.4.2
 
