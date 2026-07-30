@@ -26,9 +26,15 @@ CELL_PHONE_CLASS = 67
 # from an initial 0.5: real-world testing showed 0.5 missed phones held at an angle or shown
 # back-first, since COCO's "cell phone" class skews toward front-facing/screen-visible phones.
 CONFIDENCE_THRESHOLD = 0.35
-# Not yet tuned against real hardware - same starting-point-then-adjust approach as
-# CONFIDENCE_THRESHOLD above, applied to the fine-tuned specialist below.
-PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
+# Tuned 2026-07-30 via threshold_sweep.py against the frozen holdout (322 real frames, see
+# ai_examguard_frozen_holdout_eval memory): a full precision/recall sweep of the deployed pipeline
+# (whole-frame pass + pose-guided hand-crop fallback) showed 0.35 sitting at precision=0.557,
+# recall=0.812 - a ~7x higher false-positive rate than 0.70 (62 vs 1 false positives on the
+# holdout) for a recall gain of ~27 points (0.812 vs 0.542). 0.70 was chosen prioritizing a low
+# false-accusation rate over maximum recall - a product/appeals-burden tradeoff, not the F1-optimal
+# point (that was 0.60, F1=0.735 vs 0.70's F1=0.698). Revisit via the same sweep if this tradeoff
+# ever needs to move.
+PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.70
 PHONE_SPECIALIST_CLASS = 0  # single-class model (see backend/training/prepare_dataset.py)
 
 # COCO-17 keypoint indices (confirmed against ultralytics' own coco-pose.yaml, not assumed).

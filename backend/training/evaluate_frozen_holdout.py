@@ -8,17 +8,14 @@ when writing up a real "should this replace production" comparison, and report w
 even if unflattering. Running it more than once per candidate and picking the best result defeats
 the entire point.
 
-Reports frame-level phone-detection outcomes at the app's real production confidence threshold
-(PHONE_SPECIALIST_CONFIDENCE_THRESHOLD below - copied from object_detection_service.py rather than
-imported, same convention as the annotate_phone_backface_live_review*.py scripts, since importing
-that module directly would pull in the live app's SQLAlchemy models/DB config, which these
-standalone training scripts intentionally don't depend on. Keep this value in sync by hand if the
-service's threshold ever changes): for every frame, "phone visible" ground truth
-comes from whether frozen_holdout/<frame>.txt has a class-0 box; "phone detected" comes from whether
-the candidate model's own prediction has a class-0 box at or above that threshold. IoU against the
-ground-truth box is also checked (--iou-thresh, default 0.3 - looser than the usual 0.5 since these
-ground-truth boxes are manual visual estimates, not pixel-exact) so a correct-by-luck detection in
-the wrong part of the frame doesn't count as a hit.
+Runs the FULL production pipeline (whole-frame phone_specialist pass + pose-guided hand-crop
+fallback, both matching object_detection_service.py exactly - see eval_common.py's docstring) at the
+app's real confidence thresholds, and reports two numbers: "presence" (matches production's actual
+`phone_detected = PHONE_SPECIALIST_CLASS in phone_classes` check exactly - no location awareness,
+which is what really drives a violation being logged) and "localized" (additionally IoU-gates
+against the real ground-truth box - a model-quality diagnostic, not what production itself checks).
+Report the presence number as the real comparison; use localized to sanity-check the model isn't
+getting the right answer for the wrong reason.
 
 Usage:
   ../.venv/Scripts/python.exe evaluate_frozen_holdout.py --model ../app/resources/phone_specialist.pt
@@ -30,102 +27,80 @@ import os
 import cv2
 from ultralytics import YOLO
 
-# Copied from app/services/object_detection_service.py (see docstring above for why this isn't a
-# direct import) - keep in sync by hand if the service's threshold ever changes.
-PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
-PHONE_SPECIALIST_CLASS = 0
+from eval_common import analyze_frame, load_gt_phone_box
 
 HOLDOUT_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "frozen_holdout")
+POSE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "resources", "yolov8n-pose.pt")
 
-
-def load_gt_phone_box(label_path, img_w, img_h):
-    if not os.path.exists(label_path):
-        return None
-    with open(label_path) as f:
-        for line in f:
-            parts = line.split()
-            if int(parts[0]) != PHONE_SPECIALIST_CLASS:
-                continue
-            cx, cy, w, h = (float(v) for v in parts[1:5])
-            x1 = (cx - w / 2) * img_w
-            y1 = (cy - h / 2) * img_h
-            x2 = (cx + w / 2) * img_w
-            y2 = (cy + h / 2) * img_h
-            return (x1, y1, x2, y2)
-    return None
-
-
-def iou(box_a, box_b):
-    ax1, ay1, ax2, ay2 = box_a
-    bx1, by1, bx2, by2 = box_b
-    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
-    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
-    iw, ih = max(0.0, ix2 - ix1), max(0.0, iy2 - iy1)
-    inter = iw * ih
-    area_a = (ax2 - ax1) * (ay2 - ay1)
-    area_b = (bx2 - bx1) * (by2 - by1)
-    union = area_a + area_b - inter
-    return inter / union if union > 0 else 0.0
+# Copied from app/services/object_detection_service.py, same convention as elsewhere in this
+# project - keep in sync by hand if the service's threshold ever changes.
+PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.70
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
     parser.add_argument("--iou-thresh", type=float, default=0.3)
+    parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
 
     if not os.path.isdir(HOLDOUT_DIR) or not os.listdir(HOLDOUT_DIR):
         print(f"{HOLDOUT_DIR} is empty - run make_frozen_holdout.py first.")
         return
 
-    model = YOLO(args.model)
+    phone_model = YOLO(args.model)
+    pose_model = YOLO(POSE_MODEL_PATH)
     image_files = sorted(f for f in os.listdir(HOLDOUT_DIR) if f.lower().endswith(".jpg"))
 
-    tp = fp = fn = tn = 0
-    localization_misses = 0  # detected phone-present correctly, but box didn't overlap ground truth
+    tp_p = fp_p = tp_l = fp_l = 0
+    total_gt = 0
+    wrong_reason = 0  # presence-hit but not localized: right verdict, box didn't match real phone
 
     for fname in image_files:
         img_path = os.path.join(HOLDOUT_DIR, fname)
         label_path = os.path.join(HOLDOUT_DIR, os.path.splitext(fname)[0] + ".txt")
         image = cv2.imread(img_path)
         h, w = image.shape[:2]
-
         gt_box = load_gt_phone_box(label_path, w, h)
+        has_gt = gt_box is not None
+        if has_gt:
+            total_gt += 1
 
-        result = model.predict(image, verbose=False, conf=PHONE_SPECIALIST_CONFIDENCE_THRESHOLD)[0]
-        pred_boxes = [
-            tuple(float(v) for v in box.xyxy[0])
-            for box in result.boxes
-            if int(box.cls[0]) == PHONE_SPECIALIST_CLASS
-        ]
+        r = analyze_frame(image, gt_box, phone_model, pose_model, PHONE_SPECIALIST_CONFIDENCE_THRESHOLD,
+                           args.iou_thresh, args.device)
+        presence_hit = (r["max_conf_any"] >= PHONE_SPECIALIST_CONFIDENCE_THRESHOLD) or r["fallback_hit"]
+        localized_hit = (
+            (r["best_match_conf"] is not None and r["best_match_conf"] >= PHONE_SPECIALIST_CONFIDENCE_THRESHOLD)
+            or (r["fallback_hit"] and r["fallback_matched_gt"])
+        )
 
-        if gt_box is None:
-            if pred_boxes:
-                fp += 1
-            else:
-                tn += 1
+        if has_gt:
+            tp_p += int(presence_hit)
+            tp_l += int(bool(localized_hit))
+            if presence_hit and not localized_hit:
+                wrong_reason += 1
         else:
-            if not pred_boxes:
-                fn += 1
-            else:
-                best_iou = max(iou(gt_box, pb) for pb in pred_boxes)
-                if best_iou >= args.iou_thresh:
-                    tp += 1
-                else:
-                    localization_misses += 1
-                    fn += 1
+            fp_p += int(presence_hit)
+            fp_l += int(presence_hit)
 
     n = len(image_files)
-    precision = tp / (tp + fp) if (tp + fp) else float("nan")
-    recall = tp / (tp + fn) if (tp + fn) else float("nan")
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else float("nan")
+    fn_p, fn_l = total_gt - tp_p, total_gt - tp_l
+    prec_p = tp_p / (tp_p + fp_p) if (tp_p + fp_p) else float("nan")
+    rec_p = tp_p / total_gt if total_gt else float("nan")
+    f1_p = 2 * prec_p * rec_p / (prec_p + rec_p) if prec_p == prec_p and (prec_p + rec_p) else float("nan")
+    prec_l = tp_l / (tp_l + fp_l) if (tp_l + fp_l) else float("nan")
+    rec_l = tp_l / total_gt if total_gt else float("nan")
+    f1_l = 2 * prec_l * rec_l / (prec_l + rec_l) if prec_l == prec_l and (prec_l + rec_l) else float("nan")
 
     print(f"model: {args.model}")
-    print(f"frozen holdout: {n} frames ({tp + fn} phone-positive, {tn + fp} phone-negative)")
+    print(f"frozen holdout: {n} frames ({total_gt} phone-positive, {n - total_gt} phone-negative)")
     print(f"confidence threshold: {PHONE_SPECIALIST_CONFIDENCE_THRESHOLD}  iou threshold: {args.iou_thresh}")
-    print(f"TP={tp} FP={fp} FN={fn} TN={tn}  (of which {localization_misses} FN were 'detected a phone "
-          f"somewhere, but not overlapping the real one')")
-    print(f"precision={precision:.3f} recall={recall:.3f} f1={f1:.3f}")
+    print(f"presence  (real production behavior): TP={tp_p} FP={fp_p} FN={fn_p}  "
+          f"precision={prec_p:.3f} recall={rec_p:.3f} f1={f1_p:.3f}")
+    print(f"localized (diagnostic, IoU-gated):     TP={tp_l} FP={fp_l} FN={fn_l}  "
+          f"precision={prec_l:.3f} recall={rec_l:.3f} f1={f1_l:.3f}")
+    print(f"{wrong_reason} phone-positive frames were flagged correctly but NOT via a box overlapping "
+          f"the real phone (right verdict, wrong reason - worth a look if this number is large)")
 
 
 if __name__ == "__main__":
