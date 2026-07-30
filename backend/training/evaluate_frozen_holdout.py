@@ -34,7 +34,7 @@ POSE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "resource
 
 # Copied from app/services/object_detection_service.py, same convention as elsewhere in this
 # project - keep in sync by hand if the service's threshold ever changes.
-PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.70
+PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
 
 
 def main():

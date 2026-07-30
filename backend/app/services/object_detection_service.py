@@ -26,15 +26,18 @@ CELL_PHONE_CLASS = 67
 # from an initial 0.5: real-world testing showed 0.5 missed phones held at an angle or shown
 # back-first, since COCO's "cell phone" class skews toward front-facing/screen-visible phones.
 CONFIDENCE_THRESHOLD = 0.35
-# Tuned 2026-07-30 via threshold_sweep.py against the frozen holdout (322 real frames, see
-# ai_examguard_frozen_holdout_eval memory): a full precision/recall sweep of the deployed pipeline
-# (whole-frame pass + pose-guided hand-crop fallback) showed 0.35 sitting at precision=0.557,
-# recall=0.812 - a ~7x higher false-positive rate than 0.70 (62 vs 1 false positives on the
-# holdout) for a recall gain of ~27 points (0.812 vs 0.542). 0.70 was chosen prioritizing a low
-# false-accusation rate over maximum recall - a product/appeals-burden tradeoff, not the F1-optimal
-# point (that was 0.60, F1=0.735 vs 0.70's F1=0.698). Revisit via the same sweep if this tradeoff
-# ever needs to move.
-PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.70
+# REVERTED 2026-07-30. Was briefly raised to 0.70 the same day based on a frozen-holdout
+# precision/recall sweep (see ai_examguard_frozen_holdout_eval memory), but a live browser
+# smoke-test immediately after the swap caught a severe real-world regression: 25 live frames of a
+# genuine, continuously-held phone were captured and run through the full deployed pipeline
+# (whole-frame + pose fallback) - at 0.70 only 1/24 phone-visible frames were flagged (4% recall);
+# at the sweep's own "F1-optimal" 0.60 only 3/24 (12.5%); only the original 0.35 caught a usable
+# fraction (20/24, 83%). The fallback fired zero times in this test. Reverted to 0.35 as the only
+# value that survived live testing - see ai_examguard_threshold_sweep_investigation memory for the
+# ongoing investigation into why the offline sweep was this misleading. Do not re-raise this
+# without a live smoke-test confirming recall on real, continuously-captured phone frames, not just
+# frozen-holdout aggregate numbers.
+PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
 PHONE_SPECIALIST_CLASS = 0  # single-class model (see backend/training/prepare_dataset.py)
 
 # COCO-17 keypoint indices (confirmed against ultralytics' own coco-pose.yaml, not assumed).

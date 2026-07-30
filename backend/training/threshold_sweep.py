@@ -32,7 +32,7 @@ HOLDOUT_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "fr
 POSE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "resources", "yolov8n-pose.pt")
 CONF_FLOOR = 0.05
 IOU_THRESH = 0.3
-CURRENT_PRODUCTION_THRESHOLD = 0.70
+CURRENT_PRODUCTION_THRESHOLD = 0.35
 
 
 def main():
