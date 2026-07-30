@@ -49,7 +49,18 @@ RIGHT_WRIST_KPT = 10
 # frames showed a clean gap between genuinely-visible wrists (0.2-0.7) and genuinely-absent wrists
 # (0.02-0.06) - 0.10 sits above that noise floor with real margin while still catching this case.
 WRIST_VISIBILITY_THRESHOLD = 0.10
-HAND_CROP_SIZE = 120  # pixels, fixed starting point - see plan notes on scaling to shoulder width
+# Raised from 120 to 320 (2026-07-30): the live smoke-test that caught the confidence-threshold
+# regression (see ai_examguard_threshold_sweep_investigation memory) also found the fallback fired
+# ZERO times across 25 live frames of a genuinely, continuously held phone - a 120px crop centered
+# on the wrist joint only reaches the knuckles when a phone is held extended past the fingers (a
+# very natural grip), cutting the phone body out of the crop entirely. Confirmed empirically, not
+# guessed: swept crop sizes against the same 24 live phone-visible frames (0% hit at 120/160px,
+# 25% at 200, 33% at 240, 38% at 280, 71% at 320) and checked false-positive cost against 40
+# genuinely phone-negative frozen-holdout frames (2/40 at 320px, barely rising to 3/40 at 360-400px
+# while recall gave back a couple points) - 320 is the empirical sweet spot, not a guess scaled up
+# arbitrarily. Scaling by shoulder width instead of a fixed pixel size is still a real improvement
+# to make later (a person's apparent hand size changes with camera distance), just not done yet.
+HAND_CROP_SIZE = 320
 # Deliberately lower than PHONE_SPECIALIST_CONFIDENCE_THRESHOLD: narrowing the search to "right
 # where a hand is" is what makes a lower threshold safe here, catching phones (e.g. held sideways)
 # that don't score high enough on a whole-frame pass. Not yet tuned against real hardware.

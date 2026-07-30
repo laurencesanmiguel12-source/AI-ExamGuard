@@ -33,7 +33,7 @@ PHONE_SPECIALIST_CLASS = 0
 LEFT_WRIST_KPT = 9
 RIGHT_WRIST_KPT = 10
 WRIST_VISIBILITY_THRESHOLD = 0.10
-HAND_CROP_SIZE = 120
+HAND_CROP_SIZE = 320  # keep in sync with object_detection_service.py - see its comment for why
 HAND_REGION_PHONE_THRESHOLD = 0.20
 
 
