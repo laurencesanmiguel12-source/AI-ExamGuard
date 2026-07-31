@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.violation import ViolationCreate
+from app.services.object_detection_service import _POSE_MODEL
 from app.services.violation_service import ViolationService
 
 FACE_SIZE = (200, 200)
@@ -156,24 +157,80 @@ def _estimate_head_pose(image, detection) -> dict | None:
     return {"pitch": pitch, "yaw": yaw, "roll": roll}
 
 
-# Placeholder, NOT yet empirically validated - see the plan's later "empirical threshold
-# tuning" step. The pitch threshold in particular is fragile: a laptop webcam is typically
-# mounted above eye level looking down at the user, so even a neutral, forward-facing pose
-# reads as a persistent negative pitch offset (confirmed against real capture data during the
-# head-pose smoke test - see test_head_pose.py) rather than ~0deg. A single fixed global
-# degrees threshold may not survive contact with varied camera placements and will likely need
-# to become a per-session calibrated baseline once real head-down data is collected - same
-# lesson as the phone-detection confidence-threshold work.
+# COCO-17 pose keypoint index for the nose (matches object_detection_service.py's confirmed
+# COCO-pose index convention).
+_NOSE_KPT = 0
+# Reused from object_detection_service.py's WRIST_VISIBILITY_THRESHOLD - that value was
+# empirically swept for the *wrist* keypoint on this same model, not the nose, so treat this as a
+# reasonable starting point (same model, same "visible vs noise-floor" question) rather than an
+# independently validated number for this specific use.
+_HEAD_PRESENCE_CONFIDENCE_THRESHOLD = 0.10
+
+
+def _head_present_via_pose_fallback(image) -> bool:
+    """Fallback for when YuNet finds no face at all: distinguishes "no one's there" (a real
+    FACE_LOST) from "a head is present but angled down enough that YuNet lost its facial
+    landmarks." Confirmed as a real failure mode in a 2026-07-31 live smoke-test - a natural
+    head-down tilt made YuNet lose the face entirely, well before pitch could ever cross
+    HEAD_DOWN_PITCH_THRESHOLD_DEGREES, making the feature nearly untriggerable by the exact
+    behavior it exists to catch. The pose model is far more tolerant of a tilted/foreshortened
+    head than a face-landmark detector, so a visible nose keypoint here is a reasonable "someone's
+    head is in frame" signal even when YuNet can't say anything about its angle."""
+    pose_results = _POSE_MODEL.predict(image, verbose=False)[0]
+    if pose_results.keypoints is None:
+        return False
+
+    for person_kpts in pose_results.keypoints.data:
+        _, _, confidence = person_kpts[_NOSE_KPT].tolist()
+        if confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD:
+            return True
+
+    return False
+
+
+# Empirically checked 2026-07-31 against 2221 human-labeled real frames (phone-present vs.
+# phone-absent, backend/training/analyze_head_pose_thresholds.py) - NOT a strong signal. -35 sits
+# at the F1 peak (~0.53) across a sweep from -15 to -65, but precision there is only ~0.50: the
+# phone-present and phone-absent pitch distributions heavily overlap (median -37.8 vs -30.3,
+# both spanning roughly -50 to -15). No threshold value does meaningfully better - this is a
+# ceiling of the signal itself (a laptop webcam sits above eye level, so even neutral posture
+# reads as persistently negative, and looking down at an exam paper produces a similar pitch to
+# looking down at a phone), not a mistuned number. See the gaze-monitoring feasibility memory for
+# the full writeup, including why this means duration + human review are doing real work here,
+# not just backstopping an already-strong detector.
 HEAD_DOWN_PITCH_THRESHOLD_DEGREES = -35.0
-# Candidate from the plan (20-30s, "longer than a normal typing glance"), also unvalidated.
+# Empirically checked 2026-07-31 against 4 real, densely-timestamped capture sequences
+# (backend/training/simulate_head_down_system.py) - 25s comfortably catches the 3 clean subjects'
+# real sustained phone-use episodes (28.6s/42.8s/43.0s long) while ignoring sub-2s label-noise
+# blips. Kept as-is; the real bug this analysis found was HEAD_DOWN_MISS_TOLERANCE (see below),
+# not this value.
 HEAD_DOWN_DURATION_THRESHOLD_SECONDS = 25.0
+# Consecutive non-down polls forgiven before a streak actually resets. Added 2026-07-31 after the
+# same simulation found the ORIGINAL reset-on-any-miss behavior (tolerance implicitly 0) made the
+# feature never fire at all across all 4 real sequences, even during obvious 28-43s sustained
+# phone-use episodes - a single noisy poll where pitch happened to read just above threshold
+# discarded all accumulated progress. Sweeping 0/1/2/3: tolerance=1 fixed every sequence
+# (including one where the streak-breaking pattern was severe enough that raising to 2 or 3 made
+# no further difference), so 1 is the minimal fix, not a guessed number.
+HEAD_DOWN_MISS_TOLERANCE = 1
 
 
-def _is_head_down(pose: dict | None) -> bool:
-    return pose is not None and pose["pitch"] <= HEAD_DOWN_PITCH_THRESHOLD_DEGREES
+def _is_head_down(pose: dict | None, head_present_via_fallback: bool = False) -> bool:
+    if pose is not None:
+        return pose["pitch"] <= HEAD_DOWN_PITCH_THRESHOLD_DEGREES
+    # No numeric pose - YuNet found no face at all this poll. If the pose-model fallback still
+    # sees a head, the most plausible explanation is that it's angled down enough to lose facial
+    # landmarks, not that no one's there - treat this poll as continuing a down streak rather
+    # than resetting it. If the fallback *also* sees nothing, this correctly falls through to
+    # False (a real FACE_LOST, handled by the caller).
+    return head_present_via_fallback
 
 
-def _track_head_down(session: ExamSession, pose: dict | None) -> tuple[float, bool]:
+def _track_head_down(
+    session: ExamSession,
+    pose: dict | None,
+    head_present_via_fallback: bool = False
+) -> tuple[float, bool]:
     """Updates the session's head-down streak state from the latest poll's pose estimate.
     Persisted on the session (not kept in-memory) since a 5s poll can't tell duration from a
     single snapshot and an in-memory timer would silently reset on a backend restart mid-exam.
@@ -181,28 +238,43 @@ def _track_head_down(session: ExamSession, pose: dict | None) -> tuple[float, bo
     Returns (current continuous streak duration in seconds, whether *this* poll is the one that
     should trigger a violation). The flag is True exactly once per streak - the poll where
     duration first crosses HEAD_DOWN_DURATION_THRESHOLD_SECONDS - not on every subsequent poll
-    while the student stays down, which is what head_down_violation_logged exists to prevent."""
-    if not _is_head_down(pose):
+    while the student stays down, which is what head_down_violation_logged exists to prevent.
+
+    Up to HEAD_DOWN_MISS_TOLERANCE consecutive non-down polls are forgiven without resetting the
+    streak - see that constant's comment for why an untolerant reset made this never fire in
+    practice. A forgiven miss doesn't advance head_down_consecutive_count or trigger a violation
+    on its own; it just doesn't discard progress already made."""
+    if _is_head_down(pose, head_present_via_fallback):
+        session.head_down_miss_streak = 0
+        now = datetime.now(timezone.utc)
+        if session.head_down_since is None:
+            session.head_down_since = now
+
+        session.head_down_consecutive_count += 1
+        duration = (now - session.head_down_since).total_seconds()
+
+        should_log = (
+            duration >= HEAD_DOWN_DURATION_THRESHOLD_SECONDS
+            and not session.head_down_violation_logged
+        )
+        if should_log:
+            session.head_down_violation_logged = True
+
+        return duration, should_log
+
+    session.head_down_miss_streak += 1
+    if session.head_down_miss_streak > HEAD_DOWN_MISS_TOLERANCE:
         session.head_down_since = None
         session.head_down_consecutive_count = 0
         session.head_down_violation_logged = False
+        session.head_down_miss_streak = 0
         return 0.0, False
 
-    now = datetime.now(timezone.utc)
+    # Within tolerance - streak survives, but this poll itself doesn't advance or fire anything.
     if session.head_down_since is None:
-        session.head_down_since = now
-
-    session.head_down_consecutive_count += 1
-    duration = (now - session.head_down_since).total_seconds()
-
-    should_log = (
-        duration >= HEAD_DOWN_DURATION_THRESHOLD_SECONDS
-        and not session.head_down_violation_logged
-    )
-    if should_log:
-        session.head_down_violation_logged = True
-
-    return duration, should_log
+        return 0.0, False
+    duration = (datetime.now(timezone.utc) - session.head_down_since).total_seconds()
+    return duration, False
 
 
 class FaceService:
@@ -321,7 +393,20 @@ class FaceService:
         # no extra model cost for tracking head-down duration on top of the existing check.
         detection = _detect_largest_face(image) if image is not None else None
         pose = _estimate_head_pose(image, detection) if detection is not None else None
-        head_down_duration, should_log_head_down = _track_head_down(session, pose)
+
+        # YuNet found no face at all - before concluding no one's there, check the pose-model
+        # fallback. A live smoke-test (2026-07-31) found a real head-down tilt can make YuNet
+        # lose facial landmarks entirely, well before pitch would cross the down threshold - so
+        # treating "no face landmarks" as automatically "no head" made this feature nearly
+        # untriggerable by the exact behavior it exists to catch. See
+        # _head_present_via_pose_fallback's docstring.
+        head_present_via_fallback = (
+            detection is None and image is not None and _head_present_via_pose_fallback(image)
+        )
+
+        head_down_duration, should_log_head_down = _track_head_down(
+            session, pose, head_present_via_fallback
+        )
         db.commit()
 
         if should_log_head_down:
@@ -329,9 +414,7 @@ class FaceService:
             # signal (head pose, not eye gaze), not a direct visual identification, so it isn't in
             # EVIDENCE_EVENT_TYPES. The question-context snapshot below is the real evidence: lets
             # a reviewer judge plausibility ("one multiple-choice line, no reason to look away
-            # that long" vs "a 500-word essay question") without a screenshot. question_id/
-            # text/type are None until the frontend actually sends the current question with each
-            # poll - that wiring doesn't exist yet, so this stays a no-op for now.
+            # that long" vs "a 500-word essay question") without a screenshot.
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(
@@ -347,12 +430,15 @@ class FaceService:
         crop = _crop_from_detection(image, detection) if detection is not None else None
 
         if crop is None:
-            ViolationService.log_violation(
-                session_id,
-                ViolationCreate(event_type="FACE_LOST"),
-                db,
-                evidence_bytes=image_bytes
-            )
+            # Only a real FACE_LOST if the pose fallback didn't find a head either - otherwise
+            # this poll already fed the head-down streak above instead.
+            if not head_present_via_fallback:
+                ViolationService.log_violation(
+                    session_id,
+                    ViolationCreate(event_type="FACE_LOST"),
+                    db,
+                    evidence_bytes=image_bytes
+                )
             return {
                 "face_detected": False,
                 "identity_match": False,

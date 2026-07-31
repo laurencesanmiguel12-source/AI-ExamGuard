@@ -59,6 +59,16 @@ class ExamSession(Base, TimestampMixin):
         Integer,
         default=0
     )
+    # Consecutive non-down polls since the last down poll, within the current streak. Exists
+    # because an empirical simulation against real timestamped capture data (2026-07-31, see the
+    # gaze-monitoring feasibility memory) found the streak resetting on ANY single miss made the
+    # feature never fire at all, even during genuine 28-43s sustained phone-use episodes - a
+    # single noisy poll where pitch happened to read above threshold discarded all accumulated
+    # progress. HEAD_DOWN_MISS_TOLERANCE polls are now forgiven before the streak actually resets.
+    head_down_miss_streak: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
     # True once a PROLONGED_HEAD_DOWN violation has been logged for the *current* streak, so
     # verify() logs exactly one violation per streak instead of re-firing on every poll while
     # the student stays down. Reset to False the moment the streak breaks (see
