@@ -6,8 +6,10 @@
       "Bash(curl -s -o /dev/null -w *)",
       "Bash(pnpm run lint)",
       "Bash(nvidia-smi *)",
+      "Bash(docker compose version)",
       "mcp__claude-in-chrome__tabs_context_mcp",
-      "mcp__claude-in-chrome__read_network_requests"
+      "mcp__claude-in-chrome__read_network_requests",
+      "mcp__claude-in-chrome__find"
     ]
   }
 }
