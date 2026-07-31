@@ -160,10 +160,15 @@ def _estimate_head_pose(image, detection) -> dict | None:
 # COCO-17 pose keypoint index for the nose (matches object_detection_service.py's confirmed
 # COCO-pose index convention).
 _NOSE_KPT = 0
-# Reused from object_detection_service.py's WRIST_VISIBILITY_THRESHOLD - that value was
-# empirically swept for the *wrist* keypoint on this same model, not the nose, so treat this as a
-# reasonable starting point (same model, same "visible vs noise-floor" question) rather than an
-# independently validated number for this specific use.
+# Empirically validated 2026-07-31 (backend/training/analyze_pose_fallback_threshold.py) against
+# the 290 real frames where YuNet actually fails (using annotation_batch's human-labeled "face"
+# class as ground truth, restricted to that YuNet-failed subset - the only place this fallback
+# ever runs in production): 268/290 genuinely had a person YuNet just missed, only 22 were truly
+# empty. At 0.10, recall = 1.000 (never misses a real head - the safety-critical property, since
+# a miss here causes a false FACE_LOST) with precision = 0.944. Raising the threshold only trades
+# recall for marginal precision gains, a bad tradeoff given the asymmetric cost. This value was
+# originally just borrowed from object_detection_service.py's WRIST_VISIBILITY_THRESHOLD (swept
+# for a different keypoint); it turns out to already be on the safe/optimal edge for this use too.
 _HEAD_PRESENCE_CONFIDENCE_THRESHOLD = 0.10
 
 
