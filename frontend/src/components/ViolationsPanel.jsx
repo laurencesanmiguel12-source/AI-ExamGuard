@@ -13,6 +13,7 @@ const EVENT_LABELS = {
   MULTIPLE_PEOPLE: "Multiple People",
   AI_TOOL_DETECTED: "AI Tool Detected",
   SEARCH_ENGINE_DETECTED: "Search Engine Detected",
+  PROLONGED_HEAD_DOWN: "Prolonged Downward Gaze",
 };
 
 const STATUS_STYLE = {

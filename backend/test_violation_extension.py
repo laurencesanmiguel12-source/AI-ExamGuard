@@ -29,6 +29,7 @@ print("\n========== RECENT VIOLATION ==========")
 recent = RecentViolation(
     session_id=1,
     student_number="2026-0003",
+    student_name="Juan DelaCruz",
     exam_id=1,
     event_type="SEARCH_ENGINE_DETECTED",
     detail="www.google.com",
