@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth.session_access import require_own_student, require_session_owner_student
@@ -32,8 +32,21 @@ async def enroll_face(
 async def check_face(
     session_id: int,
     file: UploadFile = File(...),
+    # Optional - not yet sent by the frontend (that's the next piece of work). When present,
+    # only used to snapshot context onto a PROLONGED_HEAD_DOWN violation if one fires on this
+    # poll; harmless if omitted.
+    question_id: int | None = Form(None),
+    question_text: str | None = Form(None),
+    question_type: str | None = Form(None),
     db: Session = Depends(get_db),
     session: ExamSession = Depends(require_session_owner_student)
 ):
     image_bytes = await file.read()
-    return FaceService.verify(session_id, image_bytes, db)
+    return FaceService.verify(
+        session_id,
+        image_bytes,
+        db,
+        question_id=question_id,
+        question_text=question_text,
+        question_type=question_type
+    )

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Camera, Monitor, Brain, AlertTriangle, Eye, CheckCircle, ArrowRight } from "lucide-react";
+import { Shield, Camera, Monitor, Brain, AlertTriangle, Eye, ScanEye, CheckCircle, ArrowRight } from "lucide-react";
 import Card from "../../components/ui/Card";
 
 function SectionTag({ text }) {
@@ -60,6 +60,14 @@ const EXAM_RULES = [
     title: "Browser Extension Required",
     desc: "This exam requires the AI ExamGuard Tab Monitor extension. It detects AI-tool/search-engine tab activity; exiting fullscreen and copy/paste/right-click are also detected separately.",
   },
+  {
+    icon: ScanEye,
+    color: "#0d9488",
+    bg: "#f0fdfa",
+    border: "#99f6e4",
+    title: "Prolonged Downward Gaze Monitored",
+    desc: "If your head stays angled down for an extended period — longer than a normal glance while typing — it's flagged for instructor review. This isn't eye-tracking — it's a coarse signal meant to catch phones held out of camera view, and it's always human-reviewed and appealable, not an automatic penalty.",
+  },
 ];
 
 const CHECKLIST_ITEMS = [
@@ -68,6 +76,7 @@ const CHECKLIST_ITEMS = [
   "I am in a well-lit, quiet environment.",
   "My phone is turned off or placed out of camera range.",
   "I will not switch tabs or use any AI / search tools.",
+  "I understand that keeping my head angled down for an extended period may be flagged for review.",
   "I understand that violations raise my risk score and will be reviewed by my instructor.",
 ];
 

@@ -20,6 +20,12 @@ WEIGHTS = {
     "IDENTITY_MISMATCH": 30,
     "AI_TOOL_DETECTED": 40,
     "SEARCH_ENGINE_DETECTED": 35,
+    # Unvalidated, same as face_service.py's underlying pitch/duration thresholds - a geometric
+    # head-pose proxy is weaker evidence than a direct visual identification, so this sits below
+    # IDENTITY_MISMATCH. (The original plan compared this against PHONE_DETECTED's old weight,
+    # but PHONE_DETECTED has since moved to RiskModelService above - IDENTITY_MISMATCH is the
+    # current hand-weighted anchor instead.)
+    "PROLONGED_HEAD_DOWN": 20,
 }
 
 VISION_EVENT_TYPES = {

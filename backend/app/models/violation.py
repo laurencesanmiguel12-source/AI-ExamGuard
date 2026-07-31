@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -31,6 +31,26 @@ class Violation(Base, TimestampMixin):
     # violation_service.py's log_violation for where this gets written.
     evidence_path: Mapped[str | None] = mapped_column(
         String(255),
+        nullable=True
+    )
+
+    # Question-context snapshot, currently only populated for PROLONGED_HEAD_DOWN. A denormalized
+    # copy (not just question_id) so the record stays meaningful on its own - "this is a 500-word
+    # essay question, 25s head-down is obviously normal" vs "this is one multiple-choice line" is
+    # exactly the plausibility judgment a reviewer needs, and shouldn't depend on the live Question
+    # row still matching what the student actually saw at flag time. This is a geometric proxy
+    # signal, not a direct visual identification like PHONE_DETECTED, so there's no webcam frame to
+    # fall back on - see evidence_path's comment above.
+    question_id: Mapped[int | None] = mapped_column(
+        ForeignKey("questions.id"),
+        nullable=True
+    )
+    question_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+    question_type: Mapped[str | None] = mapped_column(
+        String(30),
         nullable=True
     )
 

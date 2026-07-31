@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -43,6 +43,29 @@ class ExamSession(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(30),
         default="IN_PROGRESS"
+    )
+
+    # Head-down duration tracking (see face_service.py's head-pose estimate). Face-check polls
+    # arrive every 5s and can't tell duration from a single snapshot on their own, so this state
+    # has to be persisted rather than kept in-memory - an in-memory timer would silently reset on
+    # a backend restart mid-exam. head_down_since is null whenever the student isn't currently
+    # in a head-down streak; head_down_consecutive_count is the number of consecutive down polls
+    # observed in the current streak (0 when not in one).
+    head_down_since: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+    head_down_consecutive_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+    # True once a PROLONGED_HEAD_DOWN violation has been logged for the *current* streak, so
+    # verify() logs exactly one violation per streak instead of re-firing on every poll while
+    # the student stays down. Reset to False the moment the streak breaks (see
+    # face_service.py's _track_head_down).
+    head_down_violation_logged: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False
     )
 
     student = relationship(

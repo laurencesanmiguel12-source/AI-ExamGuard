@@ -21,6 +21,9 @@ const VIOLATION_META = {
   MULTIPLE_PEOPLE: { label: "Multiple People", fill: "#0ea5e9" },
   AI_TOOL_DETECTED: { label: "AI Tool Detected", fill: "#dc2626" },
   SEARCH_ENGINE_DETECTED: { label: "Search Engine Detected", fill: "#f97316" },
+  // Head pose, not eye gaze - a coarse proxy, not a certain detection, so it reads as "needs
+  // review" rather than a hard accusation.
+  PROLONGED_HEAD_DOWN: { label: "Prolonged Downward Gaze", fill: "#0d9488" },
 };
 
 const ALERT_SEVERITY = {
@@ -32,6 +35,7 @@ const ALERT_SEVERITY = {
   FACE_LOST: "high",
   COPY_PASTE: "high",
   MULTIPLE_PEOPLE: "high",
+  PROLONGED_HEAD_DOWN: "high",
   TAB_SWITCH: "warn",
   RIGHT_CLICK: "warn",
 };

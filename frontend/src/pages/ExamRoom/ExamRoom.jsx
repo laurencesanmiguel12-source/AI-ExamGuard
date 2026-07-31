@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CheckCircle, Eye } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -53,6 +53,15 @@ export default function ExamRoom() {
   const [faceDetected, setFaceDetected] = useState(true);
   const [phoneDetected, setPhoneDetected] = useState(false);
   const [extensionAlert, setExtensionAlert] = useState(null);
+
+  // Read via a ref (not `current`/`questions` directly) inside checkOnce below, since that
+  // effect's dependency array intentionally excludes them - polling shouldn't restart every
+  // time the student clicks between questions, but each poll still needs the question they're
+  // *currently* on, not whichever one was current when the effect last ran.
+  const currentQuestionRef = useRef(null);
+  useEffect(() => {
+    currentQuestionRef.current = questions[current] ?? null;
+  }, [current, questions]);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +202,7 @@ export default function ExamRoom() {
         if (!blob || cancelled) return;
 
         if (needsFaceCheck) {
-          const faceResult = await checkFace(session.id, blob).catch(() => null);
+          const faceResult = await checkFace(session.id, blob, currentQuestionRef.current).catch(() => null);
           if (!cancelled && faceResult?.face_detected !== null && faceResult?.face_detected !== undefined) {
             setFaceDetected(faceResult.face_detected);
           }

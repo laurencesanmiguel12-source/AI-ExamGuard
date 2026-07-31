@@ -28,7 +28,10 @@ class ViolationService:
         session_id: int,
         request: ViolationCreate,
         db: Session,
-        evidence_bytes: bytes | None = None
+        evidence_bytes: bytes | None = None,
+        question_id: int | None = None,
+        question_text: str | None = None,
+        question_type: str | None = None
     ):
 
         session = (
@@ -49,10 +52,17 @@ class ViolationService:
                 detail="Exam session is not in progress."
             )
 
+        # question_id/text/type deliberately aren't on ViolationCreate (the schema the
+        # student-facing POST /violations route accepts) - like evidence_bytes below, this is a
+        # server-detected snapshot, not something a client should be able to submit and have
+        # trusted at face value.
         violation = Violation(
             exam_session_id=session_id,
             event_type=request.event_type,
-            detail=request.detail
+            detail=request.detail,
+            question_id=question_id,
+            question_text=question_text,
+            question_type=question_type
         )
 
         db.add(violation)

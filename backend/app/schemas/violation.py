@@ -15,6 +15,9 @@ class ViolationResponse(BaseModel):
     detail: str | None = None
     created_at: datetime
     has_evidence: bool = False
+    question_id: int | None = None
+    question_text: str | None = None
+    question_type: str | None = None
     appeal_reason: str | None = None
     appeal_status: str | None = None
     appeal_response: str | None = None
