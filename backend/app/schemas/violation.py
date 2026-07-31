@@ -41,6 +41,7 @@ class LiveSessionResponse(BaseModel):
     session_id: int
     student_id: int
     student_number: str
+    student_name: str
     exam_id: int
     exam_title: str
     started_at: datetime
@@ -51,6 +52,7 @@ class LiveSessionResponse(BaseModel):
 class RecentViolation(BaseModel):
     session_id: int
     student_number: str
+    student_name: str
     exam_id: int
     event_type: str
     detail: str | None = None

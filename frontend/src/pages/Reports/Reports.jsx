@@ -267,7 +267,8 @@ export default function Reports() {
               {report.attempts.map((a) => (
                 <div key={a.session_id}>
                   <div className="px-6 py-3 flex items-center gap-4">
-                    <span className="font-mono text-xs text-foreground/80 w-28">{a.student_number}</span>
+                    <span className="text-xs text-foreground/80 w-40 truncate">{a.student_name}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground w-24">{a.student_number}</span>
                     <span className="text-[11px] font-mono text-muted-foreground flex-1">
                       {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "In progress"}
                     </span>

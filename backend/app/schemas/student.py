@@ -23,6 +23,7 @@ class StudentUpdate(BaseModel):
 
 class StudentResponse(StudentBase):
     id: int
+    student_name: str | None = None
     face_model_path: str | None = None
     accommodation_notes: str | None = None
     skip_face_check: bool = False

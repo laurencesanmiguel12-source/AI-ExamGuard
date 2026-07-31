@@ -57,6 +57,10 @@ class ReportService:
                     if s.student_id in students_by_id
                     else f"#{s.student_id}"
                 ),
+                "student_name": (
+                    (students_by_id[s.student_id].student_name if s.student_id in students_by_id else None)
+                    or f"#{s.student_id}"
+                ),
                 "started_at": s.started_at,
                 "submitted_at": s.submitted_at,
                 "status": s.status,

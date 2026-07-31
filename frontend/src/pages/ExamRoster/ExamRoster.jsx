@@ -49,6 +49,7 @@ export default function ExamRoster() {
   }, [examId]);
 
   const rosterColumns = [
+    { key: "student_name", label: "Name", render: (row) => row.student.student_name ?? row.student.student_number },
     { key: "student_number", label: "Student Number", render: (row) => row.student.student_number },
   ];
 
@@ -149,7 +150,10 @@ export default function ExamRoster() {
           <div className="divide-y divide-border">
             {available.map((student) => (
               <div key={student.id} className="px-6 py-3 flex items-center justify-between">
-                <span className="text-sm text-foreground/80">{student.student_number}</span>
+                <span className="text-sm text-foreground/80">
+                  {student.student_name ?? student.student_number}
+                  <span className="text-xs text-muted-foreground ml-2">{student.student_number}</span>
+                </span>
                 <button
                   onClick={() => handleAdd(student)}
                   className="flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
@@ -165,7 +169,7 @@ export default function ExamRoster() {
       {deleting && (
         <ConfirmDialog
           title="Remove Student"
-          message={`Remove ${deleting.student.student_number} from this exam's roster?`}
+          message={`Remove ${deleting.student.student_name ?? deleting.student.student_number} (${deleting.student.student_number}) from this exam's roster?`}
           onConfirm={confirmRemove}
           onCancel={() => setDeleting(null)}
         />

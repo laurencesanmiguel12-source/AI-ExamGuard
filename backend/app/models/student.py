@@ -79,3 +79,9 @@ class Student(Base, TimestampMixin):
         back_populates="student",
         cascade="all, delete-orphan"
     )
+
+    @property
+    def student_name(self) -> str | None:
+        if self.user is None:
+            return None
+        return f"{self.user.first_name} {self.user.last_name}"

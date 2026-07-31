@@ -7,6 +7,7 @@ class AttemptReport(BaseModel):
     session_id: int
     student_id: int
     student_number: str
+    student_name: str
     started_at: datetime
     submitted_at: datetime | None
     status: str

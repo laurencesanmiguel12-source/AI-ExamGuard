@@ -42,6 +42,7 @@ export default function Students() {
   const courseName = (id) => courses.find((c) => c.id === id)?.code ?? `#${id}`;
 
   const columns = [
+    { key: "student_name", label: "Name", render: (row) => row.student_name ?? `#${row.user_id}` },
     { key: "student_number", label: "Student No." },
     { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
     { key: "course_id", label: "Course", render: (row) => courseName(row.course_id) },
@@ -209,7 +210,7 @@ export default function Students() {
       {deleting && (
         <ConfirmDialog
           title="Delete Student"
-          message={`Delete student "${deleting.student_number}"? This cannot be undone.`}
+          message={`Delete student "${deleting.student_name ?? deleting.student_number}" (${deleting.student_number})? This cannot be undone.`}
           onConfirm={confirmDelete}
           onCancel={() => setDeleting(null)}
         />

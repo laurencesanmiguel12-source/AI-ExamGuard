@@ -152,11 +152,12 @@ export default function InstructorDashboard() {
                   }`}
                 >
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-100 to-red-100 flex items-center justify-center text-foreground font-display font-black text-sm flex-shrink-0 border border-border">
-                    {s.student_number.slice(-2)}
+                    {s.student_name?.[0] ?? "?"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-foreground text-sm font-medium">{s.student_number}</span>
+                      <span className="text-foreground text-sm font-medium">{s.student_name}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">{s.student_number}</span>
                       <RiskPill value={Math.round(s.risk_score)} />
                     </div>
                     <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground truncate">
@@ -202,7 +203,7 @@ export default function InstructorDashboard() {
                   <div className="flex-1">
                     <div className="text-xs text-foreground/80">
                       {VIOLATION_META[e.event_type]?.label ?? e.event_type}
-                      {e.detail ? ` · ${e.detail}` : ""} · {e.student_number}
+                      {e.detail ? ` · ${e.detail}` : ""} · {e.student_name} ({e.student_number})
                     </div>
                     <div className="font-mono text-[10px] text-muted-foreground">
                       {new Date(e.created_at).toLocaleTimeString()}

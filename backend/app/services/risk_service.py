@@ -149,6 +149,7 @@ class RiskService:
                 "session_id": s.id,
                 "student_id": s.student_id,
                 "student_number": s.student.student_number if s.student else f"#{s.student_id}",
+                "student_name": (s.student.student_name if s.student else None) or f"#{s.student_id}",
                 "exam_id": s.exam_id,
                 "exam_title": s.exam.title if s.exam else f"#{s.exam_id}",
                 "started_at": s.started_at,
@@ -164,6 +165,11 @@ class RiskService:
                     sessions_by_id[v.exam_session_id].student.student_number
                     if sessions_by_id[v.exam_session_id].student
                     else f"#{sessions_by_id[v.exam_session_id].student_id}"
+                ),
+                "student_name": (
+                    (sessions_by_id[v.exam_session_id].student.student_name
+                     if sessions_by_id[v.exam_session_id].student else None)
+                    or f"#{sessions_by_id[v.exam_session_id].student_id}"
                 ),
                 "exam_id": sessions_by_id[v.exam_session_id].exam_id,
                 "event_type": v.event_type,
