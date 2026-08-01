@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.choice import ChoiceResponse
+from app.schemas.choice import ChoicePublicResponse, ChoiceResponse
 
 
 class QuestionBase(BaseModel):
@@ -32,3 +32,8 @@ class QuestionResponse(QuestionBase):
 
 class QuestionWithChoicesResponse(QuestionResponse):
     choices: list[ChoiceResponse] = []
+
+
+class QuestionPublicResponse(QuestionResponse):
+    """Answer-key-free version of QuestionWithChoicesResponse - see ChoicePublicResponse."""
+    choices: list[ChoicePublicResponse] = []

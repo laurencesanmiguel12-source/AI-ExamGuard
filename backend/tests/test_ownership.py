@@ -178,3 +178,108 @@ def test_reading_a_nonexistent_session_is_404_not_403(client, make_student, auth
     student = make_student()
     response = client.get("/exam-sessions/999999", headers=auth_headers(student.user))
     assert response.status_code == 404
+
+
+# --- GET /exams/{exam_id}/questions: found while writing this test suite, not from a prior
+# session's history like the vulnerabilities above. ANY authenticated user (no enrollment, no
+# ownership) could pull any exam's questions INCLUDING is_correct on every choice - the answer
+# key, before ever taking the exam. Fixed by scoping to exam ownership (instructor/admin) or real
+# course eligibility (student, via the same ExamService.is_student_eligible check
+# POST /exam-sessions/start already uses), and by stripping is_correct from what an eligible
+# student sees UNLESS they've already submitted that exam - ResultDetail.jsx (the student's own
+# post-exam review page) legitimately needs is_correct at that point, and it can no longer help
+# them cheat on an exam they've already turned in.
+
+def _add_question_with_a_correct_choice(client, headers, exam_id):
+    q = client.post(f"/exams/{exam_id}/questions", headers=headers, json={
+        "question_text": "2 + 2 = ?", "question_type": "MULTIPLE_CHOICE", "points": 10, "order_number": 1,
+    }).json()
+    client.post(f"/exams/{exam_id}/questions/{q['id']}/choices", headers=headers,
+                json={"choice_text": "4", "is_correct": True})
+    client.post(f"/exams/{exam_id}/questions/{q['id']}/choices", headers=headers,
+                json={"choice_text": "5", "is_correct": False})
+    return q["id"]
+
+
+def test_ineligible_student_cannot_view_another_courses_exam_questions(client, make_instructor, make_student, make_exam, make_course, auth_headers):
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor)
+    _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
+
+    outsider = make_student(course=make_course())  # different course than the exam's subject
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(outsider.user))
+
+    assert response.status_code == 403
+
+
+def test_eligible_student_can_view_questions_but_not_yet_the_answer_key(client, make_instructor, make_student, make_exam, auth_headers):
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor)
+    _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
+
+    student = make_student(course=exam.subject.course)
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(student.user))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert len(body[0]["choices"]) == 2
+    for choice in body[0]["choices"]:
+        assert "is_correct" not in choice
+
+
+def test_student_mid_exam_still_does_not_see_the_answer_key(client, db, make_instructor, make_student, make_exam, auth_headers):
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor)
+    _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
+
+    student = make_student(course=exam.subject.course)
+    _start_session(db, student, exam)  # IN_PROGRESS, not SUBMITTED
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(student.user))
+
+    assert response.status_code == 200
+    for choice in response.json()[0]["choices"]:
+        assert "is_correct" not in choice
+
+
+def test_student_who_already_submitted_can_see_the_answer_key_for_review(client, db, make_instructor, make_student, make_exam, auth_headers):
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor)
+    _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
+
+    student = make_student(course=exam.subject.course)
+    session = _start_session(db, student, exam)
+    session.status = "SUBMITTED"
+    db.commit()
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(student.user))
+
+    assert response.status_code == 200
+    choices = response.json()[0]["choices"]
+    assert any(c["is_correct"] is True for c in choices)
+
+
+def test_non_owner_instructor_cannot_view_someone_elses_exam_questions(client, make_instructor, make_exam, auth_headers):
+    owner = make_instructor()
+    other = make_instructor()
+    exam = make_exam(instructor=owner)
+    _add_question_with_a_correct_choice(client, auth_headers(owner.user), exam.id)
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(other.user))
+
+    assert response.status_code == 403
+
+
+def test_owning_instructor_sees_is_correct(client, make_instructor, make_exam, auth_headers):
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor)
+    _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
+
+    response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(instructor.user))
+
+    assert response.status_code == 200
+    choices = response.json()[0]["choices"]
+    assert any(c["is_correct"] is True for c in choices)
