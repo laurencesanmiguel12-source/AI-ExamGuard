@@ -41,6 +41,24 @@ chrome.runtime.onConnectExternal.addListener((port) => {
   });
 });
 
+// Evidence for AI_TOOL_DETECTED/SEARCH_ENGINE_DETECTED - a screenshot of the offending tab at
+// the moment it's detected. captureVisibleTab can only capture whichever tab is currently the
+// ACTIVE tab of its window (there's no way to screenshot a background tab), so this is best-effort:
+// null whenever the matched navigation happened in a tab that wasn't the visible one, or the
+// capture otherwise fails (permission not granted for that host, tab closed mid-capture, etc.) -
+// the violation still gets reported either way, just without a screenshot attached that time.
+async function captureEvidenceScreenshot(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active) return null;
+    // jpeg, not the captureVisibleTab default of png - matches the backend's evidence storage/
+    // serving code, which assumes .jpg/image/jpeg for every violation type's evidence uniformly.
+    return await chrome.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality: 80 });
+  } catch {
+    return null;
+  }
+}
+
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return; // top-frame navigations only
   if (ports.size === 0) return; // no active exam session watching
@@ -48,10 +66,13 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   const match = matchDomain(details.url);
   if (!match) return;
 
-  broadcast({
-    type: "SITE_DETECTED",
-    category: match.category,
-    domain: match.domain,
-    detectedAt: Date.now(),
+  captureEvidenceScreenshot(details.tabId).then((screenshot) => {
+    broadcast({
+      type: "SITE_DETECTED",
+      category: match.category,
+      domain: match.domain,
+      detectedAt: Date.now(),
+      screenshot, // data URL (image/jpeg) or null - see captureEvidenceScreenshot's docstring
+    });
   });
 });

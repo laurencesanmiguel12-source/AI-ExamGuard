@@ -8,9 +8,15 @@ from app.models.exam_session import ExamSession
 from app.models.violation import Violation
 from app.schemas.violation import ViolationCreate
 
-# Only vision-based violation types have a webcam frame available at detection time - behavioral
-# (tab-switch, copy-paste, etc.) and extension-detected events have no visual counterpart to save.
-EVIDENCE_EVENT_TYPES = {"FACE_LOST", "IDENTITY_MISMATCH", "PHONE_DETECTED", "MULTIPLE_PEOPLE"}
+# Vision-based violation types have a webcam frame available at detection time. AI_TOOL_DETECTED/
+# SEARCH_ENGINE_DETECTED get a screenshot of the offending tab instead, captured by the extension
+# itself (see extension/background.js) - genuinely optional, since captureVisibleTab only works
+# when that tab happens to be the active one at the moment of detection. Purely behavioral events
+# (tab-switch, copy-paste, right-click, fullscreen-exit) have no visual counterpart to save at all.
+EVIDENCE_EVENT_TYPES = {
+    "FACE_LOST", "IDENTITY_MISMATCH", "PHONE_DETECTED", "MULTIPLE_PEOPLE",
+    "AI_TOOL_DETECTED", "SEARCH_ENGINE_DETECTED",
+}
 
 STORAGE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),

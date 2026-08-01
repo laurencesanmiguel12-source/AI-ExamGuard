@@ -1,10 +1,11 @@
 import apiClient from "./client";
 
-export async function logViolation(sessionId, eventType, detail) {
-  const response = await apiClient.post(`/exam-sessions/${sessionId}/violations`, {
-    event_type: eventType,
-    ...(detail ? { detail } : {}),
-  });
+export async function logViolation(sessionId, eventType, detail, evidenceBlob) {
+  const form = new FormData();
+  form.append("event_type", eventType);
+  if (detail) form.append("detail", detail);
+  if (evidenceBlob) form.append("evidence", evidenceBlob, "evidence.jpg");
+  const response = await apiClient.post(`/exam-sessions/${sessionId}/violations`, form);
   return response.data;
 }
 

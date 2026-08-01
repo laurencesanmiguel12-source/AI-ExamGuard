@@ -172,3 +172,63 @@ def test_cannot_answer_after_submitting(client, make_instructor, make_student, m
         "choice_id": correct_id,
     })
     assert late_answer.status_code == 400
+
+
+# --- Violation evidence upload (extension screenshot capture, see extension/background.js) ---
+
+def test_ai_tool_violation_with_evidence_is_retrievable(client, make_student, make_exam, auth_headers):
+    exam = make_exam()
+    student = make_student(course=exam.subject.course)
+    headers = auth_headers(student.user)
+    session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
+
+    fake_screenshot = b"\xff\xd8\xff\xe0not a real jpeg but bytes are bytes for this test"
+    response = client.post(
+        f"/exam-sessions/{session_id}/violations",
+        headers=headers,
+        data={"event_type": "AI_TOOL_DETECTED", "detail": "chatgpt.com"},
+        files={"evidence": ("evidence.jpg", fake_screenshot, "image/jpeg")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_evidence"] is True
+
+    evidence = client.get(f"/violations/{body['id']}/evidence", headers=headers)
+    assert evidence.status_code == 200
+    assert evidence.content == fake_screenshot
+
+
+def test_ai_tool_violation_without_evidence_still_logs(client, make_student, make_exam, auth_headers):
+    """The extension can't always capture a screenshot (background tab, permission gap, etc.) -
+    the violation itself must still be logged even when no evidence file is attached."""
+    exam = make_exam()
+    student = make_student(course=exam.subject.course)
+    headers = auth_headers(student.user)
+    session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
+
+    response = client.post(
+        f"/exam-sessions/{session_id}/violations",
+        headers=headers,
+        data={"event_type": "AI_TOOL_DETECTED", "detail": "chatgpt.com"},
+    )
+    assert response.status_code == 200
+    assert response.json()["has_evidence"] is False
+
+
+def test_tab_switch_violation_never_has_evidence_even_if_sent(client, make_student, make_exam, auth_headers):
+    """Purely behavioral events aren't in EVIDENCE_EVENT_TYPES - an evidence file attached to one
+    anyway (shouldn't happen from real clients, but the server shouldn't trust the event_type
+    label alone) is silently ignored, not stored."""
+    exam = make_exam()
+    student = make_student(course=exam.subject.course)
+    headers = auth_headers(student.user)
+    session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
+
+    response = client.post(
+        f"/exam-sessions/{session_id}/violations",
+        headers=headers,
+        data={"event_type": "TAB_SWITCH"},
+        files={"evidence": ("evidence.jpg", b"irrelevant bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json()["has_evidence"] is False

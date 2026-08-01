@@ -37,13 +37,21 @@ export default function useExtensionMonitor(sessionId, active, armed, onDetected
     let port;
     const lastLogged = {};
 
-    function log(eventType, detail) {
+    function log(eventType, detail, screenshotDataUrl) {
       const now = Date.now();
       if (lastLogged[eventType] && now - lastLogged[eventType] < THROTTLE_MS) return;
       lastLogged[eventType] = now;
       onDetected?.(eventType, detail);
       if (armedRef.current) {
-        logViolation(sessionId, eventType, detail).catch(() => {});
+        // screenshotDataUrl is a data: URL straight from the extension's captureVisibleTab (or
+        // null - see background.js) - fetch() against a data: URL is just a synchronous decode,
+        // no network request, the standard way to turn one into a Blob for upload.
+        const evidence = screenshotDataUrl
+          ? fetch(screenshotDataUrl).then((r) => r.blob())
+          : Promise.resolve(null);
+        evidence
+          .then((blob) => logViolation(sessionId, eventType, detail, blob))
+          .catch(() => {});
       }
     }
 
@@ -65,7 +73,7 @@ export default function useExtensionMonitor(sessionId, active, armed, onDetected
       } else if (message.type === "SITE_DETECTED") {
         const eventType =
           message.category === "AI_TOOL" ? "AI_TOOL_DETECTED" : "SEARCH_ENGINE_DETECTED";
-        log(eventType, message.domain);
+        log(eventType, message.domain, message.screenshot);
       }
     });
 

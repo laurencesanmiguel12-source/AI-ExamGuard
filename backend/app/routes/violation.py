@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -54,11 +54,21 @@ def get_live_sessions(
 )
 def log_violation(
     session_id: int,
-    request: ViolationCreate,
+    event_type: str = Form(...),
+    detail: str | None = Form(None),
+    # Optional evidence screenshot - currently only sent by the Tab Monitor extension for
+    # AI_TOOL_DETECTED/SEARCH_ENGINE_DETECTED (see background.js's captureEvidenceScreenshot).
+    # Safe to accept as client-submitted here specifically because detection for these two event
+    # types is itself entirely client-side already (the server has no independent way to know what
+    # other tabs are open) - unlike FACE_LOST/PHONE_DETECTED/etc, where evidence_bytes is deliberately
+    # kept off the client-facing schema because the server does its own independent detection.
+    evidence: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     session: ExamSession = Depends(require_session_owner_student)
 ):
-    return ViolationService.log_violation(session_id, request, db)
+    request = ViolationCreate(event_type=event_type, detail=detail)
+    evidence_bytes = evidence.file.read() if evidence is not None else None
+    return ViolationService.log_violation(session_id, request, db, evidence_bytes=evidence_bytes)
 
 
 @router.get(

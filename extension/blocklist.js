@@ -1,5 +1,10 @@
 // Pure matching logic, no chrome.* dependency - keeps this independently testable
 // (see training/../verify_blocklist.mjs-style scripts) without a browser.
+//
+// Every hostname listed here also needs a matching entry in manifest.json's host_permissions -
+// captureVisibleTab (background.js's evidence-screenshot capture) only works without a user
+// gesture if the extension has host permission for that specific site. JSON can't hold this
+// comment next to the list it's about, so it lives here instead - keep both in sync by hand.
 
 export const BLOCKLIST = [
   { category: "SEARCH_ENGINE", hostnames: ["www.google.com", "google.com"], pathPrefix: "/search" },

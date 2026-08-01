@@ -113,7 +113,7 @@ def test_student_cannot_log_a_violation_on_another_students_session(client, db, 
     response = client.post(
         f"/exam-sessions/{session.id}/violations",
         headers=auth_headers(attacker.user),
-        json={"event_type": "TAB_SWITCH"},
+        data={"event_type": "TAB_SWITCH"},  # Form fields now, not JSON - see routes/violation.py
     )
 
     assert response.status_code == 403
