@@ -10,6 +10,9 @@ dist-ssr/
 backend/storage/
 backend/training/datasets/
 backend/training/runs/
+yolo26n.pt
+backend/training/resume_detached*.log
+backend/training/detached_*.log
 kaggle.json
 extension/keys/
 extension/*.zip
