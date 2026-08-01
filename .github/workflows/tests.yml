@@ -1,0 +1,72 @@
+name: Backend tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ai_examguard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # backend/app/services/face_service.py and object_detection_service.py load real model
+      # files at import time, and app.main imports every router - so even auth/exam-flow tests
+      # transitively need the full ML stack installed and importable, not just FastAPI/SQLAlchemy.
+      # Mirrors backend/Dockerfile's install order exactly (CPU-only torch first, then everything
+      # else with torch/torchvision/the CUDA index stripped out) since that sequence is the one
+      # already proven to avoid opencv-python silently clobbering opencv-contrib-python's cv2.face
+      # module - see the Dockerfile's own comments for the history here.
+      - name: Install system libs cv2 needs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libsm6 libxext6 libxrender1
+
+      - name: Install Python dependencies
+        working-directory: backend
+        run: |
+          pip install --no-cache-dir torch==2.13.0 torchvision==0.28.0 --index-url https://download.pytorch.org/whl/cpu
+          grep -v -E "^(torch(vision)?==|--extra-index-url)" requirements.txt > requirements-ci.txt
+          pip install --no-cache-dir -r requirements-ci.txt
+
+      - name: Verify opencv-contrib-python wasn't clobbered
+        working-directory: backend
+        run: python -c "import cv2; assert hasattr(cv2.face, 'LBPHFaceRecognizer_create'), 'opencv-python clobbered opencv-contrib-python - see Dockerfile comments'"
+
+      - name: Run pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ai_examguard_test
+          SECRET_KEY: ci-only-secret-not-used-anywhere-real
+          ALGORITHM: HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+        run: |
+          # conftest.py reads DATABASE_URL out of backend/.env directly (see its own comment for
+          # why) rather than the environment, to keep local test runs and the dev server pointed
+          # at credentials from the same place - .env doesn't exist in a fresh checkout, so write
+          # one here from the env vars above instead of duplicating them a third time in this file.
+          printf 'DATABASE_URL=%s\nSECRET_KEY=%s\nALGORITHM=%s\nACCESS_TOKEN_EXPIRE_MINUTES=%s\n' \
+            "$DATABASE_URL" "$SECRET_KEY" "$ALGORITHM" "$ACCESS_TOKEN_EXPIRE_MINUTES" > .env
+          pytest --cov=app --cov-report=term-missing

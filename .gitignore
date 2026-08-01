@@ -13,3 +13,6 @@ backend/training/runs/
 kaggle.json
 extension/keys/
 .claude/settings.local.json
+.pytest_cache/
+.coverage
+htmlcov/
