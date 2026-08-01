@@ -13,7 +13,16 @@ Also prints a comparison against the OLD hand-set weights (FACE_LOST=25, PHONE_D
 MULTIPLE_PEOPLE=25, capped at 100, thresholded at 50) evaluated on the same val windows, so the
 improvement (or lack of one) from training is measured, not assumed.
 
+**--final mode** (2026-08-01): fits on ALL 11 subjects' windows instead of the original
+train/(subject09,11)-val split, for the actual production model. This is safe to do now that
+loso_cv_risk_model.py has already given an honest generalization estimate (pooled AUC 0.797, 95% CI
+[0.666, 0.941] - see ai_examguard_thesis_scope_recommendations memory) without needing a permanently
+-reserved val set - the original split only existed to produce a single val number, which LOSO-CV
+does better. --final prints an in-sample fit check only (NOT a real held-out metric - restating that
+loudly so it's never mistaken for one) and points back to the LOSO-CV numbers as the number to cite.
+
 Usage: ../../.venv/Scripts/python.exe train_risk_model.py [--C 1.0]
+       ../../.venv/Scripts/python.exe train_risk_model.py --final   (production fit on all subjects)
 """
 import argparse
 import os
@@ -56,12 +65,39 @@ def report(name, y_true, y_pred, y_proba=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--C", type=float, default=1.0, help="inverse regularization strength")
+    parser.add_argument("--final", action="store_true",
+                         help="fit on all 11 subjects for production, instead of the train/val split")
     args = parser.parse_args()
 
     if not os.path.isfile(FEATURES_CSV):
         raise SystemExit(f"{FEATURES_CSV} not found - run build_risk_training_data.py first.")
 
     df = pd.read_csv(FEATURES_CSV)
+
+    if args.final:
+        print(f"--final: fitting on all {len(df)} windows across {df['subject'].nunique()} subjects "
+              f"({df['label'].mean():.1%} positive)")
+        model = LogisticRegression(C=args.C, class_weight="balanced")
+        model.fit(df[FEATURE_COLUMNS], df["label"])
+
+        # In-sample only - NOT a real held-out metric. The honest generalization estimate is
+        # loso_cv_risk_model.py's pooled AUC (0.797, 95% CI [0.666, 0.941] as of 2026-08-01) -
+        # cite that, not this.
+        in_sample_pred = model.predict(df[FEATURE_COLUMNS])
+        in_sample_proba = model.predict_proba(df[FEATURE_COLUMNS])[:, 1]
+        report("In-sample fit check ONLY - not a held-out metric, see loso_cv_risk_model.py for that",
+               df["label"], in_sample_pred, in_sample_proba)
+
+        print("\nLearned coefficients (log-odds per unit count):")
+        for col, coef in zip(FEATURE_COLUMNS, model.coef_[0]):
+            print(f"  {col}: {coef:+.3f}")
+        print(f"  intercept: {model.intercept_[0]:+.3f}")
+
+        os.makedirs(os.path.dirname(OUT_MODEL), exist_ok=True)
+        joblib.dump(model, OUT_MODEL)
+        print(f"\nModel saved to {OUT_MODEL}")
+        return
+
     train_df = df[df["split"] == "train"]
     val_df = df[df["split"] == "val"]
 
