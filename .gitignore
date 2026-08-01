@@ -12,6 +12,7 @@ backend/training/datasets/
 backend/training/runs/
 kaggle.json
 extension/keys/
+extension/*.zip
 .claude/settings.local.json
 .pytest_cache/
 .coverage
