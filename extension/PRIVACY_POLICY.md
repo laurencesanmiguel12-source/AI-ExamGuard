@@ -52,5 +52,4 @@ session.
 
 ## Contact
 
-Questions about this extension or this policy: [contact email/institution to be filled in before
-publishing - not set here since this project doesn't have a public support address configured yet].
+Questions about this extension or this policy: aueteeap2026@gmail.com

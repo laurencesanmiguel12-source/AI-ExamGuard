@@ -55,8 +55,12 @@ it requires an actual reachable URL, not a pasted document.
 
 ## Screenshots (1280x800 or 640x400, at least one required)
 
-Not generated here - needs a real screenshot of the popup and/or the in-exam detection status row,
-taken from an actual running exam session so it reflects real UI, not a mockup.
+`screenshots/screenshot1.png` - real capture from a live exam session (not a mockup), cropped/
+resized to the required 1280x800 from the original. Shows the exam in progress with the AI
+Monitor panel and Detection Status row (Face Detected / Phone / Tab Focus / Tab Monitor, all OK),
+which is the extension's actual effect visible in context. More screenshots can be added the same
+way (crop to 1.6:1 first, then resize to exactly 1280x800 or 640x400 - stretching without cropping
+distorts the image).
 
 ## Known gotcha before submitting
 
