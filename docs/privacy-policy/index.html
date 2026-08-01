@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-ExamGuard Tab Monitor — Privacy Policy</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #14161a; }
+    a { color: #7fb3ff; }
+    h2 { border-color: #333; }
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+  .updated { color: #767676; font-size: 0.9rem; margin-bottom: 2rem; }
+  h2 { font-size: 1.1rem; margin-top: 2.2rem; border-bottom: 1px solid #e2e2e2; padding-bottom: 0.4rem; }
+  ul { padding-left: 1.3rem; }
+  li { margin-bottom: 0.4rem; }
+  code { background: rgba(127,127,127,0.15); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>AI-ExamGuard Tab Monitor — Privacy Policy</h1>
+<p class="updated">Last updated: August 1, 2026</p>
+
+<p>This policy covers the <strong>AI-ExamGuard Tab Monitor</strong> browser extension only, not
+the AI ExamGuard web application itself.</p>
+
+<h2>What the extension does</h2>
+<p>The extension is inert until it is connected to by an active AI ExamGuard exam page. Once
+connected, for the duration of that exam session, it watches for browser tab navigation to a
+fixed, small list of AI chatbot sites (e.g. ChatGPT, Claude, Gemini, Copilot, Perplexity) and
+search engines (Google, Bing). When a match occurs, it reports:</p>
+<ul>
+  <li>Which site category was visited (AI tool or search engine)</li>
+  <li>The matched domain</li>
+  <li>A timestamp</li>
+  <li>A screenshot of that browser tab, <strong>only</strong> if it happened to be the tab
+    currently visible on screen at the exact moment of detection (the extension has no ability to
+    screenshot a background tab)</li>
+</ul>
+<p>This information is sent only to the specific AI ExamGuard exam page the student is actively
+taking an exam on. The extension verifies the origin of any page connecting to it before accepting
+the connection, so no other website can request this data from the extension.</p>
+
+<h2>What the extension does not do</h2>
+<ul>
+  <li>It does not operate outside of an active, connected AI ExamGuard exam session.</li>
+  <li>It does not read page content, form inputs, keystrokes, or clipboard data on any site.</li>
+  <li>It does not collect general browsing history — only navigation events matching its fixed
+    monitored-site list are ever inspected or reported, and only while an exam session is
+    active.</li>
+  <li>It does not block, close, or modify any tab or page — detection only, no enforcement.</li>
+  <li>It does not sell, share, or transmit any data to any third party. The only network
+    communication it performs is reporting a detection event to the connected AI ExamGuard exam
+    page itself.</li>
+  <li>It does not use analytics, tracking, or advertising of any kind.</li>
+</ul>
+
+<h2>Data retention</h2>
+<p>Detection events and any captured screenshots are stored by the AI ExamGuard application as
+part of the exam session's violation record, subject to AI ExamGuard's own data retention policy
+(evidence is retained for a bounded period and is deletable by an administrator). The extension
+itself stores nothing locally beyond its in-memory connection state for the current browser
+session.</p>
+
+<h2>Permissions</h2>
+<ul>
+  <li><strong>tabs / webNavigation</strong>: required to detect which site a tab has navigated
+    to.</li>
+  <li><strong>Host permissions</strong>, scoped to the specific monitored sites listed above only
+    (not all websites): required to capture an evidence screenshot of one of those tabs at the
+    moment of detection. No permission is requested for, and no data is ever read from, any site
+    outside this fixed list.</li>
+</ul>
+
+<h2>Contact</h2>
+<p>Questions about this extension or this policy: <em>[contact email to be added]</em>.</p>
+
+</body>
+</html>
