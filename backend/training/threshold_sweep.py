@@ -26,7 +26,7 @@ import os
 import cv2
 from ultralytics import YOLO
 
-from eval_common import analyze_frame, load_gt_phone_box
+from eval_common import analyze_frame, load_gt_phone_boxes
 
 HOLDOUT_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "frozen_holdout")
 POSE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "resources", "yolov8n-pose.pt")
@@ -58,12 +58,12 @@ def main():
         label_path = os.path.join(HOLDOUT_DIR, os.path.splitext(fname)[0] + ".txt")
         image = cv2.imread(img_path)
         h, w = image.shape[:2]
-        gt_box = load_gt_phone_box(label_path, w, h)
-        if gt_box is not None:
+        gt_boxes = load_gt_phone_boxes(label_path, w, h)
+        if gt_boxes:
             total_gt += 1
 
-        result = analyze_frame(image, gt_box, phone_model, pose_model, CONF_FLOOR, IOU_THRESH, args.device)
-        frames.append((gt_box is not None, result["max_conf_any"], result["best_match_conf"],
+        result = analyze_frame(image, gt_boxes, phone_model, pose_model, CONF_FLOOR, IOU_THRESH, args.device)
+        frames.append((bool(gt_boxes), result["max_conf_any"], result["best_match_conf"],
                        result["fallback_hit"], result["fallback_matched_gt"]))
 
     thresholds = sorted(set([round(t * 0.05, 2) for t in range(1, 20)] + [CURRENT_PRODUCTION_THRESHOLD]))

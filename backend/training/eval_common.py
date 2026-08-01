@@ -37,17 +37,32 @@ HAND_CROP_SIZE = 320  # keep in sync with object_detection_service.py - see its 
 HAND_REGION_PHONE_THRESHOLD = 0.20
 
 
-def load_gt_phone_box(label_path, w, h):
+def load_gt_phone_boxes(label_path, w, h):
+    """Returns ALL phone-class boxes in the frame, not just the first. A frame can legitimately
+    carry more than one (e.g. subject01/06/24's multi-box frames, where a residual bogus
+    eye-tracker-device box was deliberately left alongside the real phone box rather than
+    surgically split out - see ai_examguard_fairness_audit_findings memory, 2026-08-01 update).
+    Taking only the first box here silently compares predictions against whichever box happens to
+    be listed first, which is sometimes the bogus one - this found and fully explained subject06's
+    apparent recall gap, which was actually a broken eval, not a broken model."""
     if not os.path.exists(label_path):
-        return None
+        return []
+    boxes = []
     with open(label_path) as f:
         for line in f:
             parts = line.split()
-            if int(parts[0]) != PHONE_SPECIALIST_CLASS:
+            if not parts or int(parts[0]) != PHONE_SPECIALIST_CLASS:
                 continue
             cx, cy, bw, bh = (float(v) for v in parts[1:5])
-            return ((cx - bw / 2) * w, (cy - bh / 2) * h, (cx + bw / 2) * w, (cy + bh / 2) * h)
-    return None
+            boxes.append(((cx - bw / 2) * w, (cy - bh / 2) * h, (cx + bw / 2) * w, (cy + bh / 2) * h))
+    return boxes
+
+
+def load_gt_phone_box(label_path, w, h):
+    """Back-compat single-box accessor - returns the first box only. Prefer load_gt_phone_boxes
+    for anything that computes IoU/localization, since a frame can have more than one real box."""
+    boxes = load_gt_phone_boxes(label_path, w, h)
+    return boxes[0] if boxes else None
 
 
 def iou(a, b):
@@ -83,9 +98,13 @@ def _hand_crop(image, x, y):
     return image[y1:y2, x1:x2], (x1, y1)
 
 
-def analyze_frame(image, gt_box, phone_model, pose_model, conf_floor, iou_thresh, device="cpu"):
-    """Returns dict: max_conf_any, best_match_conf (or None), fallback_hit (bool),
-    fallback_matched_gt (bool or None - only meaningful if fallback_hit and gt_box is not None)."""
+def analyze_frame(image, gt_boxes, phone_model, pose_model, conf_floor, iou_thresh, device="cpu"):
+    """gt_boxes: a list of ground-truth phone boxes (usually 0 or 1, but can be more - see
+    load_gt_phone_boxes' docstring for why more than one is real and matching against only the
+    first one silently breaks localization scoring on those frames).
+
+    Returns dict: max_conf_any, best_match_conf (or None), fallback_hit (bool),
+    fallback_matched_gt (bool or None - only meaningful if fallback_hit and gt_boxes is non-empty)."""
     h, w = image.shape[:2]
 
     result = phone_model.predict(image, verbose=False, conf=conf_floor, device=device)[0]
@@ -95,8 +114,8 @@ def analyze_frame(image, gt_box, phone_model, pose_model, conf_floor, iou_thresh
     ]
     max_conf_any = max((c for c, _ in preds), default=0.0)
     best_match_conf = None
-    if gt_box is not None and preds:
-        matching = [c for c, box in preds if iou(gt_box, box) >= iou_thresh]
+    if gt_boxes and preds:
+        matching = [c for c, box in preds for gt_box in gt_boxes if iou(gt_box, box) >= iou_thresh]
         if matching:
             best_match_conf = max(matching)
 
@@ -116,11 +135,11 @@ def analyze_frame(image, gt_box, phone_model, pose_model, conf_floor, iou_thresh
         ]
         if crop_boxes:
             fallback_hit = True
-            if gt_box is not None:
+            if gt_boxes:
                 ox, oy = origin
                 for cb in crop_boxes:
                     full_box = (cb[0] + ox, cb[1] + oy, cb[2] + ox, cb[3] + oy)
-                    if iou(gt_box, full_box) >= iou_thresh:
+                    if any(iou(gt_box, full_box) >= iou_thresh for gt_box in gt_boxes):
                         fallback_matched_gt = True
                 if fallback_matched_gt is None:
                     fallback_matched_gt = False

@@ -27,7 +27,7 @@ import os
 import cv2
 from ultralytics import YOLO
 
-from eval_common import analyze_frame, load_gt_phone_box
+from eval_common import analyze_frame, load_gt_phone_boxes
 
 HOLDOUT_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "frozen_holdout")
 POSE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "resources", "yolov8n-pose.pt")
@@ -61,12 +61,12 @@ def main():
         label_path = os.path.join(HOLDOUT_DIR, os.path.splitext(fname)[0] + ".txt")
         image = cv2.imread(img_path)
         h, w = image.shape[:2]
-        gt_box = load_gt_phone_box(label_path, w, h)
-        has_gt = gt_box is not None
+        gt_boxes = load_gt_phone_boxes(label_path, w, h)
+        has_gt = bool(gt_boxes)
         if has_gt:
             total_gt += 1
 
-        r = analyze_frame(image, gt_box, phone_model, pose_model, PHONE_SPECIALIST_CONFIDENCE_THRESHOLD,
+        r = analyze_frame(image, gt_boxes, phone_model, pose_model, PHONE_SPECIALIST_CONFIDENCE_THRESHOLD,
                            args.iou_thresh, args.device)
         presence_hit = (r["max_conf_any"] >= PHONE_SPECIALIST_CONFIDENCE_THRESHOLD) or r["fallback_hit"]
         localized_hit = (
