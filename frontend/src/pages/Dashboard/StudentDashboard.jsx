@@ -119,7 +119,12 @@ export default function StudentDashboard() {
               {!loading && !errored && exams.length === 0 && (
                 <div className="px-6 py-6 text-sm text-muted-foreground">No exams available yet.</div>
               )}
-              {exams.map((e) => (
+              {exams.map((e) => {
+                // Every exam is proctored by default (no per-exam opt-out) - the only way to
+                // skip face enrollment is the student-level accommodation flag. Backend enforces
+                // this too (exam_session_service.start_exam) - this is UX, not the real gate.
+                const needsEnrollment = !!me && !me.skip_face_check && !me.face_model_path;
+                return (
                 <div key={e.id} className="px-6 py-4 flex items-center gap-4 hover:bg-secondary/50 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
                     <BookOpen className="w-5 h-5 text-blue-500" />
@@ -144,16 +149,25 @@ export default function StudentDashboard() {
                       <span>·</span>
                       <span>{e.total_points} pts</span>
                     </div>
+                    {needsEnrollment && (
+                      <div className="text-[10px] font-mono text-amber-600 mt-1">
+                        Face enrollment required before starting
+                      </div>
+                    )}
                   </div>
                   <button
-                    onClick={() => navigate(`/take-exam/${e.id}`)}
+                    onClick={() =>
+                      needsEnrollment ? navigate("/face-enrollment") : navigate(`/take-exam/${e.id}`)
+                    }
                     disabled={!e.is_active}
+                    title={needsEnrollment ? "Enroll your face before starting a proctored exam" : undefined}
                     className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-[11px] font-mono uppercase tracking-wider px-3 py-2 rounded-lg transition-colors"
                   >
-                    Start <ArrowRight className="w-3 h-3" />
+                    {needsEnrollment ? "Enroll First" : "Start"} <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
 

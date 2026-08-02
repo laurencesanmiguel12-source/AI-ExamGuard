@@ -52,6 +52,10 @@ export default function ExamRoom() {
   const [lastTabSwitchAt, setLastTabSwitchAt] = useState(0);
   const [faceDetected, setFaceDetected] = useState(true);
   const [identityMatch, setIdentityMatch] = useState(true);
+  // Distinguishes "not enrolled" (backend intentionally returns face_detected: null and skips
+  // detection entirely) from a real check result - without this, an unenrolled student's row
+  // silently keeps the useState(true) default forever, showing a false "OK".
+  const [faceCheckUnavailable, setFaceCheckUnavailable] = useState(false);
   const [phoneDetected, setPhoneDetected] = useState(false);
   const [extensionAlert, setExtensionAlert] = useState(null);
 
@@ -204,9 +208,16 @@ export default function ExamRoom() {
 
         if (needsFaceCheck) {
           const faceResult = await checkFace(session.id, blob, currentQuestionRef.current).catch(() => null);
-          if (!cancelled && faceResult?.face_detected !== null && faceResult?.face_detected !== undefined) {
-            setFaceDetected(faceResult.face_detected);
-            setIdentityMatch(faceResult.identity_match !== false);
+          if (!cancelled && faceResult) {
+            if (faceResult.face_detected === null || faceResult.face_detected === undefined) {
+              // Backend skipped the check entirely - not accommodated (needsFaceCheck is true),
+              // so this means no enrolled face model exists yet.
+              setFaceCheckUnavailable(true);
+            } else {
+              setFaceCheckUnavailable(false);
+              setFaceDetected(faceResult.face_detected);
+              setIdentityMatch(faceResult.identity_match !== false);
+            }
           }
         }
 
@@ -597,11 +608,13 @@ export default function ExamRoom() {
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
                 needsFaceCheck
-                  ? {
-                      label: "Face Detected",
-                      ok: faceDetected && identityMatch,
-                      alertLabel: !faceDetected ? "NO FACE" : "MISMATCH",
-                    }
+                  ? faceCheckUnavailable
+                    ? { label: "Face Detected", ok: false, alertLabel: "NOT ENROLLED" }
+                    : {
+                        label: "Face Detected",
+                        ok: faceDetected && identityMatch,
+                        alertLabel: !faceDetected ? "NO FACE" : "MISMATCH",
+                      }
                   : { label: "Face Detected", ok: true, alertLabel: "ALERT", accommodation: true },
                 needsObjectCheck
                   ? { label: "Phone", ok: !phoneDetected, alertLabel: "ALERT" }

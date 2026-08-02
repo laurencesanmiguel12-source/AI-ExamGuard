@@ -47,6 +47,12 @@ class ExamSessionService:
                 detail="This exam is not available for your course."
             )
 
+        if not student.skip_face_check and student.face_model_path is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Face enrollment is required before starting a proctored exam."
+            )
+
         existing_session = (
             db.query(ExamSession)
             .filter(
