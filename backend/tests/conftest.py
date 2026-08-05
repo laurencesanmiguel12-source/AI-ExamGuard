@@ -197,7 +197,14 @@ def make_student(db, make_user, make_course):
         n = counter["n"]
         user = overrides.pop("user", None) or make_user("student")
         course = overrides.pop("course", None) or make_course()
-        defaults = dict(student_number=f"2026-{n:04d}", user_id=user.id, course_id=course.id)
+        # skip_face_check=True by default - these fixtures build students for exam-flow tests,
+        # not face-enrollment tests, and exam start now requires either an enrolled face model
+        # or this flag (see ExamSessionService.start_exam) - override explicitly for tests that
+        # exercise the enrollment gate itself.
+        defaults = dict(
+            student_number=f"2026-{n:04d}", user_id=user.id, course_id=course.id,
+            skip_face_check=True,
+        )
         defaults.update(overrides)
         student = Student(**defaults)
         db.add(student)
