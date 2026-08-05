@@ -57,6 +57,7 @@ export default function ExamRoom() {
   // silently keeps the useState(true) default forever, showing a false "OK".
   const [faceCheckUnavailable, setFaceCheckUnavailable] = useState(false);
   const [phoneDetected, setPhoneDetected] = useState(false);
+  const [multiplePeople, setMultiplePeople] = useState(false);
   const [extensionAlert, setExtensionAlert] = useState(null);
 
   // Read via a ref (not `current`/`questions` directly) inside checkOnce below, since that
@@ -225,6 +226,7 @@ export default function ExamRoom() {
           const objectResult = await checkObjects(session.id, blob).catch(() => null);
           if (!cancelled && objectResult) {
             setPhoneDetected(objectResult.phone_detected);
+            setMultiplePeople(objectResult.person_count > 1);
           }
         }
       } catch {
@@ -607,15 +609,18 @@ export default function ExamRoom() {
             <Card className="p-4 space-y-2.5">
               <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Detection Status</div>
               {[
-                needsFaceCheck
-                  ? faceCheckUnavailable
-                    ? { label: "Face Detected", ok: false, alertLabel: "NOT ENROLLED" }
-                    : {
-                        label: "Face Detected",
-                        ok: faceDetected && identityMatch,
-                        alertLabel: !faceDetected ? "NO FACE" : "MISMATCH",
-                      }
-                  : { label: "Face Detected", ok: true, alertLabel: "ALERT", accommodation: true },
+                needsFaceCheck && faceCheckUnavailable
+                  ? { label: "Face Verification", ok: false, alertLabel: "NOT ENROLLED" }
+                  : {
+                      label: "Face Verification",
+                      ok: (!needsFaceCheck || (faceDetected && identityMatch)) && (!needsObjectCheck || !multiplePeople),
+                      alertLabel: needsFaceCheck && !faceDetected
+                        ? "NO FACE"
+                        : needsFaceCheck && !identityMatch
+                          ? "MISMATCH"
+                          : "MULTIPLE PEOPLE",
+                      accommodation: !needsFaceCheck && !needsObjectCheck,
+                    },
                 needsObjectCheck
                   ? { label: "Phone", ok: !phoneDetected, alertLabel: "ALERT" }
                   : { label: "Phone", ok: true, alertLabel: "ALERT", accommodation: true },

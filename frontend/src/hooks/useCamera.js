@@ -12,7 +12,12 @@ export default function useCamera(active) {
 
     async function start() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Browsers default to ~640x480 with no constraints - too low-res for YOLO to confidently
+        // detect a second, partially-framed person. Requesting 720p as an "ideal" degrades
+        // gracefully on hardware that can't do it.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;

@@ -172,25 +172,40 @@ _NOSE_KPT = 0
 _HEAD_PRESENCE_CONFIDENCE_THRESHOLD = 0.10
 
 
-def _head_present_via_pose_fallback(image) -> bool:
-    """Fallback for when YuNet finds no face at all: distinguishes "no one's there" (a real
-    FACE_LOST) from "a head is present but angled down enough that YuNet lost its facial
-    landmarks." Confirmed as a real failure mode in a 2026-07-31 live smoke-test - a natural
-    head-down tilt made YuNet lose the face entirely, well before pitch could ever cross
-    HEAD_DOWN_PITCH_THRESHOLD_DEGREES, making the feature nearly untriggerable by the exact
-    behavior it exists to catch. The pose model is far more tolerant of a tilted/foreshortened
-    head than a face-landmark detector, so a visible nose keypoint here is a reasonable "someone's
-    head is in frame" signal even when YuNet can't say anything about its angle."""
+def _pose_fallback_signals(image) -> tuple[bool, float]:
+    """Fallback for when YuNet finds no face at all. Runs the pose model once and returns two
+    *different* signals, because one variable can't safely serve both jobs (tried that, it
+    doesn't work - a genuinely bowed head gives a low nose-keypoint confidence for the same
+    reason a truly empty scene does: the nose keypoint itself is foreshortened/occluded by the
+    downward tilt, so it's not a reliable stand-in for "is anyone here").
+
+    person_present: whether the pose model detected a person box AT ALL, independent of any
+    single keypoint's confidence. A student who's just looking down still has a clear torso/
+    shoulders square to the camera, so the box detection stays strong even when the nose
+    keypoint itself doesn't. This is the signal safe to gate FACE_LOST on - a truly empty scene
+    has no person box.
+
+    nose_confidence: highest nose-keypoint confidence across detected people, or 0.0 if none.
+    Empirically validated 2026-07-31 (backend/training/analyze_pose_fallback_threshold.py)
+    against the 290 real frames where YuNet actually fails (using annotation_batch's
+    human-labeled "face" class as ground truth, restricted to that YuNet-failed subset - the
+    only place this fallback ever runs in production): 268/290 genuinely had a person YuNet just
+    missed, only 22 were truly empty. At 0.10 (_HEAD_PRESENCE_CONFIDENCE_THRESHOLD), recall =
+    1.000 (never misses a real head - the safety-critical property, since a miss here causes a
+    false negative on the head-down streak) with precision = 0.944. This is deliberately only
+    used to decide whether to keep crediting an *existing* head-down streak, never FACE_LOST -
+    see the person_present signal above for why."""
     pose_results = _POSE_MODEL.predict(image, verbose=False)[0]
-    if pose_results.keypoints is None:
-        return False
 
-    for person_kpts in pose_results.keypoints.data:
-        _, _, confidence = person_kpts[_NOSE_KPT].tolist()
-        if confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD:
-            return True
+    person_present = pose_results.boxes is not None and len(pose_results.boxes) > 0
 
-    return False
+    nose_confidence = 0.0
+    if pose_results.keypoints is not None:
+        for person_kpts in pose_results.keypoints.data:
+            _, _, confidence = person_kpts[_NOSE_KPT].tolist()
+            nose_confidence = max(nose_confidence, confidence)
+
+    return person_present, nose_confidence
 
 
 # Empirically checked 2026-07-31 against 2221 human-labeled real frames (phone-present vs.
@@ -404,10 +419,12 @@ class FaceService:
         # lose facial landmarks entirely, well before pitch would cross the down threshold - so
         # treating "no face landmarks" as automatically "no head" made this feature nearly
         # untriggerable by the exact behavior it exists to catch. See
-        # _head_present_via_pose_fallback's docstring.
-        head_present_via_fallback = (
-            detection is None and image is not None and _head_present_via_pose_fallback(image)
+        # _pose_fallback_signals's docstring for why this needs two separate signals, not one.
+        person_present, fallback_confidence = (
+            _pose_fallback_signals(image) if detection is None and image is not None
+            else (False, 0.0)
         )
+        head_present_via_fallback = fallback_confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD
 
         head_down_duration, should_log_head_down = _track_head_down(
             session, pose, head_present_via_fallback
@@ -435,9 +452,12 @@ class FaceService:
         crop = _crop_from_detection(image, detection) if detection is not None else None
 
         if crop is None:
-            # Only a real FACE_LOST if the pose fallback didn't find a head either - otherwise
-            # this poll already fed the head-down streak above instead.
-            if not head_present_via_fallback:
+            # Gated on person_present (any pose-model person box), not fallback_confidence (a
+            # single keypoint's confidence) - a real head-down poll can have a low nose-keypoint
+            # confidence for the same reason an empty scene does, so that signal can't tell the
+            # two apart. The box detection can: a bowed head still has a clear torso/shoulders in
+            # frame.
+            if not person_present:
                 ViolationService.log_violation(
                     session_id,
                     ViolationCreate(event_type="FACE_LOST"),

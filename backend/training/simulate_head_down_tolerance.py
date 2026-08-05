@@ -68,9 +68,10 @@ def get_is_down_series(subject: str, pitch_threshold: float):
         image = cv2.imread(jpg_path)
         detection = face_service._detect_largest_face(image)
         pose = face_service._estimate_head_pose(image, detection) if detection is not None else None
-        fallback = (
-            face_service._head_present_via_pose_fallback(image) if detection is None else False
-        )
+        fallback = False
+        if detection is None:
+            _, nose_confidence = face_service._pose_fallback_signals(image)
+            fallback = nose_confidence >= face_service._HEAD_PRESENCE_CONFIDENCE_THRESHOLD
         is_down = face_service._is_head_down(pose, fallback)
         series.append((t, present, is_down))
     return series

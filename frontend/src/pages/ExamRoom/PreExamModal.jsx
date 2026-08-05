@@ -66,7 +66,7 @@ const EXAM_RULES = [
     bg: "#f0fdfa",
     border: "#99f6e4",
     title: "Prolonged Downward Gaze Monitored",
-    desc: "If your head stays angled down for an extended period — longer than a normal glance while typing — it's flagged for instructor review. This isn't eye-tracking — it's a coarse signal meant to catch phones held out of camera view, and it's always human-reviewed and appealable, not an automatic penalty.",
+    desc: "If your head stays angled down for an extended period — longer than a normal glance while typing — it's flagged for instructor review, along with the question you were on at the time. This isn't eye-tracking — it's a coarse signal meant to catch phones held out of camera view, and it's always human-reviewed and appealable, not an automatic penalty.",
   },
 ];
 

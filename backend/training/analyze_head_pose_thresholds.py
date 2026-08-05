@@ -1,6 +1,6 @@
 """Empirical threshold analysis for the PROLONGED_HEAD_DOWN feature (see
 ai_examguard_gaze_monitoring_feasibility memory). Runs the real production head-pose pipeline
-(face_service._detect_largest_face / _estimate_head_pose / _head_present_via_pose_fallback)
+(face_service._detect_largest_face / _estimate_head_pose / _pose_fallback_signals)
 against annotation_batch's 2222 human-labeled frames (phone-present vs phone-absent), using
 phone-present as a real-world proxy for "student is looking down, possibly at a phone."
 
@@ -25,7 +25,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.services.face_service import (  # noqa: E402
     _detect_largest_face,
     _estimate_head_pose,
-    _head_present_via_pose_fallback,
+    _pose_fallback_signals,
+    _HEAD_PRESENCE_CONFIDENCE_THRESHOLD,
 )
 
 BATCH_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "annotation_batch")
@@ -64,7 +65,8 @@ def main():
 
         fallback = None
         if detection is None:
-            fallback = _head_present_via_pose_fallback(image)
+            _, nose_confidence = _pose_fallback_signals(image)
+            fallback = nose_confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD
 
         rows.append({
             "file": os.path.basename(jpg_path),

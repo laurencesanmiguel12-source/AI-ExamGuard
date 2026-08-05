@@ -171,6 +171,22 @@ export default function ViolationsPanel({ violations, mode, onAppealed, onReview
               </span>
             </div>
 
+            {v.question_text && (
+              <div className="mt-1.5 rounded-lg border border-border bg-background/60 px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                    Question at time of flag
+                  </span>
+                  {v.question_type && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wider">
+                      {v.question_type}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[12px] text-foreground/80 line-clamp-2">{v.question_text}</p>
+              </div>
+            )}
+
             {v.appeal_status && (
               <div className="mt-1.5 space-y-1">
                 <span

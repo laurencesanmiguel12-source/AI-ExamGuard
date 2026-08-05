@@ -22,7 +22,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.services.face_service import (  # noqa: E402
     _detect_largest_face,
     _estimate_head_pose,
-    _head_present_via_pose_fallback,
+    _pose_fallback_signals,
+    _HEAD_PRESENCE_CONFIDENCE_THRESHOLD,
 )
 
 BATCH_DIR = os.path.join(os.path.dirname(__file__), "datasets", "oep-msu", "annotation_batch")
@@ -101,7 +102,8 @@ def main(pitch_threshold: float):
                     if pose["pitch"] <= pitch_threshold:
                         down_count += 1
             else:
-                if _head_present_via_pose_fallback(image):
+                _, nose_confidence = _pose_fallback_signals(image)
+                if nose_confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD:
                     fallback_count += 1
 
         print(f"  Detector: {total_with_signal} frames had a numeric pose "
