@@ -13,6 +13,10 @@ class ExamSessionUpdate(BaseModel):
     submitted_at: datetime | None = None
 
 
+class RetakeReviewRequest(BaseModel):
+    decision: str  # "GRANT" or "DENY"
+
+
 class ExamSessionResponse(BaseModel):
     id: int
     student_id: int

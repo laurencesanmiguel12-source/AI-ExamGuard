@@ -6,6 +6,7 @@ import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
 import { getExamReport } from "../../api/reports";
 import { getSessionViolations } from "../../api/violations";
+import { reviewRetake } from "../../api/examSessions";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 import { SelectField } from "../../components/ui/FormField";
@@ -25,6 +26,47 @@ const BUCKETS = [
 
 function accuracyColor(accuracy) {
   return accuracy >= 75 ? "#10b981" : accuracy >= 50 ? "#f97316" : "#ef4444";
+}
+
+const STATUS_STYLE = {
+  SUBMITTED: "text-blue-700 border-blue-200 bg-blue-50",
+  IN_PROGRESS: "text-orange-700 border-orange-200 bg-orange-50",
+  FLAGGED_RETAKE: "text-red-700 border-red-200 bg-red-50",
+  RETAKE_GRANTED: "text-emerald-700 border-emerald-200 bg-emerald-50",
+  RETAKE_DENIED: "text-red-700 border-red-200 bg-red-50",
+};
+
+function RetakeReviewButtons({ sessionId, onDecided }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  async function decide(decision) {
+    setSubmitting(true);
+    try {
+      const updated = await reviewRetake(sessionId, decision);
+      onDecided(updated);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        disabled={submitting}
+        onClick={() => decide("GRANT")}
+        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
+      >
+        Grant Retake
+      </button>
+      <button
+        disabled={submitting}
+        onClick={() => decide("DENY")}
+        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
+      >
+        Deny
+      </button>
+    </div>
+  );
 }
 
 export default function Reports() {
@@ -95,6 +137,15 @@ export default function Reports() {
     setViolationsBySession((v) => ({
       ...v,
       [sessionId]: v[sessionId].map((x) => (x.id === updated.id ? updated : x)),
+    }));
+  }
+
+  function handleRetakeDecided(updatedSession) {
+    setReport((r) => ({
+      ...r,
+      attempts: r.attempts.map((a) =>
+        a.session_id === updatedSession.id ? { ...a, status: updatedSession.status } : a
+      ),
     }));
   }
 
@@ -274,14 +325,15 @@ export default function Reports() {
                     </span>
                     <span
                       className={`text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wider ${
-                        a.status === "SUBMITTED"
-                          ? "text-blue-700 border-blue-200 bg-blue-50"
-                          : "text-orange-700 border-orange-200 bg-orange-50"
+                        STATUS_STYLE[a.status] ?? "text-orange-700 border-orange-200 bg-orange-50"
                       }`}
                     >
-                      {a.status}
+                      {a.status.replace("_", " ")}
                     </span>
-                    {a.status === "SUBMITTED" && (
+                    {a.status === "FLAGGED_RETAKE" && (
+                      <RetakeReviewButtons sessionId={a.session_id} onDecided={handleRetakeDecided} />
+                    )}
+                    {a.status !== "IN_PROGRESS" && (
                       <>
                         <span className="font-mono text-xs text-foreground/80 w-20 text-right">
                           {a.score}/{report.total_points} pts

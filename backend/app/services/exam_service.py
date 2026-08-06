@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.exam import Exam
 from app.models.exam_roster import ExamRoster
 from app.models.instructor import Instructor
+from app.models.instructor_subject import InstructorSubject
 from app.models.student import Student
 from app.models.subject import Subject
 from app.models.user import User
@@ -11,6 +12,22 @@ from app.schemas.exam import ExamCreate, ExamUpdate
 
 
 class ExamService:
+
+    @staticmethod
+    def _require_subject_assignment(instructor_id: int, subject_id: int, db: Session) -> None:
+        assigned = (
+            db.query(InstructorSubject)
+            .filter(
+                InstructorSubject.instructor_id == instructor_id,
+                InstructorSubject.subject_id == subject_id,
+            )
+            .first()
+        )
+        if assigned is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Instructor is not assigned to this subject."
+            )
 
     @staticmethod
     def is_student_eligible(student: Student, exam: Exam, db: Session) -> bool:
@@ -105,6 +122,8 @@ class ExamService:
                 detail="Subject not found."
             )
 
+        ExamService._require_subject_assignment(instructor.id, subject.id, db)
+
         # instructor_id is always the caller's own instructor record, never taken from the
         # request body - see backend/app/auth/instructor_context.py's get_current_instructor.
         exam_data = request.model_dump(exclude={"instructor_id"})
@@ -122,6 +141,9 @@ class ExamService:
         exam = ExamService.get_by_id(exam_id, db)
 
         update_data = request.model_dump(exclude_unset=True)
+
+        if "subject_id" in update_data and update_data["subject_id"] != exam.subject_id:
+            ExamService._require_subject_assignment(exam.instructor_id, update_data["subject_id"], db)
 
         for key, value in update_data.items():
             setattr(exam, key, value)

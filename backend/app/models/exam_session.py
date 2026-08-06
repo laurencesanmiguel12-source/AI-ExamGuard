@@ -5,6 +5,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+# Every terminal status submit_exam can leave a session in - not just "SUBMITTED" literally.
+# FLAGGED_RETAKE/RETAKE_GRANTED/RETAKE_DENIED are still a real, scored, completed attempt (risk
+# flagging is a separate axis from the academic result - see ExamSessionService.submit_exam), so
+# anywhere that means "this student actually finished and got graded" should check this set, not
+# just the "SUBMITTED" literal (report_service.py's stats, exam_content.py's answer-key reveal).
+GRADED_STATUSES = {"SUBMITTED", "FLAGGED_RETAKE", "RETAKE_GRANTED", "RETAKE_DENIED"}
+
 
 class ExamSession(Base, TimestampMixin):
     __tablename__ = "exam_sessions"

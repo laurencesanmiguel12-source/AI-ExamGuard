@@ -14,10 +14,13 @@ were reintroduced, the fix would silently disappear again without a test failing
 from datetime import datetime, timedelta, timezone
 
 
-def test_creating_an_exam_ignores_a_spoofed_instructor_id(client, make_instructor, make_subject, auth_headers):
+def test_creating_an_exam_ignores_a_spoofed_instructor_id(
+    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+):
     real_instructor = make_instructor()
     other_instructor = make_instructor()
     subject = make_subject()
+    make_instructor_subject(real_instructor, subject)
 
     response = client.post("/exams/", headers=auth_headers(real_instructor.user), json={
         "title": "Spoof Attempt",

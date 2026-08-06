@@ -10,8 +10,12 @@ import { TextField, SelectField, CheckboxField } from "../../components/ui/FormF
 
 const EMPTY_FORM = {
   student_number: "",
-  user_id: "",
   course_id: "",
+  username: "",
+  email: "",
+  password: "",
+  first_name: "",
+  last_name: "",
   accommodation_notes: "",
   skip_face_check: false,
   skip_object_check: false,
@@ -68,8 +72,8 @@ export default function Students() {
 
   function openEdit(student) {
     setForm({
+      ...EMPTY_FORM,
       student_number: student.student_number,
-      user_id: student.user_id,
       course_id: student.course_id,
       accommodation_notes: student.accommodation_notes ?? "",
       skip_face_check: student.skip_face_check ?? false,
@@ -83,22 +87,32 @@ export default function Students() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
-    const payload = {
-      ...form,
-      user_id: Number(form.user_id),
-      course_id: Number(form.course_id),
-      extra_time_minutes: Number(form.extra_time_minutes) || 0,
-    };
     try {
       if (editing.id) {
+        const payload = {
+          student_number: form.student_number,
+          course_id: Number(form.course_id),
+          accommodation_notes: form.accommodation_notes,
+          skip_face_check: form.skip_face_check,
+          skip_object_check: form.skip_object_check,
+          extra_time_minutes: Number(form.extra_time_minutes) || 0,
+        };
         await updateStudent(editing.id, payload);
       } else {
+        const payload = {
+          course_id: Number(form.course_id),
+          username: form.username,
+          email: form.email,
+          password: form.password,
+          first_name: form.first_name,
+          last_name: form.last_name,
+        };
         await createStudent(payload);
       }
       setEditing(null);
       refresh();
-    } catch {
-      setError("Couldn't save this student. Check that the User ID exists and isn't already linked.");
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Couldn't save this student.");
     }
   }
 
@@ -134,26 +148,52 @@ export default function Students() {
         <Modal title={editing.id ? "Edit Student" : "Add Student"} onClose={() => setEditing(null)}>
           <form onSubmit={handleSubmit}>
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
-            <p className="text-xs text-muted-foreground mb-4">
-              This links an existing user account to a student record. Register the account first
-              (e.g. via <code>/auth/register</code>) and enter its numeric User ID below — there's no
-              user directory to pick from yet.
-            </p>
-            <TextField
-              label="Student Number"
-              required
-              value={form.student_number}
-              onChange={(e) => setForm({ ...form, student_number: e.target.value })}
-              placeholder="AU-2025-001"
-            />
-            <TextField
-              label="User ID"
-              type="number"
-              required
-              value={form.user_id}
-              onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-              placeholder="7"
-            />
+            {editing.id ? (
+              <TextField
+                label="Student Number"
+                required
+                value={form.student_number}
+                onChange={(e) => setForm({ ...form, student_number: e.target.value })}
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="First Name"
+                    required
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                  />
+                  <TextField
+                    label="Last Name"
+                    required
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                  />
+                </div>
+                <TextField
+                  label="Username"
+                  required
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                />
+                <TextField
+                  label="Email Address"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+              </>
+            )}
             <SelectField
               label="Course"
               required

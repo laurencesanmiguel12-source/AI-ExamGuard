@@ -3,6 +3,7 @@ import os
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.service import AuthService
 from app.models.course import Course
 from app.models.student import Student
 from app.models.user import User
@@ -35,32 +36,6 @@ class StudentService:
     @staticmethod
     def create(request: StudentCreate, db: Session):
 
-        existing_student = (
-            db.query(Student)
-            .filter(
-                Student.student_number == request.student_number
-            )
-            .first()
-        )
-
-        if existing_student:
-            raise HTTPException(
-                status_code=400,
-                detail="Student number already exists."
-            )
-
-        user = (
-            db.query(User)
-            .filter(User.id == request.user_id)
-            .first()
-        )
-
-        if user is None:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found."
-            )
-
         course = (
             db.query(Course)
             .filter(Course.id == request.course_id)
@@ -73,15 +48,16 @@ class StudentService:
                 detail="Course not found."
             )
 
-        if user.student is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="User already has a student profile."
-            )
+        user = AuthService.create_user_account(
+            request.username, request.email, request.password,
+            request.first_name, request.last_name, "student", db,
+        )
 
+        # Same generation scheme as public self-registration (AuthService.register) - user IDs
+        # are already unique/sequential, so this can't collide without a counter table.
         student = Student(
-            student_number=request.student_number,
-            user_id=request.user_id,
+            student_number=f"STU{user.id:05d}",
+            user_id=user.id,
             course_id=request.course_id
         )
 

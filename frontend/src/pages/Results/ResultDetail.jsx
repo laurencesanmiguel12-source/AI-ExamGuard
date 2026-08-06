@@ -117,6 +117,23 @@ export default function ResultDetail() {
         </Card>
       </div>
 
+      {session.status === "FLAGGED_RETAKE" && (
+        <div className="mb-8 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          This session was flagged for a risk review. Your instructor is checking whether a retake
+          is warranted — you'll be notified once they decide.
+        </div>
+      )}
+      {session.status === "RETAKE_GRANTED" && (
+        <div className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Your instructor granted a retake for this exam. You can start a new attempt.
+        </div>
+      )}
+      {session.status === "RETAKE_DENIED" && (
+        <div className="mb-8 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Your instructor reviewed this session and denied a retake.
+        </div>
+      )}
+
       <Card className="p-6 mb-8">
         <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-4">
           Proctoring Violations

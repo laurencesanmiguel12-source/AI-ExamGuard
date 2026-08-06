@@ -24,6 +24,7 @@ const EMPTY_FORM = {
   duration_minutes: 60,
   total_points: 100,
   passing_score: 60,
+  max_risk_score: "",
   start_time: "",
   end_time: "",
   is_active: false,
@@ -111,6 +112,7 @@ export default function Exams() {
       duration_minutes: exam.duration_minutes,
       total_points: exam.total_points,
       passing_score: exam.passing_score,
+      max_risk_score: exam.max_risk_score ?? "",
       start_time: toLocalInput(exam.start_time),
       end_time: toLocalInput(exam.end_time),
       is_active: exam.is_active,
@@ -129,6 +131,7 @@ export default function Exams() {
       duration_minutes: Number(form.duration_minutes),
       total_points: Number(form.total_points),
       passing_score: Number(form.passing_score),
+      max_risk_score: form.max_risk_score === "" ? null : Number(form.max_risk_score),
       subject_id: Number(form.subject_id),
       instructor_id: Number(form.instructor_id),
       start_time: new Date(form.start_time).toISOString(),
@@ -231,6 +234,15 @@ export default function Exams() {
               required
               value={form.passing_score}
               onChange={(e) => setForm({ ...form, passing_score: e.target.value })}
+            />
+            <TextField
+              label="Max Risk Score (retake threshold, optional)"
+              type="number"
+              min="0"
+              max="100"
+              value={form.max_risk_score}
+              onChange={(e) => setForm({ ...form, max_risk_score: e.target.value })}
+              placeholder="Leave blank to disable retake flagging"
             />
             <div className="grid grid-cols-2 gap-3">
               <TextField

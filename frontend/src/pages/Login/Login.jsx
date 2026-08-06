@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Shield, Users, Lock, ArrowRight, Eye } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../../components/ui/Card";
@@ -106,6 +106,13 @@ export default function Login() {
             </div>
           </form>
         </Card>
+
+        <div className="text-center mt-6 text-sm text-muted-foreground">
+          New student?{" "}
+          <Link to="/register" className="text-primary hover:underline">
+            Create an account
+          </Link>
+        </div>
 
         <div className="flex items-center justify-center gap-3 mt-6 text-[11px] font-mono text-muted-foreground">
           <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Encrypted</span>

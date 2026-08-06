@@ -39,6 +39,11 @@ TIMELINE_POINTS = 11
 
 
 def _score(violations):
+    # An overturned appeal means the violation was flagged in error - it shouldn't still count
+    # against the student's risk score just because the row is never deleted (it stays as the
+    # historical record of the appeal decision).
+    violations = [v for v in violations if v.appeal_status != "OVERTURNED"]
+
     behavioral_total = sum(WEIGHTS.get(v.event_type, 0) for v in violations)
 
     vision_counts = Counter()

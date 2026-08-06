@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.exam import Exam
-from app.models.exam_session import ExamSession
+from app.models.exam_session import ExamSession, GRADED_STATUSES
 from app.models.question import Question
 from app.models.student import Student
 from app.models.student_answer import StudentAnswer
@@ -35,7 +35,7 @@ class ReportService:
             .all()
         )
 
-        submitted = [s for s in sessions if s.status == "SUBMITTED"]
+        submitted = [s for s in sessions if s.status in GRADED_STATUSES]
 
         student_ids = {s.student_id for s in sessions}
         students_by_id = {
@@ -131,7 +131,7 @@ class ReportService:
             "passing_score": exam.passing_score,
             "total_attempts": len(sessions),
             "submitted_count": len(submitted),
-            "in_progress_count": len(sessions) - len(submitted),
+            "in_progress_count": sum(1 for s in sessions if s.status == "IN_PROGRESS"),
             "average_score": average_score,
             "average_percentage": average_percentage,
             "pass_count": pass_count,

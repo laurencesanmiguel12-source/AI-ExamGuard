@@ -36,6 +36,11 @@ class Exam(Base, TimestampMixin):
         nullable=False
     )
 
+    # Null means the retake-flagging feature is off for this exam - no threshold to breach.
+    max_risk_score: Mapped[int | None] = mapped_column(
+        nullable=True
+    )
+
     start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True)
     )

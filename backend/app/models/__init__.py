@@ -12,4 +12,5 @@ from app.models.exam_session import ExamSession
 from app.models.student_answer import StudentAnswer
 from app.models.violation import Violation
 from app.models.exam_roster import ExamRoster
+from app.models.instructor_subject import InstructorSubject
 from app.models.audit_log import AuditLog

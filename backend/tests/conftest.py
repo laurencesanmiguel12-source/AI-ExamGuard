@@ -43,6 +43,7 @@ from app.models.base import Base  # noqa: E402
 from app.models.course import Course  # noqa: E402
 from app.models.exam import Exam  # noqa: E402
 from app.models.instructor import Instructor  # noqa: E402
+from app.models.instructor_subject import InstructorSubject  # noqa: E402
 from app.models.role import Role  # noqa: E402
 from app.models.student import Student  # noqa: E402
 from app.models.subject import Subject  # noqa: E402
@@ -185,6 +186,17 @@ def make_instructor(db, make_user):
         db.refresh(instructor)
         instructor.user = user
         return instructor
+    return _make
+
+
+@pytest.fixture
+def make_instructor_subject(db):
+    def _make(instructor, subject) -> InstructorSubject:
+        entry = InstructorSubject(instructor_id=instructor.id, subject_id=subject.id)
+        db.add(entry)
+        db.commit()
+        db.refresh(entry)
+        return entry
     return _make
 
 

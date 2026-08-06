@@ -5,7 +5,7 @@ from app.auth.dependencies import get_current_user
 from app.auth.ownership import require_exam_owner
 from app.core.database import get_db
 from app.models.exam import Exam
-from app.models.exam_session import ExamSession
+from app.models.exam_session import ExamSession, GRADED_STATUSES
 from app.models.instructor import Instructor
 from app.models.student import Student
 from app.models.user import User
@@ -74,7 +74,7 @@ def list_exam_questions(
             .filter(
                 ExamSession.student_id == student.id,
                 ExamSession.exam_id == exam.id,
-                ExamSession.status == "SUBMITTED",
+                ExamSession.status.in_(GRADED_STATUSES),
             )
             .first()
             is not None

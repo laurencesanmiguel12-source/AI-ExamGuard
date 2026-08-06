@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class StudentBase(BaseModel):
@@ -7,8 +7,13 @@ class StudentBase(BaseModel):
     course_id: int
 
 
-class StudentCreate(StudentBase):
-    pass
+class StudentCreate(BaseModel):
+    course_id: int
+    username: str
+    email: EmailStr
+    password: str
+    first_name: str
+    last_name: str
 
 
 class StudentUpdate(BaseModel):

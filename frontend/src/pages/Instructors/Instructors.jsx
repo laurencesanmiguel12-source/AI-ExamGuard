@@ -1,31 +1,112 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, BookOpen } from "lucide-react";
 import { getInstructors, createInstructor, updateInstructor, deleteInstructor } from "../../api/instructors";
+import { getSubjects } from "../../api/subjects";
+import {
+  getInstructorSubjects,
+  assignInstructorSubject,
+  unassignInstructorSubject,
+} from "../../api/instructorSubjects";
 import SectionTag from "../../components/ui/SectionTag";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField } from "../../components/ui/FormField";
 
-const EMPTY_FORM = { employee_number: "", user_id: "" };
+const EMPTY_FORM = {
+  employee_number: "",
+  username: "",
+  email: "",
+  password: "",
+  first_name: "",
+  last_name: "",
+};
 
-const COLUMNS = [
-  { key: "employee_number", label: "Employee No." },
-  { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
-];
+function SubjectsModal({ instructor, allSubjects, onClose }) {
+  const [assignedIds, setAssignedIds] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+
+  function refresh() {
+    setLoading(true);
+    getInstructorSubjects(instructor.id)
+      .then((rows) => setAssignedIds(new Set(rows.map((r) => r.subject_id))))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(refresh, []);
+
+  async function toggle(subjectId, checked) {
+    if (checked) {
+      await assignInstructorSubject(instructor.id, subjectId);
+    } else {
+      await unassignInstructorSubject(instructor.id, subjectId);
+    }
+    refresh();
+  }
+
+  return (
+    <Modal title={`Subjects — ${instructor.employee_number}`} onClose={onClose}>
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : allSubjects.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No subjects exist yet.</p>
+      ) : (
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {allSubjects.map((s) => (
+            <label key={s.id} className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-primary"
+                checked={assignedIds.has(s.id)}
+                onChange={(e) => toggle(s.id, e.target.checked)}
+              />
+              <span className="text-sm text-foreground">
+                {s.code} — {s.name}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function buildColumns(onManageSubjects) {
+  return [
+    { key: "employee_number", label: "Employee No." },
+    { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
+    {
+      key: "subjects",
+      label: "Subjects",
+      render: (row) => (
+        <button
+          onClick={() => onManageSubjects(row)}
+          className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:underline"
+        >
+          <BookOpen className="w-3.5 h-3.5" /> Manage
+        </button>
+      ),
+    },
+  ];
+}
 
 export default function Instructors() {
   const [instructors, setInstructors] = useState([]);
+  const [allSubjects, setAllSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [managingSubjects, setManagingSubjects] = useState(null);
 
   function refresh() {
     setLoading(true);
-    getInstructors()
-      .then(setInstructors)
+    Promise.all([getInstructors(), getSubjects()])
+      .then(([i, s]) => {
+        setInstructors(i);
+        setAllSubjects(s);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -38,7 +119,7 @@ export default function Instructors() {
   }
 
   function openEdit(instructor) {
-    setForm({ employee_number: instructor.employee_number, user_id: instructor.user_id });
+    setForm({ ...EMPTY_FORM, employee_number: instructor.employee_number });
     setError("");
     setEditing(instructor);
   }
@@ -50,12 +131,12 @@ export default function Instructors() {
       if (editing.id) {
         await updateInstructor(editing.id, { employee_number: form.employee_number });
       } else {
-        await createInstructor({ employee_number: form.employee_number, user_id: Number(form.user_id) });
+        await createInstructor(form);
       }
       setEditing(null);
       refresh();
-    } catch {
-      setError("Couldn't save this instructor. Check that the User ID exists and isn't already linked.");
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Couldn't save this instructor.");
     }
   }
 
@@ -80,18 +161,19 @@ export default function Instructors() {
         </button>
       </div>
 
-      <DataTable columns={COLUMNS} rows={instructors} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No instructors yet." />
+      <DataTable
+        columns={buildColumns(setManagingSubjects)}
+        rows={instructors}
+        loading={loading}
+        onEdit={openEdit}
+        onDelete={setDeleting}
+        emptyLabel="No instructors yet."
+      />
 
       {editing && (
         <Modal title={editing.id ? "Edit Instructor" : "Add Instructor"} onClose={() => setEditing(null)}>
           <form onSubmit={handleSubmit}>
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
-            {!editing.id && (
-              <p className="text-xs text-muted-foreground mb-4">
-                This links an existing user account to an instructor record. Register the account
-                first (e.g. via <code>/auth/register</code>) and enter its numeric User ID below.
-              </p>
-            )}
             <TextField
               label="Employee Number"
               required
@@ -100,14 +182,43 @@ export default function Instructors() {
               placeholder="EMP-2025-001"
             />
             {!editing.id && (
-              <TextField
-                label="User ID"
-                type="number"
-                required
-                value={form.user_id}
-                onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-                placeholder="8"
-              />
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="First Name"
+                    required
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                  />
+                  <TextField
+                    label="Last Name"
+                    required
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                  />
+                </div>
+                <TextField
+                  label="Username"
+                  required
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                />
+                <TextField
+                  label="Email Address"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+              </>
             )}
             <button
               type="submit"
@@ -125,6 +236,14 @@ export default function Instructors() {
           message={`Delete instructor "${deleting.employee_number}"? This cannot be undone.`}
           onConfirm={confirmDelete}
           onCancel={() => setDeleting(null)}
+        />
+      )}
+
+      {managingSubjects && (
+        <SubjectsModal
+          instructor={managingSubjects}
+          allSubjects={allSubjects}
+          onClose={() => setManagingSubjects(null)}
         />
       )}
     </div>

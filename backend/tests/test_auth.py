@@ -2,15 +2,16 @@
 that every other protected route in this app relies on."""
 
 
-def test_register_creates_a_real_user(client, make_role):
-    role = make_role("student")
+def test_register_creates_a_real_user_and_student_profile(client, make_role, make_course):
+    make_role("student")
+    course = make_course()
     response = client.post("/auth/register", json={
         "username": "newstudent",
         "email": "newstudent@example.com",
         "password": "TestPass123!",
         "first_name": "New",
         "last_name": "Student",
-        "role_id": role.id,
+        "course_id": course.id,
     })
     assert response.status_code == 200
     body = response.json()
@@ -19,30 +20,68 @@ def test_register_creates_a_real_user(client, make_role):
     assert "password_hash" not in body
 
 
-def test_register_rejects_duplicate_email(client, make_role, make_user):
+def test_register_ignores_client_supplied_role_and_always_creates_a_student(client, make_role, make_course):
+    make_role("student")
+    admin_role = make_role("admin")
+    course = make_course()
+    response = client.post("/auth/register", json={
+        "username": "wannabeadmin",
+        "email": "wannabeadmin@example.com",
+        "password": "TestPass123!",
+        "first_name": "Sneaky",
+        "last_name": "User",
+        "course_id": course.id,
+        "role_id": admin_role.id,  # not part of the schema anymore - must be ignored, not honored
+    })
+    assert response.status_code == 200
+    response = client.post("/auth/login", json={
+        "email": "wannabeadmin@example.com",
+        "password": "TestPass123!",
+    })
+    token = response.json()["access_token"]
+    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["role_name"] == "student"
+
+
+def test_register_rejects_unknown_course(client, make_role):
+    make_role("student")
+    response = client.post("/auth/register", json={
+        "username": "newstudent",
+        "email": "newstudent@example.com",
+        "password": "TestPass123!",
+        "first_name": "New",
+        "last_name": "Student",
+        "course_id": 999999,
+    })
+    assert response.status_code == 404
+
+
+def test_register_rejects_duplicate_email(client, make_role, make_user, make_course):
     make_user("student", email="dupe@example.com")
-    role = make_role("student")
+    make_role("student")
+    course = make_course()
     response = client.post("/auth/register", json={
         "username": "someoneelse",
         "email": "dupe@example.com",
         "password": "TestPass123!",
         "first_name": "A",
         "last_name": "B",
-        "role_id": role.id,
+        "course_id": course.id,
     })
     assert response.status_code == 400
 
 
-def test_register_rejects_duplicate_username(client, make_role, make_user):
+def test_register_rejects_duplicate_username(client, make_role, make_user, make_course):
     make_user("student", username="taken")
-    role = make_role("student")
+    make_role("student")
+    course = make_course()
     response = client.post("/auth/register", json={
         "username": "taken",
         "email": "different@example.com",
         "password": "TestPass123!",
         "first_name": "A",
         "last_name": "B",
-        "role_id": role.id,
+        "course_id": course.id,
     })
     assert response.status_code == 400
 

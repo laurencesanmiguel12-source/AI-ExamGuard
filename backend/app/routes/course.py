@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user, require_admin
+from app.auth.dependencies import require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.course import (
@@ -17,13 +17,14 @@ router = APIRouter(
 )
 
 
+# Public (no auth) - the self-registration form needs to populate its course dropdown before
+# the visitor has an account. Course code/name is non-sensitive catalog data.
 @router.get(
     "/",
     response_model=list[CourseResponse]
 )
 def get_courses(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return CourseService.get_all(db)
 
@@ -34,8 +35,7 @@ def get_courses(
 )
 def get_course(
     course_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     return CourseService.get_by_id(course_id, db)
 

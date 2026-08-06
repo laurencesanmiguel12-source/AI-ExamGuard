@@ -16,6 +16,7 @@ from app.schemas.exam_session import (
     ExamSessionCreate,
     ExamSessionResponse,
     ExamSessionUpdate,
+    RetakeReviewRequest,
 )
 from app.services.exam_session_service import ExamSessionService
 
@@ -68,6 +69,19 @@ def submit_exam(
     session: ExamSession = Depends(require_session_owner_student)
 ):
     return ExamSessionService.submit_exam(session_id, db)
+
+
+@router.put(
+    "/{session_id}/retake-review",
+    response_model=ExamSessionResponse
+)
+def review_retake(
+    session_id: int,
+    request: RetakeReviewRequest,
+    db: Session = Depends(get_db),
+    session: ExamSession = Depends(require_session_manage_access)
+):
+    return ExamSessionService.review_retake(session_id, request.decision, db)
 
 
 @router.put(

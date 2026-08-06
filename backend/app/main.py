@@ -7,6 +7,7 @@ from app.routes.course import router as course_router
 from app.routes.subject import router as subject_router
 from app.routes.student import router as student_router
 from app.routes.instructor import router as instructor_router
+from app.routes.instructor_subject import router as instructor_subject_router
 from app.routes.exam import router as exam_router
 from app.routes.exam_content import router as exam_content_router
 from app.routes.exam_roster import router as exam_roster_router
@@ -40,6 +41,7 @@ app.include_router(course_router)
 app.include_router(subject_router)
 app.include_router(student_router)
 app.include_router(instructor_router)
+app.include_router(instructor_subject_router)
 app.include_router(exam_router)
 app.include_router(exam_content_router)
 app.include_router(exam_roster_router)

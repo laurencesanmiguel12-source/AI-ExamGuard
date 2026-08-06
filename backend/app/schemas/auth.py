@@ -7,7 +7,7 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
-    role_id: int
+    course_id: int
 
 
 class LoginRequest(BaseModel):

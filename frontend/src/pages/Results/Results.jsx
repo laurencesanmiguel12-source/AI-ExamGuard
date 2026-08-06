@@ -8,6 +8,11 @@ import { getStudents } from "../../api/students";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 
+// Any status submit_exam can leave a session in - not just "SUBMITTED" literally (see the
+// backend's GRADED_STATUSES). FLAGGED_RETAKE/RETAKE_GRANTED/RETAKE_DENIED are still a real,
+// scored, completed attempt the student needs to see and click into, just also under risk review.
+const GRADED_STATUSES = ["SUBMITTED", "FLAGGED_RETAKE", "RETAKE_GRANTED", "RETAKE_DENIED"];
+
 export default function Results() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -37,7 +42,7 @@ export default function Results() {
 
         const examsById = Object.fromEntries(exams.map((e) => [e.id, e]));
         const mine = sessions
-          .filter((s) => s.student_id === me.id && s.status === "SUBMITTED")
+          .filter((s) => s.student_id === me.id && GRADED_STATUSES.includes(s.status))
           .map((s) => ({ ...s, exam: examsById[s.exam_id] }))
           .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
 
@@ -118,7 +123,15 @@ export default function Results() {
                   {row.percentage.toFixed(1)}%
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground">
-                  {row.passed ? "Passed" : "Failed"}
+                  {row.status === "FLAGGED_RETAKE"
+                    ? "Under Review"
+                    : row.status === "RETAKE_GRANTED"
+                    ? "Retake Granted"
+                    : row.status === "RETAKE_DENIED"
+                    ? "Retake Denied"
+                    : row.passed
+                    ? "Passed"
+                    : "Failed"}
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />

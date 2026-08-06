@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.service import AuthService
 from app.models.instructor import Instructor
 from app.models.user import User
 from app.schemas.instructor import (
@@ -49,27 +50,14 @@ class InstructorService:
                 detail="Employee number already exists."
             )
 
-        user = (
-            db.query(User)
-            .filter(User.id == request.user_id)
-            .first()
+        user = AuthService.create_user_account(
+            request.username, request.email, request.password,
+            request.first_name, request.last_name, "instructor", db,
         )
-
-        if user is None:
-            raise HTTPException(
-                status_code=404,
-                detail="User not found."
-            )
-
-        if user.instructor is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="User already has an instructor profile."
-            )
 
         instructor = Instructor(
             employee_number=request.employee_number,
-            user_id=request.user_id
+            user_id=user.id
         )
 
         db.add(instructor)

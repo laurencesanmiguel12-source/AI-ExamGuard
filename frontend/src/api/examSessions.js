@@ -21,3 +21,8 @@ export async function submitExamSession(sessionId) {
   const response = await apiClient.put(`/exam-sessions/submit/${sessionId}`);
   return response.data;
 }
+
+export async function reviewRetake(sessionId, decision) {
+  const response = await apiClient.put(`/exam-sessions/${sessionId}/retake-review`, { decision });
+  return response.data;
+}

@@ -12,6 +12,7 @@ from app.schemas.exam_session import (
     ExamSessionUpdate,
 )
 from app.services.exam_service import ExamService
+from app.services.risk_service import RiskService
 
 
 class ExamSessionService:
@@ -67,6 +68,34 @@ class ExamSessionService:
             raise HTTPException(
                 status_code=400,
                 detail="Student already has an active session."
+            )
+
+        # A prior submitted session doesn't block a new attempt today (that's normal - a student
+        # can retake if the instructor reopens the exam). But FLAGGED_RETAKE specifically means
+        # "awaiting instructor review" - letting start_exam silently unblock it here would let a
+        # student route around the instructor's grant/deny decision entirely. Only the most recent
+        # prior session matters - a much older FLAGGED_RETAKE followed by a real RETAKE_GRANTED
+        # attempt shouldn't re-block forever.
+        latest_session = (
+            db.query(ExamSession)
+            .filter(
+                ExamSession.student_id == student.id,
+                ExamSession.exam_id == exam_id,
+            )
+            .order_by(ExamSession.started_at.desc())
+            .first()
+        )
+
+        if latest_session is not None and latest_session.status == "FLAGGED_RETAKE":
+            raise HTTPException(
+                status_code=403,
+                detail="This exam was flagged for risk review. Awaiting instructor decision before you can retake it."
+            )
+
+        if latest_session is not None and latest_session.status == "RETAKE_DENIED":
+            raise HTTPException(
+                status_code=403,
+                detail="Your instructor denied a retake for this exam."
             )
 
         session = ExamSession(
@@ -171,9 +200,59 @@ class ExamSessionService:
         session.score = total_score
         session.percentage = percentage
         session.passed = passed
-
-        session.status = "SUBMITTED"
         session.submitted_at = datetime.now(timezone.utc)
+
+        # passed/score/percentage stay the factual academic result either way - risk is a
+        # separate axis. Flagging routes the session to instructor review instead of leaving it
+        # simply SUBMITTED; see start_exam's FLAGGED_RETAKE check for what blocks a retake until
+        # the instructor grants or denies it (routes/exam_session.py's retake-review endpoint).
+        risk_score = RiskService.get_session_summary(session, db)["risk_score"]
+        if exam.max_risk_score is not None and risk_score > exam.max_risk_score:
+            session.status = "FLAGGED_RETAKE"
+        else:
+            session.status = "SUBMITTED"
+
+        db.commit()
+        db.refresh(session)
+
+        return session
+
+    @staticmethod
+    def review_retake(session_id: int, decision: str, db: Session):
+
+        session = (
+            db.query(ExamSession)
+            .filter(ExamSession.id == session_id)
+            .first()
+        )
+
+        if session is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Exam session not found."
+            )
+
+        if session.status != "FLAGGED_RETAKE":
+            raise HTTPException(
+                status_code=400,
+                detail="This session is not flagged for retake review."
+            )
+
+        if decision == "GRANT":
+            # Unblocks start_exam's FLAGGED_RETAKE check - this session stays as the historical
+            # record, the student's next start_exam call creates a fresh one.
+            session.status = "RETAKE_GRANTED"
+        elif decision == "DENY":
+            # A distinct terminal status, not just leaving it as FLAGGED_RETAKE - the instructor
+            # needs to see "already reviewed, denied" instead of an appeal that still looks
+            # pending. start_exam blocks on both FLAGGED_RETAKE and RETAKE_DENIED; only
+            # RETAKE_GRANTED unblocks. This is the fail-with-no-retake outcome.
+            session.status = "RETAKE_DENIED"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="decision must be GRANT or DENY."
+            )
 
         db.commit()
         db.refresh(session)
