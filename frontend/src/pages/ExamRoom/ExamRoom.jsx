@@ -52,6 +52,10 @@ export default function ExamRoom() {
   const [lastTabSwitchAt, setLastTabSwitchAt] = useState(0);
   const [faceDetected, setFaceDetected] = useState(true);
   const [identityMatch, setIdentityMatch] = useState(true);
+  // True when a face check comes back with no facial landmarks but the pose-model fallback still
+  // sees a person - i.e. a head-down tilt, not an empty chair. Lets the badge below read "HEAD
+  // DOWN" instead of the more alarming "NO FACE" for this case.
+  const [personPresent, setPersonPresent] = useState(true);
   // Distinguishes "not enrolled" (backend intentionally returns face_detected: null and skips
   // detection entirely) from a real check result - without this, an unenrolled student's row
   // silently keeps the useState(true) default forever, showing a false "OK".
@@ -218,6 +222,7 @@ export default function ExamRoom() {
               setFaceCheckUnavailable(false);
               setFaceDetected(faceResult.face_detected);
               setIdentityMatch(faceResult.identity_match !== false);
+              setPersonPresent(faceResult.face_detected || faceResult.person_present === true);
             }
           }
         }
@@ -615,7 +620,7 @@ export default function ExamRoom() {
                       label: "Face Verification",
                       ok: (!needsFaceCheck || (faceDetected && identityMatch)) && (!needsObjectCheck || !multiplePeople),
                       alertLabel: needsFaceCheck && !faceDetected
-                        ? "NO FACE"
+                        ? (personPresent ? "HEAD DOWN" : "NO FACE")
                         : needsFaceCheck && !identityMatch
                           ? "MISMATCH"
                           : "MULTIPLE PEOPLE",

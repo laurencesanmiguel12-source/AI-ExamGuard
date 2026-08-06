@@ -467,7 +467,8 @@ class FaceService:
             return {
                 "face_detected": False,
                 "identity_match": False,
-                "confidence": None
+                "confidence": None,
+                "person_present": person_present
             }
 
         recognizer = cv2.face.LBPHFaceRecognizer_create()
