@@ -1,8 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_instructor
+from app.auth.dependencies import require_admin, require_instructor
 from app.core.database import get_db
+from app.models.course import Course
 from app.models.exam import Exam
 from app.models.instructor import Instructor
 from app.models.user import User
@@ -31,3 +32,25 @@ def require_exam_owner(
         )
 
     return exam
+
+
+def require_course_owner(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+) -> Course:
+    """Multi-tenancy ownership check: before this, ANY admin could edit/delete ANY course - there
+    was only ever one admin so it never surfaced. Same shape as require_exam_owner, just keyed on
+    school instead of a direct instructor_id column."""
+    course = db.query(Course).filter(Course.id == course_id).first()
+
+    if course is None:
+        raise HTTPException(status_code=404, detail="Course not found.")
+
+    if course.school_id != current_user.school_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to manage this course."
+        )
+
+    return course

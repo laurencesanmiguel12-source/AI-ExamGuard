@@ -17,5 +17,6 @@ class CourseUpdate(BaseModel):
 
 class CourseResponse(CourseBase):
     id: int
+    school_id: int
 
     model_config = ConfigDict(from_attributes=True)

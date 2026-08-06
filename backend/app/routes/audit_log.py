@@ -21,4 +21,4 @@ def get_audit_log(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return AuditLogService.get_recent(db)
+    return AuditLogService.get_recent(db, current_user.school_id)

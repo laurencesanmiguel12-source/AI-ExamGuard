@@ -1,5 +1,6 @@
 from app.models.base import Base, TimestampMixin
 from app.models.role import Role
+from app.models.school import School
 from app.models.course import Course
 from app.models.subject import Subject
 from app.models.user import User

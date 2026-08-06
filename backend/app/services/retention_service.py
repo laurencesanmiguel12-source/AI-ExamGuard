@@ -4,6 +4,10 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.models.course import Course
+from app.models.exam import Exam
+from app.models.exam_session import ExamSession
+from app.models.subject import Subject
 from app.models.violation import Violation
 from app.services.audit_log_service import AuditLogService
 
@@ -15,10 +19,17 @@ from app.services.audit_log_service import AuditLogService
 EVIDENCE_RETENTION_DAYS = 90
 
 
-def _eligible_query(db: Session):
+def _eligible_query(db: Session, school_id: int):
     cutoff = datetime.now(timezone.utc) - timedelta(days=EVIDENCE_RETENTION_DAYS)
     return (
         db.query(Violation)
+        # Scoped by school - previously system-wide, so School A's admin could preview/purge
+        # School B's biometric evidence.
+        .join(ExamSession, Violation.exam_session_id == ExamSession.id)
+        .join(Exam, ExamSession.exam_id == Exam.id)
+        .join(Subject, Exam.subject_id == Subject.id)
+        .join(Course, Subject.course_id == Course.id)
+        .filter(Course.school_id == school_id)
         .filter(Violation.evidence_path.isnot(None))
         .filter(Violation.created_at < cutoff)
         # A PENDING appeal still needs its evidence reviewed - never purge out from under an
@@ -34,8 +45,8 @@ def _eligible_query(db: Session):
 class RetentionService:
 
     @staticmethod
-    def preview_purge(db: Session):
-        violations = _eligible_query(db).order_by(Violation.created_at).all()
+    def preview_purge(db: Session, school_id: int):
+        violations = _eligible_query(db, school_id).order_by(Violation.created_at).all()
         return {
             "retention_days": EVIDENCE_RETENTION_DAYS,
             "eligible_count": len(violations),
@@ -51,8 +62,8 @@ class RetentionService:
         }
 
     @staticmethod
-    def purge_expired_evidence(db: Session, actor_user_id: int) -> int:
-        violations = _eligible_query(db).all()
+    def purge_expired_evidence(db: Session, actor_user_id: int, school_id: int) -> int:
+        violations = _eligible_query(db, school_id).all()
 
         purged = 0
         for v in violations:

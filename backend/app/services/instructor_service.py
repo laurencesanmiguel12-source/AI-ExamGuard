@@ -13,11 +13,16 @@ from app.schemas.instructor import (
 class InstructorService:
 
     @staticmethod
-    def get_all(db: Session):
-        return db.query(Instructor).all()
+    def get_all(current_user: User, db: Session):
+        return (
+            db.query(Instructor)
+            .join(User, Instructor.user_id == User.id)
+            .filter(User.school_id == current_user.school_id)
+            .all()
+        )
 
     @staticmethod
-    def get_by_id(instructor_id: int, db: Session):
+    def get_by_id(instructor_id: int, current_user: User, db: Session):
 
         instructor = (
             db.query(Instructor)
@@ -31,15 +36,23 @@ class InstructorService:
                 detail="Instructor not found."
             )
 
+        if instructor.user.school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to manage this instructor."
+            )
+
         return instructor
 
     @staticmethod
-    def create(request: InstructorCreate, db: Session):
+    def create(request: InstructorCreate, current_user: User, db: Session):
 
         existing = (
             db.query(Instructor)
+            .join(User, Instructor.user_id == User.id)
             .filter(
-                Instructor.employee_number == request.employee_number
+                Instructor.employee_number == request.employee_number,
+                User.school_id == current_user.school_id,
             )
             .first()
         )
@@ -50,9 +63,11 @@ class InstructorService:
                 detail="Employee number already exists."
             )
 
+        # school_id is always the calling admin's own school, never client-supplied - same
+        # never-trust-the-client derivation as Exam.instructor_id.
         user = AuthService.create_user_account(
             request.username, request.email, request.password,
-            request.first_name, request.last_name, "instructor", db,
+            request.first_name, request.last_name, "instructor", current_user.school_id, db,
         )
 
         instructor = Instructor(
@@ -70,11 +85,13 @@ class InstructorService:
     def update(
         instructor_id: int,
         request: InstructorUpdate,
+        current_user: User,
         db: Session
     ):
 
         instructor = InstructorService.get_by_id(
             instructor_id,
+            current_user,
             db
         )
 
@@ -89,11 +106,13 @@ class InstructorService:
     @staticmethod
     def delete(
         instructor_id: int,
+        current_user: User,
         db: Session
     ):
 
         instructor = InstructorService.get_by_id(
             instructor_id,
+            current_user,
             db
         )
 

@@ -13,11 +13,16 @@ from app.schemas.student import StudentCreate, StudentUpdate
 class StudentService:
 
     @staticmethod
-    def get_all(db: Session):
-        return db.query(Student).all()
+    def get_all(current_user: User, db: Session):
+        return (
+            db.query(Student)
+            .join(User, Student.user_id == User.id)
+            .filter(User.school_id == current_user.school_id)
+            .all()
+        )
 
     @staticmethod
-    def get_by_id(student_id: int, db: Session):
+    def get_by_id(student_id: int, current_user: User, db: Session):
 
         student = (
             db.query(Student)
@@ -31,10 +36,16 @@ class StudentService:
                 detail="Student not found."
             )
 
+        if student.user.school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to manage this student."
+            )
+
         return student
 
     @staticmethod
-    def create(request: StudentCreate, db: Session):
+    def create(request: StudentCreate, admin: User, db: Session):
 
         course = (
             db.query(Course)
@@ -48,9 +59,17 @@ class StudentService:
                 detail="Course not found."
             )
 
+        if course.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="This course belongs to a different school."
+            )
+
+        # school_id is always the calling admin's own school, never client-supplied - same
+        # never-trust-the-client derivation as Exam.instructor_id.
         user = AuthService.create_user_account(
             request.username, request.email, request.password,
-            request.first_name, request.last_name, "student", db,
+            request.first_name, request.last_name, "student", admin.school_id, db,
         )
 
         # Same generation scheme as public self-registration (AuthService.register) - user IDs
@@ -68,14 +87,19 @@ class StudentService:
         return student
 
     @staticmethod
-    def update(student_id: int, request: StudentUpdate, db: Session):
+    def update(student_id: int, request: StudentUpdate, current_user: User, db: Session):
 
-        student = StudentService.get_by_id(student_id, db)
+        student = StudentService.get_by_id(student_id, current_user, db)
 
         if request.student_number is not None:
             student.student_number = request.student_number
 
         if request.course_id is not None:
+            course = db.query(Course).filter(Course.id == request.course_id).first()
+            if course is None:
+                raise HTTPException(status_code=404, detail="Course not found.")
+            if course.school_id != current_user.school_id:
+                raise HTTPException(status_code=403, detail="This course belongs to a different school.")
             student.course_id = request.course_id
 
         if request.accommodation_notes is not None:
@@ -96,9 +120,9 @@ class StudentService:
         return student
 
     @staticmethod
-    def delete(student_id: int, db: Session):
+    def delete(student_id: int, current_user: User, db: Session):
 
-        student = StudentService.get_by_id(student_id, db)
+        student = StudentService.get_by_id(student_id, current_user, db)
 
         # The enrolled face model is a real biometric artifact on disk, not just a DB row - delete
         # it here too, otherwise it's silently orphaned forever with no record pointing back to it.

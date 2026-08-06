@@ -3,7 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.models.course import Course
+from app.models.exam import Exam
 from app.models.exam_session import ExamSession
+from app.models.subject import Subject
 from app.models.violation import Violation
 from app.services.risk_model_service import RiskModelService
 
@@ -117,11 +120,17 @@ class RiskService:
         return {"risk_score": risk_score, "timeline": timeline}
 
     @staticmethod
-    def get_live_sessions(db: Session):
+    def get_live_sessions(db: Session, school_id: int):
 
+        # Previously queried every IN_PROGRESS session in the entire deployment with zero
+        # scoping - any instructor could watch every other instructor's (and, once multi-tenant,
+        # every other school's) live exam sessions.
         sessions = (
             db.query(ExamSession)
-            .filter(ExamSession.status == "IN_PROGRESS")
+            .join(Exam, ExamSession.exam_id == Exam.id)
+            .join(Subject, Exam.subject_id == Subject.id)
+            .join(Course, Subject.course_id == Course.id)
+            .filter(ExamSession.status == "IN_PROGRESS", Course.school_id == school_id)
             .all()
         )
 

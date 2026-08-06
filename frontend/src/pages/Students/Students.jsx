@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getStudents, createStudent, updateStudent, deleteStudent } from "../../api/students";
 import { getCourses } from "../../api/courses";
+import { useAuth } from "../../context/AuthContext";
 import SectionTag from "../../components/ui/SectionTag";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
@@ -23,6 +24,7 @@ const EMPTY_FORM = {
 };
 
 export default function Students() {
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ export default function Students() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([getStudents(), getCourses()])
+    Promise.all([getStudents(), getCourses(user.school_id)])
       .then(([s, c]) => {
         setStudents(s);
         setCourses(c);

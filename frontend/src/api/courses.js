@@ -1,7 +1,7 @@
 import apiClient from "./client";
 
-export async function getCourses() {
-  const response = await apiClient.get("/courses/");
+export async function getCourses(schoolId) {
+  const response = await apiClient.get("/courses/", { params: { school_id: schoolId } });
   return response.data;
 }
 

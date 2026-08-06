@@ -22,13 +22,14 @@ class AuthService:
         first_name: str,
         last_name: str,
         role_name: str,
+        school_id: int,
         db: Session,
     ) -> User:
-        """Shared by public self-registration (always role_name="student") and the admin-only
-        instructor/student creation endpoints - same duplicate-checks + role lookup + User row
-        every account needs, just with the role and the linked profile row differing. Leaves the
-        transaction open (flush, not commit) so the caller can add its profile row (Student/
-        Instructor) and commit both together."""
+        """Shared by school signup (role_name="admin"), public self-registration (always
+        role_name="student"), and the admin-only instructor/student creation endpoints - same
+        duplicate-checks + role lookup + User row every account needs, just with the role, school,
+        and linked profile row differing. Leaves the transaction open (flush, not commit) so the
+        caller can add its profile row (Student/Instructor) and commit both together."""
 
         existing_username = (
             db.query(User)
@@ -68,6 +69,7 @@ class AuthService:
             last_name=last_name,
             password_hash=hash_password(password),
             role_id=role.id,
+            school_id=school_id,
             is_active=True
         )
         db.add(user)
@@ -86,10 +88,13 @@ class AuthService:
 
         # Public self-registration always creates a student account - anyone hitting this
         # endpoint directly can't grant themselves instructor/admin access. Those roles are
-        # created by an admin via the /instructors or /students admin-only create endpoints.
+        # created via school signup (admin) or the /instructors admin-only create endpoint.
+        # The student's school is the chosen course's school - "register only to the school
+        # you're in" is enforced simply by which course you can pick (see routes/course.py's
+        # ?school_id filter on the registration form's dropdown).
         user = AuthService.create_user_account(
             request.username, request.email, request.password,
-            request.first_name, request.last_name, "student", db,
+            request.first_name, request.last_name, "student", course.school_id, db,
         )
 
         # f"STU{user.id:05d}" over a counter table - user IDs are already unique and

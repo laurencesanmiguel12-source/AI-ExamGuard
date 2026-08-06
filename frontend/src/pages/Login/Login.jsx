@@ -113,6 +113,12 @@ export default function Login() {
             Create an account
           </Link>
         </div>
+        <div className="text-center mt-2 text-sm text-muted-foreground">
+          New school?{" "}
+          <Link to="/schools/register" className="text-primary hover:underline">
+            Register your school
+          </Link>
+        </div>
 
         <div className="flex items-center justify-center gap-3 mt-6 text-[11px] font-mono text-muted-foreground">
           <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Encrypted</span>

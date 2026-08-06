@@ -28,7 +28,7 @@ def get_students(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return StudentService.get_all(db)
+    return StudentService.get_all(current_user, db)
 
 
 @router.get(
@@ -40,7 +40,7 @@ def get_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return StudentService.get_by_id(student_id, db)
+    return StudentService.get_by_id(student_id, current_user, db)
 
 
 @router.post(
@@ -52,7 +52,7 @@ def create_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return StudentService.create(request, db)
+    return StudentService.create(request, current_user, db)
 
 
 @router.put(
@@ -75,6 +75,7 @@ def update_student(
     return StudentService.update(
         student_id,
         request,
+        current_user,
         db
     )
 
@@ -87,4 +88,4 @@ def delete_student(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return StudentService.delete(student_id, db)
+    return StudentService.delete(student_id, current_user, db)

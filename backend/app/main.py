@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.routes.auth import router as auth_router
+from app.routes.school import router as school_router
 from app.routes.course import router as course_router
 from app.routes.subject import router as subject_router
 from app.routes.student import router as student_router
@@ -37,6 +38,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(school_router)
 app.include_router(course_router)
 app.include_router(subject_router)
 app.include_router(student_router)

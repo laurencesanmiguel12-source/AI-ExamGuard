@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getSubjects, createSubject, updateSubject, deleteSubject } from "../../api/subjects";
 import { getCourses } from "../../api/courses";
+import { useAuth } from "../../context/AuthContext";
 import SectionTag from "../../components/ui/SectionTag";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
@@ -11,6 +12,7 @@ import { TextField, SelectField } from "../../components/ui/FormField";
 const EMPTY_FORM = { code: "", name: "", course_id: "" };
 
 export default function Subjects() {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +23,7 @@ export default function Subjects() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([getSubjects(), getCourses()])
+    Promise.all([getSubjects(), getCourses(user.school_id)])
       .then(([s, c]) => {
         setSubjects(s);
         setCourses(c);

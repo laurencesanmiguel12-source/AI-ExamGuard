@@ -8,8 +8,8 @@ from app.schemas.course import CourseCreate, CourseUpdate
 class CourseService:
 
     @staticmethod
-    def get_all(db: Session):
-        return db.query(Course).all()
+    def get_all(db: Session, school_id: int):
+        return db.query(Course).filter(Course.school_id == school_id).all()
 
     @staticmethod
     def get_by_id(course_id: int, db: Session):
@@ -29,11 +29,11 @@ class CourseService:
         return course
 
     @staticmethod
-    def create(request: CourseCreate, db: Session):
+    def create(request: CourseCreate, school_id: int, db: Session):
 
         existing = (
             db.query(Course)
-            .filter(Course.code == request.code)
+            .filter(Course.code == request.code, Course.school_id == school_id)
             .first()
         )
 
@@ -45,7 +45,8 @@ class CourseService:
 
         course = Course(
             code=request.code,
-            name=request.name
+            name=request.name,
+            school_id=school_id
         )
 
         db.add(course)

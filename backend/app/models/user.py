@@ -51,8 +51,21 @@ class User(Base, TimestampMixin):
         ForeignKey("roles.id")
     )
 
+    # Every account - admin, instructor, student - belongs to exactly one school. This is the
+    # primary multi-tenancy scoping key for people; Course carries the equivalent key for academic
+    # data (see Course.school_id) since everything else (Subject/Exam/Student-via-course/
+    # Instructor-via-InstructorSubject) is derivable by joining up to one of those two.
+    school_id: Mapped[int] = mapped_column(
+        ForeignKey("schools.id")
+    )
+
     role = relationship(
         "Role",
+        back_populates="users"
+    )
+
+    school = relationship(
+        "School",
         back_populates="users"
     )
 

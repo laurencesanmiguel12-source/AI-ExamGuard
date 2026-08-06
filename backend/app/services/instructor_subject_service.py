@@ -46,6 +46,12 @@ class InstructorSubjectService:
                 detail="Subject not found."
             )
 
+        if instructor.user.school_id != subject.course.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Instructor and subject belong to different schools."
+            )
+
         if InstructorSubjectService.is_assigned(instructor.id, subject.id, db):
             raise HTTPException(
                 status_code=400,

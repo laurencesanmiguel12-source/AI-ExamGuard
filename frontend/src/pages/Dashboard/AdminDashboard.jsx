@@ -7,6 +7,7 @@ import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
+import { useAuth } from "../../context/AuthContext";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -19,6 +20,7 @@ const AUDIT_ACTION_LABELS = {
 };
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({ students: [], instructors: [], courses: [], exams: [] });
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export default function AdminDashboard() {
   const [purgeResult, setPurgeResult] = useState(null);
 
   useEffect(() => {
-    Promise.all([getStudents(), getInstructors(), getCourses(), getExams()])
+    Promise.all([getStudents(), getInstructors(), getCourses(user.school_id), getExams()])
       .then(([students, instructors, courses, exams]) => setData({ students, instructors, courses, exams }))
       .finally(() => setLoading(false));
   }, []);

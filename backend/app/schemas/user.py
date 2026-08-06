@@ -10,6 +10,7 @@ class UserResponse(BaseModel):
     last_name: str
     role_id: int
     role_name: str
+    school_id: int
     is_active: bool
 
     model_config = ConfigDict(

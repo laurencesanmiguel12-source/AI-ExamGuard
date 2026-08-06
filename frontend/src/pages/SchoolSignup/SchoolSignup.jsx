@@ -1,62 +1,37 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield, ArrowRight } from "lucide-react";
-import { register } from "../../api/auth";
-import { getCourses } from "../../api/courses";
-import { getSchools } from "../../api/schools";
+import { Building2, ArrowRight } from "lucide-react";
+import { registerSchool } from "../../api/schools";
 import Card from "../../components/ui/Card";
-import { TextField, SelectField } from "../../components/ui/FormField";
+import { TextField } from "../../components/ui/FormField";
 
 const EMPTY_FORM = {
+  code: "",
+  name: "",
   username: "",
   email: "",
   password: "",
   first_name: "",
   last_name: "",
-  school_id: "",
-  course_id: "",
 };
 
-export default function Register() {
+export default function SchoolSignup() {
   const [form, setForm] = useState(EMPTY_FORM);
-  const [schools, setSchools] = useState([]);
-  const [courses, setCourses] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    getSchools().then((s) => {
-      setSchools(s);
-      setForm((f) => ({ ...f, school_id: s[0]?.id ?? "" }));
-    });
-  }, []);
-
-  // Which school you're in determines which courses you can pick - re-fetch every time the
-  // school selection changes, and clear the stale course choice from the previous school.
-  useEffect(() => {
-    if (!form.school_id) return;
-    setCourses([]);
-    getCourses(form.school_id).then((c) => {
-      setCourses(c);
-      setForm((f) => ({ ...f, course_id: c[0]?.id ?? "" }));
-    });
-  }, [form.school_id]);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      // school_id is a UI-only filter for the course dropdown - the backend derives the
-      // student's school from whichever course they picked (see AuthService.register).
-      const { school_id, ...payload } = form;
-      await register({ ...payload, course_id: Number(form.course_id) });
+      await registerSchool(form);
       setDone(true);
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      setError(err.response?.data?.detail ?? "Couldn't create your account. Check your details and try again.");
+      setError(err.response?.data?.detail ?? "Couldn't register your school. Check your details and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -76,16 +51,16 @@ export default function Register() {
       <div className="relative w-full max-w-md px-6">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Shield className="w-7 h-7 text-primary" />
+            <Building2 className="w-7 h-7 text-primary" />
           </div>
-          <h1 className="font-display font-black text-foreground text-4xl">Student Registration</h1>
-          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — Arellano University</p>
+          <h1 className="font-display font-black text-foreground text-4xl">Register Your School</h1>
+          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — set up your school's admin account</p>
         </div>
 
         <Card className="p-6">
           {done ? (
             <div className="text-center py-6">
-              <p className="text-sm text-foreground">Account created. Redirecting to login…</p>
+              <p className="text-sm text-foreground">School registered. Redirecting to login…</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
@@ -94,6 +69,25 @@ export default function Register() {
                   {error}
                 </div>
               )}
+
+              <TextField
+                label="School Name"
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Arellano University"
+              />
+              <TextField
+                label="School Code"
+                required
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                placeholder="AU"
+              />
+
+              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-3 mt-5 pt-4 border-t border-border">
+                Your Admin Account
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <TextField
@@ -123,7 +117,6 @@ export default function Register() {
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="you@arellano.edu"
               />
 
               <TextField
@@ -135,40 +128,12 @@ export default function Register() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />
 
-              <SelectField
-                label="School"
-                required
-                value={form.school_id}
-                onChange={(e) => setForm({ ...form, school_id: e.target.value })}
-              >
-                {schools.length === 0 && <option value="">Loading schools…</option>}
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} — {s.name}
-                  </option>
-                ))}
-              </SelectField>
-
-              <SelectField
-                label="Course"
-                required
-                value={form.course_id}
-                onChange={(e) => setForm({ ...form, course_id: e.target.value })}
-              >
-                {courses.length === 0 && <option value="">Loading courses…</option>}
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </SelectField>
-
               <button
                 type="submit"
-                disabled={submitting || schools.length === 0 || courses.length === 0}
+                disabled={submitting}
                 className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors mt-2"
               >
-                <ArrowRight className="w-4 h-4" /> {submitting ? "Creating account…" : "Create Account"}
+                <ArrowRight className="w-4 h-4" /> {submitting ? "Registering school…" : "Register School"}
               </button>
             </form>
           )}

@@ -25,7 +25,7 @@ def get_subjects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return SubjectService.get_all(db)
+    return SubjectService.get_all(current_user, db)
 
 
 @router.get(
@@ -37,7 +37,7 @@ def get_subject(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return SubjectService.get_by_id(subject_id, db)
+    return SubjectService.get_by_id(subject_id, current_user, db)
 
 
 @router.post(
@@ -49,7 +49,7 @@ def create_subject(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return SubjectService.create(request, db)
+    return SubjectService.create(request, current_user, db)
 
 
 @router.put(
@@ -65,6 +65,7 @@ def update_subject(
     return SubjectService.update(
         subject_id,
         request,
+        current_user,
         db
     )
 
@@ -77,4 +78,4 @@ def delete_subject(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return SubjectService.delete(subject_id, db)
+    return SubjectService.delete(subject_id, current_user, db)

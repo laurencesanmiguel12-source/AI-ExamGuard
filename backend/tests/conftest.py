@@ -45,6 +45,7 @@ from app.models.exam import Exam  # noqa: E402
 from app.models.instructor import Instructor  # noqa: E402
 from app.models.instructor_subject import InstructorSubject  # noqa: E402
 from app.models.role import Role  # noqa: E402
+from app.models.school import School  # noqa: E402
 from app.models.student import Student  # noqa: E402
 from app.models.subject import Subject  # noqa: E402
 from app.models.user import User  # noqa: E402
@@ -109,13 +110,40 @@ def make_role(db):
 
 
 @pytest.fixture
-def make_user(db, make_role):
+def make_school(db):
+    counter = {"n": 0}
+
+    def _make(**overrides) -> School:
+        counter["n"] += 1
+        n = counter["n"]
+        defaults = dict(code=f"SCH{n}", name=f"Test School {n}")
+        defaults.update(overrides)
+        school = School(**defaults)
+        db.add(school)
+        db.commit()
+        db.refresh(school)
+        return school
+    return _make
+
+
+@pytest.fixture
+def default_school(make_school):
+    """Most tests don't care about multi-tenancy - they just need every fixture's school_id to
+    agree so single-school assumptions (a student's course matches their own school, etc.) hold
+    without every test having to wire it up explicitly. Tests that actually exercise cross-school
+    behavior call make_school() again and pass school= explicitly to the fixtures below."""
+    return make_school()
+
+
+@pytest.fixture
+def make_user(db, make_role, default_school):
     counter = {"n": 0}
 
     def _make(role_name: str, **overrides) -> User:
         counter["n"] += 1
         n = counter["n"]
         role = make_role(role_name)
+        school = overrides.pop("school", None) or default_school
         defaults = dict(
             username=f"user{n}",
             email=f"user{n}@example.com",
@@ -123,6 +151,7 @@ def make_user(db, make_role):
             last_name=f"User{n}",
             password_hash=TEST_PASSWORD_HASH,
             role_id=role.id,
+            school_id=school.id,
             is_active=True,
         )
         defaults.update(overrides)
@@ -135,13 +164,15 @@ def make_user(db, make_role):
 
 
 @pytest.fixture
-def make_course(db):
+def make_course(db, default_school):
     counter = {"n": 0}
 
-    def _make(**overrides) -> Course:
+    def _make(school=None, **overrides) -> Course:
         counter["n"] += 1
         n = counter["n"]
-        defaults = dict(code=f"COURSE{n}", name=f"Test Course {n}")
+        if school is None:
+            school = default_school
+        defaults = dict(code=f"COURSE{n}", name=f"Test Course {n}", school_id=school.id)
         defaults.update(overrides)
         course = Course(**defaults)
         db.add(course)

@@ -17,7 +17,7 @@ def preview_purge(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return RetentionService.preview_purge(db)
+    return RetentionService.preview_purge(db, current_user.school_id)
 
 
 @router.post("/purge")
@@ -25,5 +25,5 @@ def purge_expired_evidence(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    purged = RetentionService.purge_expired_evidence(db, current_user.id)
+    purged = RetentionService.purge_expired_evidence(db, current_user.id, current_user.school_id)
     return {"purged_count": purged}

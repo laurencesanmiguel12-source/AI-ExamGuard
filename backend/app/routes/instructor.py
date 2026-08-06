@@ -28,7 +28,7 @@ def get_instructors(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return InstructorService.get_all(db)
+    return InstructorService.get_all(current_user, db)
 
 
 @router.get(
@@ -42,6 +42,7 @@ def get_instructor(
 ):
     return InstructorService.get_by_id(
         instructor_id,
+        current_user,
         db
     )
 
@@ -57,6 +58,7 @@ def create_instructor(
 ):
     return InstructorService.create(
         request,
+        current_user,
         db
     )
 
@@ -74,6 +76,7 @@ def update_instructor(
     return InstructorService.update(
         instructor_id,
         request,
+        current_user,
         db
     )
 
@@ -88,5 +91,6 @@ def delete_instructor(
 ):
     return InstructorService.delete(
         instructor_id,
+        current_user,
         db
     )

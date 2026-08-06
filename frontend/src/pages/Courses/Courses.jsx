@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getCourses, createCourse, updateCourse, deleteCourse } from "../../api/courses";
+import { useAuth } from "../../context/AuthContext";
 import SectionTag from "../../components/ui/SectionTag";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
@@ -15,6 +16,7 @@ const COLUMNS = [
 const EMPTY_FORM = { code: "", name: "" };
 
 export default function Courses() {
+  const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -24,7 +26,7 @@ export default function Courses() {
 
   function refresh() {
     setLoading(true);
-    getCourses()
+    getCourses(user.school_id)
       .then(setCourses)
       .finally(() => setLoading(false));
   }

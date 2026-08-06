@@ -9,9 +9,12 @@ class Instructor(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    # Not globally unique - two different schools independently numbering their own staff (e.g.
+    # both using "EMP-001") is harmless, since nothing looks an Instructor up by employee_number
+    # (it's a display label, not a key). Uniqueness is instead enforced per-school at the service
+    # layer (see InstructorService.create).
     employee_number: Mapped[str] = mapped_column(
         String(50),
-        unique=True,
         nullable=False
     )
 

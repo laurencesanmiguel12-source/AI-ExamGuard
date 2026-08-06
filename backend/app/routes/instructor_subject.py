@@ -24,7 +24,7 @@ def list_instructor_subjects(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    instructor = InstructorService.get_by_id(instructor_id, db)
+    instructor = InstructorService.get_by_id(instructor_id, current_user, db)
     return InstructorSubjectService.get_all_for_instructor(instructor, db)
 
 
@@ -38,7 +38,7 @@ def assign_instructor_subject(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    instructor = InstructorService.get_by_id(instructor_id, db)
+    instructor = InstructorService.get_by_id(instructor_id, current_user, db)
     return InstructorSubjectService.assign(instructor, request, db)
 
 
@@ -49,5 +49,5 @@ def unassign_instructor_subject(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    instructor: Instructor = InstructorService.get_by_id(instructor_id, db)
+    instructor: Instructor = InstructorService.get_by_id(instructor_id, current_user, db)
     return InstructorSubjectService.unassign(instructor, subject_id, db)

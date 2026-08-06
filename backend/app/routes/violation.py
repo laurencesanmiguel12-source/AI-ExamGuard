@@ -45,7 +45,7 @@ def get_live_sessions(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_instructor)
 ):
-    return RiskService.get_live_sessions(db)
+    return RiskService.get_live_sessions(db, current_user.school_id)
 
 
 @router.post(

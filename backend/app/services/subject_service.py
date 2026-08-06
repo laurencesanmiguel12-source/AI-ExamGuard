@@ -3,17 +3,23 @@ from sqlalchemy.orm import Session
 
 from app.models.course import Course
 from app.models.subject import Subject
+from app.models.user import User
 from app.schemas.subject import SubjectCreate, SubjectUpdate
 
 
 class SubjectService:
 
     @staticmethod
-    def get_all(db: Session):
-        return db.query(Subject).all()
+    def get_all(current_user: User, db: Session):
+        return (
+            db.query(Subject)
+            .join(Course, Subject.course_id == Course.id)
+            .filter(Course.school_id == current_user.school_id)
+            .all()
+        )
 
     @staticmethod
-    def get_by_id(subject_id: int, db: Session):
+    def get_by_id(subject_id: int, current_user: User, db: Session):
 
         subject = (
             db.query(Subject)
@@ -27,10 +33,16 @@ class SubjectService:
                 detail="Subject not found."
             )
 
+        if subject.course.school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to manage this subject."
+            )
+
         return subject
 
     @staticmethod
-    def create(request: SubjectCreate, db: Session):
+    def create(request: SubjectCreate, current_user: User, db: Session):
 
         course = (
             db.query(Course)
@@ -42,6 +54,12 @@ class SubjectService:
             raise HTTPException(
                 status_code=404,
                 detail="Course not found."
+            )
+
+        if course.school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=403,
+                detail="This course belongs to a different school."
             )
 
         duplicate = (
@@ -75,10 +93,11 @@ class SubjectService:
     def update(
         subject_id: int,
         request: SubjectUpdate,
+        current_user: User,
         db: Session
     ):
 
-        subject = SubjectService.get_by_id(subject_id, db)
+        subject = SubjectService.get_by_id(subject_id, current_user, db)
 
         if request.code is not None:
             subject.code = request.code
@@ -87,6 +106,11 @@ class SubjectService:
             subject.name = request.name
 
         if request.course_id is not None:
+            course = db.query(Course).filter(Course.id == request.course_id).first()
+            if course is None:
+                raise HTTPException(status_code=404, detail="Course not found.")
+            if course.school_id != current_user.school_id:
+                raise HTTPException(status_code=403, detail="This course belongs to a different school.")
             subject.course_id = request.course_id
 
         db.commit()
@@ -95,9 +119,9 @@ class SubjectService:
         return subject
 
     @staticmethod
-    def delete(subject_id: int, db: Session):
+    def delete(subject_id: int, current_user: User, db: Session):
 
-        subject = SubjectService.get_by_id(subject_id, db)
+        subject = SubjectService.get_by_id(subject_id, current_user, db)
 
         db.delete(subject)
         db.commit()
