@@ -116,7 +116,7 @@ def make_school(db):
     def _make(**overrides) -> School:
         counter["n"] += 1
         n = counter["n"]
-        defaults = dict(code=f"SCH{n}", name=f"Test School {n}")
+        defaults = dict(code=f"SCH{n}", name=f"Test School {n}", slug=f"test-school-{n}")
         defaults.update(overrides)
         school = School(**defaults)
         db.add(school)

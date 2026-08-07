@@ -13,6 +13,7 @@ def test_school_signup_creates_a_working_admin_account(client, make_role):
     response = client.post("/schools/register", json={
         "code": "NEWU",
         "name": "New University",
+        "slug": "new-university",
         "username": "newu_admin",
         "email": "admin@newu.example.com",
         "password": "TestPass123!",

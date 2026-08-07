@@ -1,5 +1,6 @@
 import os
 import time
+from collections import deque
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -65,6 +66,37 @@ HAND_CROP_SIZE = 320
 # where a hand is" is what makes a lower threshold safe here, catching phones (e.g. held sideways)
 # that don't score high enough on a whole-frame pass. Not yet tuned against real hardware.
 HAND_REGION_PHONE_THRESHOLD = 0.20
+
+# Temporal aggregation for the whole-frame phone-specialist pass, added to recover recall on
+# frames that fall just under PHONE_SPECIALIST_CONFIDENCE_THRESHOLD without lowering that
+# threshold globally - lowering the single-frame bar was never tried directly, but raising it
+# (see the note above) already proved single-frame threshold changes are risky without a live
+# smoke-test, so this corroborates across polls instead of trusting one frame. A frame scoring
+# between the candidate and full threshold only becomes a violation once seen at least
+# CANDIDATE_CORROBORATION_COUNT times in the last CANDIDATE_WINDOW_SIZE polls (~15s apart in
+# ExamRoom), so a single low-confidence blip can't trigger a false positive on its own.
+# NOT YET LIVE-VALIDATED - these two constants are a reasoned starting point, not swept against
+# real hardware like HAND_CROP_SIZE/WRIST_VISIBILITY_THRESHOLD were. Confirm with a live
+# smoke-test (same method as the threshold-sweep investigation) before trusting this in production.
+PHONE_CANDIDATE_THRESHOLD = 0.20
+CANDIDATE_WINDOW_SIZE = 3
+CANDIDATE_CORROBORATION_COUNT = 2
+
+# ponytail: in-memory per-session state, lost on restart and not safe across multiple worker
+# processes - acceptable here since it only spans one exam session's ~15s-interval polling and
+# this app already runs as a single uvicorn process (same tradeoff as the extension's
+# live-connection state elsewhere in this codebase). Upgrade to a DB-backed window if this ever
+# runs multi-worker.
+_recent_candidates: dict[int, deque] = {}
+
+
+def _record_candidate(session_id: int, is_candidate: bool) -> bool:
+    """Appends this poll's candidate flag to the session's rolling window and reports whether
+    it's now corroborated. Pure bookkeeping, no model inference - kept separate so it's testable
+    without loading YOLO."""
+    window = _recent_candidates.setdefault(session_id, deque(maxlen=CANDIDATE_WINDOW_SIZE))
+    window.append(is_candidate)
+    return sum(window) >= CANDIDATE_CORROBORATION_COUNT
 
 # The base COCO model still handles person-counting (its "cell phone" class stays unused here -
 # base_yolov8s.pt's own phone signal was the accuracy problem in the first place). The specialist
@@ -171,15 +203,27 @@ class ObjectDetectionService:
         classes = results.boxes.cls.tolist() if results.boxes is not None else []
         person_count = classes.count(PERSON_CLASS)
 
+        # Predict at the lower candidate threshold so weak-but-real detections aren't discarded
+        # before they get a chance to be corroborated across polls.
         phone_results = _PHONE_MODEL.predict(
-            image, verbose=False, conf=PHONE_SPECIALIST_CONFIDENCE_THRESHOLD
+            image, verbose=False, conf=PHONE_CANDIDATE_THRESHOLD
         )[0]
-        phone_classes = phone_results.boxes.cls.tolist() if phone_results.boxes is not None else []
-        phone_detected = PHONE_SPECIALIST_CLASS in phone_classes
+        if phone_results.boxes is not None:
+            phone_scores = [
+                conf for conf, cls in zip(phone_results.boxes.conf.tolist(), phone_results.boxes.cls.tolist())
+                if cls == PHONE_SPECIALIST_CLASS
+            ]
+        else:
+            phone_scores = []
+        max_phone_conf = max(phone_scores, default=0.0)
+
+        phone_detected = max_phone_conf >= PHONE_SPECIALIST_CONFIDENCE_THRESHOLD
+        is_candidate = max_phone_conf >= PHONE_CANDIDATE_THRESHOLD
+        corroborated = _record_candidate(session_id, is_candidate)
 
         if not phone_detected:
             pose_results = _POSE_MODEL.predict(image, verbose=False)[0]
-            phone_detected = _phone_near_hands(image, pose_results)
+            phone_detected = _phone_near_hands(image, pose_results) or corroborated
 
         if phone_detected:
             ViolationService.log_violation(
@@ -201,3 +245,17 @@ class ObjectDetectionService:
             "phone_detected": phone_detected,
             "person_count": person_count
         }
+
+
+if __name__ == "__main__":
+    # Self-check for the corroboration bookkeeping only - no YOLO models involved.
+    _recent_candidates.clear()
+    assert _record_candidate(1, False) is False
+    assert _record_candidate(1, True) is False, "one candidate hit alone shouldn't corroborate"
+    assert _record_candidate(1, True) is True, "second candidate hit within the window should corroborate"
+    # A fresh session's window is independent of session 1's.
+    assert _record_candidate(2, True) is False
+    # Window is a rolling maxlen - once full, a new poll evicts the oldest and an old hit ages out.
+    _recent_candidates[3] = deque([True, False, False], maxlen=CANDIDATE_WINDOW_SIZE)
+    assert _record_candidate(3, False) is False, "the lone True should have aged out by now"
+    print("object_detection_service self-check passed")
