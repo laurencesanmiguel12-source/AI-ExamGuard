@@ -72,15 +72,23 @@ HAND_REGION_PHONE_THRESHOLD = 0.20
 # threshold globally - lowering the single-frame bar was never tried directly, but raising it
 # (see the note above) already proved single-frame threshold changes are risky without a live
 # smoke-test, so this corroborates across polls instead of trusting one frame. A frame scoring
-# between the candidate and full threshold only becomes a violation once seen at least
-# CANDIDATE_CORROBORATION_COUNT times in the last CANDIDATE_WINDOW_SIZE polls (~15s apart in
-# ExamRoom), so a single low-confidence blip can't trigger a false positive on its own.
-# NOT YET LIVE-VALIDATED - these two constants are a reasoned starting point, not swept against
-# real hardware like HAND_CROP_SIZE/WRIST_VISIBILITY_THRESHOLD were. Confirm with a live
-# smoke-test (same method as the threshold-sweep investigation) before trusting this in production.
+# between the candidate and full threshold only becomes a violation once seen in every one of the
+# last CANDIDATE_WINDOW_SIZE polls (~15s apart in ExamRoom), so a single low-confidence blip can't
+# trigger a false positive on its own.
+#
+# LIVE-VALIDATED 2026-08-07 (backend/training/evaluate_corroboration.py), replaying all four real
+# phone_backface_live_review* capture batches (98 positive / 135 negative frames) in their original
+# filming order - see evaluate_corroboration.py's docstring for why sequence order matters here and
+# a shuffled frozen-holdout eval can't test this at all. Swept CANDIDATE_CORROBORATION_COUNT before
+# picking 3 (all of the window, not "2 of 3"):
+#   2-of-3: recall 88.8% -> 96.9% (+8.1pt) but false-positive rate 2.2% -> 9.6% (+7.4pt, 3->13 frames)
+#   3-of-3: recall 88.8% -> 93.9% (+5.1pt), false-positive rate 2.2% -> 3.0% (+0.8pt, 3->4 frames)
+# 3-of-3 keeps nearly all the recall gain while all but eliminating the false-positive cost - 2-of-3
+# was rejected specifically because quadrupling false accusations of cheating is not an acceptable
+# trade for an extra 3 points of recall in a system with real consequences for students.
 PHONE_CANDIDATE_THRESHOLD = 0.20
 CANDIDATE_WINDOW_SIZE = 3
-CANDIDATE_CORROBORATION_COUNT = 2
+CANDIDATE_CORROBORATION_COUNT = 3
 
 # ponytail: in-memory per-session state, lost on restart and not safe across multiple worker
 # processes - acceptable here since it only spans one exam session's ~15s-interval polling and
@@ -250,12 +258,12 @@ class ObjectDetectionService:
 if __name__ == "__main__":
     # Self-check for the corroboration bookkeeping only - no YOLO models involved.
     _recent_candidates.clear()
-    assert _record_candidate(1, False) is False
-    assert _record_candidate(1, True) is False, "one candidate hit alone shouldn't corroborate"
-    assert _record_candidate(1, True) is True, "second candidate hit within the window should corroborate"
+    assert _record_candidate(1, True) is False
+    assert _record_candidate(1, True) is False, "two candidate hits alone shouldn't corroborate yet"
+    assert _record_candidate(1, True) is True, "three consecutive candidate hits (full window) should corroborate"
     # A fresh session's window is independent of session 1's.
     assert _record_candidate(2, True) is False
-    # Window is a rolling maxlen - once full, a new poll evicts the oldest and an old hit ages out.
-    _recent_candidates[3] = deque([True, False, False], maxlen=CANDIDATE_WINDOW_SIZE)
-    assert _record_candidate(3, False) is False, "the lone True should have aged out by now"
+    # Window is a rolling maxlen - once full, a new poll evicts the oldest, so one miss breaks it.
+    _recent_candidates[3] = deque([True, True, True], maxlen=CANDIDATE_WINDOW_SIZE)
+    assert _record_candidate(3, False) is False, "a miss should evict one hit and break corroboration"
     print("object_detection_service self-check passed")
