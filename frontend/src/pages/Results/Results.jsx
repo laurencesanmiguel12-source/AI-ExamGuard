@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExamSessions } from "../../api/examSessions";
@@ -15,7 +15,7 @@ const GRADED_STATUSES = ["SUBMITTED", "FLAGGED_RETAKE", "RETAKE_GRANTED", "RETAK
 
 export default function Results() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);

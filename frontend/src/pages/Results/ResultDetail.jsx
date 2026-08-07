@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { ArrowLeft, CheckCircle, XCircle, MinusCircle } from "lucide-react";
 import { getExamSession } from "../../api/examSessions";
 import { getAnswers } from "../../api/studentAnswers";
@@ -12,7 +13,7 @@ import ViolationsPanel from "../../components/ViolationsPanel";
 
 export default function ResultDetail() {
   const { sessionId } = useParams();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [phase, setPhase] = useState("loading");
   const [session, setSession] = useState(null);

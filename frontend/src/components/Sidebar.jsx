@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
@@ -15,6 +16,8 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const schoolSlug = useSchoolSlug();
+  const school = useSchool();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user?.role_name));
 
   return (
@@ -26,7 +29,7 @@ export default function Sidebar() {
         <div>
           <div className="font-display font-bold text-sm leading-none text-foreground">AI ExamGuard</div>
           <div className="text-muted-foreground text-[9px] font-mono uppercase tracking-[0.2em]">
-            Arellano University
+            {school?.name ?? ""}
           </div>
         </div>
       </div>
@@ -34,7 +37,7 @@ export default function Sidebar() {
         {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
-            to={to}
+            to={`/${schoolSlug}${to}`}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-mono uppercase tracking-wider transition-all ${
                 isActive

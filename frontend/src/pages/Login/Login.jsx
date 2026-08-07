@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Shield, Users, Lock, ArrowRight, Eye } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useSchool, useSchoolNav, useSchoolSlug } from "../../hooks/useSchoolNav";
 import Card from "../../components/ui/Card";
 
 export default function Login() {
@@ -10,7 +11,9 @@ export default function Login() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
+  const schoolSlug = useSchoolSlug();
+  const school = useSchool();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -49,7 +52,7 @@ export default function Login() {
             <Shield className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-display font-black text-foreground text-4xl">Secure Login</h1>
-          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — Arellano University</p>
+          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — {school?.name ?? "…"}</p>
         </div>
 
         <Card className="p-6">
@@ -109,7 +112,7 @@ export default function Login() {
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
           New student?{" "}
-          <Link to="/register" className="text-primary hover:underline">
+          <Link to={`/${schoolSlug}/register`} className="text-primary hover:underline">
             Create an account
           </Link>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { ArrowLeft, Plus } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
@@ -22,7 +23,7 @@ function ownershipMessage(err) {
 
 export default function ExamRoster() {
   const { examId } = useParams();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [phase, setPhase] = useState("loading");
   const [exam, setExam] = useState(null);

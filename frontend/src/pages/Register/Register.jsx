@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Shield, ArrowRight } from "lucide-react";
 import { register } from "../../api/auth";
 import { getCourses } from "../../api/courses";
-import { getSchools } from "../../api/schools";
+import { useSchool, useSchoolNav, useSchoolSlug } from "../../hooks/useSchoolNav";
 import Card from "../../components/ui/Card";
 import { TextField, SelectField } from "../../components/ui/FormField";
 
@@ -13,46 +13,34 @@ const EMPTY_FORM = {
   password: "",
   first_name: "",
   last_name: "",
-  school_id: "",
   course_id: "",
 };
 
 export default function Register() {
   const [form, setForm] = useState(EMPTY_FORM);
-  const [schools, setSchools] = useState([]);
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
+  const schoolSlug = useSchoolSlug();
+  const school = useSchool();
 
+  // The school is fixed by the URL - only its courses are selectable.
   useEffect(() => {
-    getSchools().then((s) => {
-      setSchools(s);
-      setForm((f) => ({ ...f, school_id: s[0]?.id ?? "" }));
-    });
-  }, []);
-
-  // Which school you're in determines which courses you can pick - re-fetch every time the
-  // school selection changes, and clear the stale course choice from the previous school.
-  useEffect(() => {
-    if (!form.school_id) return;
-    setCourses([]);
-    getCourses(form.school_id).then((c) => {
+    if (!school) return;
+    getCourses(school.id).then((c) => {
       setCourses(c);
       setForm((f) => ({ ...f, course_id: c[0]?.id ?? "" }));
     });
-  }, [form.school_id]);
+  }, [school]);
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      // school_id is a UI-only filter for the course dropdown - the backend derives the
-      // student's school from whichever course they picked (see AuthService.register).
-      const { school_id, ...payload } = form;
-      await register({ ...payload, course_id: Number(form.course_id) });
+      await register({ ...form, course_id: Number(form.course_id) });
       setDone(true);
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
@@ -79,7 +67,7 @@ export default function Register() {
             <Shield className="w-7 h-7 text-primary" />
           </div>
           <h1 className="font-display font-black text-foreground text-4xl">Student Registration</h1>
-          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — Arellano University</p>
+          <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — {school?.name ?? "…"}</p>
         </div>
 
         <Card className="p-6">
@@ -136,20 +124,6 @@ export default function Register() {
               />
 
               <SelectField
-                label="School"
-                required
-                value={form.school_id}
-                onChange={(e) => setForm({ ...form, school_id: e.target.value })}
-              >
-                {schools.length === 0 && <option value="">Loading schools…</option>}
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} — {s.name}
-                  </option>
-                ))}
-              </SelectField>
-
-              <SelectField
                 label="Course"
                 required
                 value={form.course_id}
@@ -165,7 +139,7 @@ export default function Register() {
 
               <button
                 type="submit"
-                disabled={submitting || schools.length === 0 || courses.length === 0}
+                disabled={submitting || courses.length === 0}
                 className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors mt-2"
               >
                 <ArrowRight className="w-4 h-4" /> {submitting ? "Creating account…" : "Create Account"}
@@ -176,7 +150,7 @@ export default function Register() {
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link to="/login" className="text-primary hover:underline">
+          <Link to={`/${schoolSlug}/login`} className="text-primary hover:underline">
             Sign in
           </Link>
         </div>

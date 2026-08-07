@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 class SchoolBase(BaseModel):
     code: str
     name: str
+    slug: str
 
 
 class SchoolResponse(SchoolBase):
@@ -17,6 +18,9 @@ class SchoolRegisterRequest(BaseModel):
     admin user in this codebase (previously always a raw DB seed, no route existed)."""
     code: str
     name: str
+    # Pre-filled client-side from `name` (editable) - the school's login URL, e.g.
+    # "arellano-university" for /arellano-university/login.
+    slug: str
     username: str
     email: EmailStr
     password: str

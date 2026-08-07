@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.auth.service import AuthService
 from app.models.school import School
 from app.schemas.school import SchoolRegisterRequest
+from app.utils.slugify import slugify
 
 
 class SchoolService:
@@ -27,7 +28,25 @@ class SchoolService:
                 detail="A school with this code already exists."
             )
 
-        school = School(code=request.code, name=request.name)
+        slug = slugify(request.slug)
+        if not slug:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid school URL slug."
+            )
+
+        slug_taken = (
+            db.query(School)
+            .filter(School.slug == slug)
+            .first()
+        )
+        if slug_taken:
+            raise HTTPException(
+                status_code=400,
+                detail="A school with this URL is already registered."
+            )
+
+        school = School(code=request.code, name=request.name, slug=slug)
         db.add(school)
         db.flush()  # assigns school.id without committing, for the admin user below
 

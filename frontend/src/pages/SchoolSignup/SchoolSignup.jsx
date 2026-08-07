@@ -8,6 +8,7 @@ import { TextField } from "../../components/ui/FormField";
 const EMPTY_FORM = {
   code: "",
   name: "",
+  slug: "",
   username: "",
   email: "",
   password: "",
@@ -15,21 +16,35 @@ const EMPTY_FORM = {
   last_name: "",
 };
 
+function slugify(text) {
+  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 export default function SchoolSignup() {
   const [form, setForm] = useState(EMPTY_FORM);
+  const [slugEdited, setSlugEdited] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
+
+  function handleNameChange(name) {
+    setForm((f) => ({ ...f, name, slug: slugEdited ? f.slug : slugify(name) }));
+  }
+
+  function handleSlugChange(rawSlug) {
+    setSlugEdited(true);
+    setForm((f) => ({ ...f, slug: slugify(rawSlug) }));
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await registerSchool(form);
+      const school = await registerSchool(form);
       setDone(true);
-      setTimeout(() => navigate("/login"), 1500);
+      setTimeout(() => navigate(`/${school.slug}/login`), 1500);
     } catch (err) {
       setError(err.response?.data?.detail ?? "Couldn't register your school. Check your details and try again.");
     } finally {
@@ -74,9 +89,21 @@ export default function SchoolSignup() {
                 label="School Name"
                 required
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Arellano University"
               />
+              <TextField
+                label="Login URL"
+                required
+                value={form.slug}
+                onChange={(e) => handleSlugChange(e.target.value)}
+                placeholder="arellano-university"
+              />
+              {form.slug && (
+                <p className="text-xs text-muted-foreground -mt-3 mb-4">
+                  Your school will sign in at /{form.slug}/login
+                </p>
+              )}
               <TextField
                 label="School Code"
                 required

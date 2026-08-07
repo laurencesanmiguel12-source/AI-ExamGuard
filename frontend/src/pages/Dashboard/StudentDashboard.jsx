@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { BookOpen, ArrowRight, UserCheck } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -22,7 +22,7 @@ const TICK = { fill: "#94a3b8", fontSize: 11, fontFamily: "JetBrains Mono" };
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);

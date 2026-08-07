@@ -20,6 +20,12 @@ class School(Base, TimestampMixin):
         nullable=False
     )
 
+    slug: Mapped[str] = mapped_column(
+        String(150),
+        unique=True,
+        nullable=False
+    )
+
     users = relationship(
         "User",
         back_populates="school"

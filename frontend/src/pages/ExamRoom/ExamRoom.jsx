@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { CheckCircle, Eye } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExam } from "../../api/exams";
@@ -36,7 +37,7 @@ function useCountdown(deadline) {
 export default function ExamRoom() {
   const { examId } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [phase, setPhase] = useState("loading");
   const [error, setError] = useState("");

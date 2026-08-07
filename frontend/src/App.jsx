@@ -6,6 +6,7 @@ import Landing from "./pages/Landing/Landing";
 import Login from "./pages/Login/Login";
 import Register from "./pages/Register/Register";
 import SchoolSignup from "./pages/SchoolSignup/SchoolSignup";
+import SchoolPicker from "./pages/SchoolPicker/SchoolPicker";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Courses from "./pages/Courses/Courses";
 import Subjects from "./pages/Subjects/Subjects";
@@ -28,36 +29,40 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<SchoolPicker />} />
           <Route path="/schools/register" element={<SchoolSignup />} />
 
-          <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
-            <Route path="/take-exam/:examId" element={<ExamRoom />} />
-            <Route path="/face-enrollment" element={<FaceEnrollment />} />
-          </Route>
+          <Route path="/:schoolSlug">
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
+            <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
+              <Route path="take-exam/:examId" element={<ExamRoom />} />
+              <Route path="face-enrollment" element={<FaceEnrollment />} />
+            </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
-                <Route path="/results" element={<Results />} />
-                <Route path="/results/:sessionId" element={<ResultDetail />} />
-              </Route>
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="dashboard" element={<Dashboard />} />
 
-              <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>
-                <Route path="/exams" element={<Exams />} />
-                <Route path="/exams/:examId/content" element={<ExamContent />} />
-                <Route path="/exams/:examId/roster" element={<ExamRoster />} />
-                <Route path="/reports" element={<Reports />} />
-              </Route>
+                <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
+                  <Route path="results" element={<Results />} />
+                  <Route path="results/:sessionId" element={<ResultDetail />} />
+                </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                <Route path="/courses" element={<Courses />} />
-                <Route path="/subjects" element={<Subjects />} />
-                <Route path="/students" element={<Students />} />
-                <Route path="/instructors" element={<Instructors />} />
+                <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>
+                  <Route path="exams" element={<Exams />} />
+                  <Route path="exams/:examId/content" element={<ExamContent />} />
+                  <Route path="exams/:examId/roster" element={<ExamRoster />} />
+                  <Route path="reports" element={<Reports />} />
+                </Route>
+
+                <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+                  <Route path="courses" element={<Courses />} />
+                  <Route path="subjects" element={<Subjects />} />
+                  <Route path="students" element={<Students />} />
+                  <Route path="instructors" element={<Instructors />} />
+                </Route>
               </Route>
             </Route>
           </Route>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { ArrowLeft, Plus, Upload } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
@@ -39,7 +40,7 @@ function ownershipMessage(err) {
 
 export default function ExamContent() {
   const { examId } = useParams();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [phase, setPhase] = useState("loading");
   const [exam, setExam] = useState(null);

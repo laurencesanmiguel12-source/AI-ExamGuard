@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { PieChart as RPie, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Eye, FileText, BarChart3 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -45,7 +45,7 @@ const TT_LABEL = { color: "#64748b" };
 
 export default function InstructorDashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
   const [myExams, setMyExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [liveSessions, setLiveSessions] = useState([]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { Camera, CheckCircle, Trash2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getStudents } from "../../api/students";
@@ -13,7 +13,7 @@ const MIN_CAPTURES = 3;
 
 export default function FaceEnrollment() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useSchoolNav();
 
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
