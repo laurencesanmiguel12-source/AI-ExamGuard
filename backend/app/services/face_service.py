@@ -16,6 +16,29 @@ from app.services.violation_service import ViolationService
 
 FACE_SIZE = (200, 200)
 MIN_ENROLLMENT_SAMPLES = 3
+# UNVALIDATED (2026-08-08 update): this was the original guessed default, never swept against
+# real data - every other threshold in this proctoring pipeline (phone confidence, hand-crop
+# size, head-down pitch/duration/miss-tolerance, pose-fallback confidence) has an empirical
+# analysis behind it; this one didn't until now.
+#
+# backend/training/analyze_face_recognition_threshold.py measured it against real OEP-subject
+# webcam frames (real enrolled students' raw photos are never persisted, by design - see
+# FaceService.enroll - so there's no real-user image set to test against directly; OEP subjects,
+# recorded under similar shared study conditions, stand in as a plausible worst-case impostor
+# population - a classmate with similar camera/lighting, not a random stranger). Genuine vs.
+# impostor LBPH-distance distributions overlap heavily (genuine median 42.2 up to 90.0; impostor
+# starts at 48.4, median 80.6). At the current value of 80.0: precision=0.552, recall=0.979,
+# **False Accept Rate = 47.6%** - almost half of impostor attempts are wrongly accepted as a
+# match, a real gap given this check exists specifically to catch someone else sitting in for
+# the enrolled student. F1-optimal on this data is threshold=60 (precision=0.950, recall=0.873,
+# FAR=2.7%, FRR=12.7% - legitimate students would false-flag roughly 1 in 8 checks instead of
+# 1 in 48).
+#
+# NOT yet changed: per this project's own threshold_sweep_investigation lesson (a holdout-optimal
+# phone-detection threshold that looked great offline collapsed live from 83% to 4% recall due to
+# lighting drift never represented in the holdout), a value this consequential needs a live
+# smoke-test with two real people (one enrolled, one impostor) across real hardware before
+# shipping - not just this offline number, however large the gap looks.
 CONFIDENCE_THRESHOLD = 80.0
 
 STORAGE_DIR = os.path.join(
