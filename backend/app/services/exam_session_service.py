@@ -14,6 +14,7 @@ from app.schemas.exam_session import (
     ExamSessionUpdate,
 )
 from app.services.exam_service import ExamService
+from app.services.face_service import FaceService
 from app.services.object_detection_service import ObjectDetectionService
 from app.services.risk_service import RiskService
 
@@ -226,6 +227,7 @@ class ExamSessionService:
         db.refresh(session)
 
         ObjectDetectionService.discard_session(session.id)
+        FaceService.discard_session(session.id)
 
         return session
 

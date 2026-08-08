@@ -29,6 +29,12 @@ WEIGHTS = {
     # but PHONE_DETECTED has since moved to RiskModelService above - IDENTITY_MISMATCH is the
     # current hand-weighted anchor instead.)
     "PROLONGED_HEAD_DOWN": 20,
+    # A sustained run of near-identical webcam frames - unlike IDENTITY_MISMATCH (which can be a
+    # single bad-lighting/angle frame), this only fires after several consecutive polls show no
+    # natural micro-movement at all, which is stronger evidence of a deliberate static photo held
+    # to the camera rather than an incidental misread - weighted above IDENTITY_MISMATCH on that
+    # basis. Still unvalidated (see face_service.py's STATIC_IMAGE_DIFF_THRESHOLD comment).
+    "STATIC_IMAGE_SUSPECTED": 35,
 }
 
 VISION_EVENT_TYPES = {

@@ -15,7 +15,7 @@ from app.schemas.violation import ViolationCreate
 # (tab-switch, copy-paste, right-click, fullscreen-exit) have no visual counterpart to save at all.
 EVIDENCE_EVENT_TYPES = {
     "FACE_LOST", "IDENTITY_MISMATCH", "PHONE_DETECTED", "MULTIPLE_PEOPLE",
-    "AI_TOOL_DETECTED", "SEARCH_ENGINE_DETECTED",
+    "AI_TOOL_DETECTED", "SEARCH_ENGINE_DETECTED", "STATIC_IMAGE_SUSPECTED",
 }
 
 STORAGE_DIR = os.path.join(

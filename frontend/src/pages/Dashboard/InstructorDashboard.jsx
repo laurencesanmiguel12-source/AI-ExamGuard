@@ -24,6 +24,9 @@ const VIOLATION_META = {
   // Head pose, not eye gaze - a coarse proxy, not a certain detection, so it reads as "needs
   // review" rather than a hard accusation.
   PROLONGED_HEAD_DOWN: { label: "Prolonged Downward Gaze", fill: "#0d9488" },
+  // Sustained near-identical webcam frames - a suspected static photo held up to the camera,
+  // not just a single bad-angle mismatch. See risk_service.py's weighting note.
+  STATIC_IMAGE_SUSPECTED: { label: "Static Image Suspected", fill: "#9333ea" },
 };
 
 const ALERT_SEVERITY = {
@@ -32,6 +35,7 @@ const ALERT_SEVERITY = {
   PHONE_DETECTED: "critical",
   AI_TOOL_DETECTED: "critical",
   SEARCH_ENGINE_DETECTED: "critical",
+  STATIC_IMAGE_SUSPECTED: "critical",
   FACE_LOST: "high",
   COPY_PASTE: "high",
   MULTIPLE_PEOPLE: "high",

@@ -26,7 +26,7 @@ const EXAM_RULES = [
     bg: "#f5f3ff",
     border: "#ddd6fe",
     title: "No Impersonation",
-    desc: "Your identity is periodically checked against the face profile you enrolled beforehand. A mismatch is logged as a violation and raises your risk score.",
+    desc: "Your identity is periodically checked against the face profile you enrolled beforehand. A mismatch is logged as a violation and raises your risk score. The system also checks for natural signs of a live person on camera — holding up a photo instead of your actual face may also be flagged.",
   },
   {
     icon: Monitor,
@@ -76,6 +76,7 @@ const CHECKLIST_ITEMS = [
   "I am in a well-lit, quiet environment.",
   "My phone is turned off or placed out of camera range.",
   "I will not switch tabs or use any AI / search tools.",
+  "I understand that holding a photo or image up to my camera instead of my actual face may be flagged for review.",
   "I understand that keeping my head angled down for an extended period may be flagged for review.",
   "I understand that violations raise my risk score and will be reviewed by my instructor.",
 ];

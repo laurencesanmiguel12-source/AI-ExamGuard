@@ -34,12 +34,83 @@ MIN_ENROLLMENT_SAMPLES = 3
 # FAR=2.7%, FRR=12.7% - legitimate students would false-flag roughly 1 in 8 checks instead of
 # 1 in 48).
 #
-# NOT yet changed: per this project's own threshold_sweep_investigation lesson (a holdout-optimal
-# phone-detection threshold that looked great offline collapsed live from 83% to 4% recall due to
-# lighting drift never represented in the holdout), a value this consequential needs a live
-# smoke-test with two real people (one enrolled, one impostor) across real hardware before
-# shipping - not just this offline number, however large the gap looks.
-CONFIDENCE_THRESHOLD = 80.0
+# Live smoke-test done 2026-08-08 (real enrolled student, real webcam): 5 genuine trials scored
+# 40.8-44.2, closely matching the offline genuine median (42.2) - confirms the offline
+# distribution transfers to real hardware, unlike the phone-detection threshold that collapsed
+# live from lighting drift the holdout never sampled. Changed to 60 on that basis.
+#
+# Same live test also surfaced a DIFFERENT, more serious gap this threshold change does NOT fix:
+# a photo of a different person held up to the webcam scored 41.9-46.2 - overlapping directly
+# with genuine, comfortably under even this new value. No LBPH-distance threshold can fix that,
+# since LBPH has no concept of "is this a live person" versus "is this a photo of a face" - it
+# only compares texture. That's a liveness/anti-spoofing gap, a different problem from threshold
+# calibration - see the liveness-detection work this finding motivated.
+CONFIDENCE_THRESHOLD = 60.0
+
+# ponytail: in-memory per-session state (previous poll's face crop, consecutive-static-poll
+# streak, whether this streak already fired), same restart-loses-it/single-worker tradeoff as
+# object_detection_service.py's _recent_candidates - acceptable for the same reason (spans one
+# exam session's ~15s-interval polling, single uvicorn process). Evicted via discard_session()
+# once a session ends.
+_last_crop_state: dict[int, tuple[np.ndarray, int, bool]] = {}
+
+# UNVALIDATED placeholders (2026-08-08) - added the same day the CONFIDENCE_THRESHOLD live
+# smoke-test surfaced that a photo of a different person held up to the webcam scored well
+# within the genuine range (see that constant's comment above). No LBPH-distance threshold can
+# catch that - it's a liveness/anti-spoofing gap, not a matching-accuracy one, since LBPH only
+# compares texture and has no concept of "is this a live person in front of a camera."
+#
+# First, deliberately simple mechanism: a genuinely live face has continuous micro-movement
+# (breathing, blinking, involuntary sway) between ~15s polls even when a student is trying to
+# sit still; a static photo (printed or on a screen) does not, beyond webcam sensor noise. These
+# two numbers are starting guesses, not measured values - they need the same kind of real-data
+# calibration every other threshold in this file got (see analyze_face_recognition_threshold.py
+# for the pattern to follow) before being trusted.
+STATIC_IMAGE_DIFF_THRESHOLD = 3.0  # mean absolute grayscale pixel difference (0-255 scale)
+STATIC_IMAGE_STREAK_THRESHOLD = 3  # consecutive suspiciously-static polls (~45s at a 15s cadence)
+
+
+def discard_session(session_id: int) -> None:
+    """Evicts a finished session's static-image tracking state. Safe to call even if the
+    session never had a successful face crop at all (no-op)."""
+    _last_crop_state.pop(session_id, None)
+
+
+def _check_static_image(session_id: int, crop) -> bool:
+    """Updates the session's consecutive-static-poll streak from the latest crop and reports
+    whether THIS poll should trigger a STATIC_IMAGE_SUSPECTED violation. Pure bookkeeping, no
+    model inference - kept separate so it's testable without loading YuNet/LBPH, same convention
+    as object_detection_service.py's _record_candidate.
+
+    Fires exactly once per sustained-static episode (mirrors _track_head_down's
+    fire-once-per-streak behavior), not on every poll while the streak holds. crop=None (no face
+    detected this poll) resets the streak entirely - a detection gap means the next successful
+    crop isn't meaningfully comparable to whatever came before it."""
+    if crop is None:
+        _last_crop_state.pop(session_id, None)
+        return False
+
+    previous = _last_crop_state.get(session_id)
+    if previous is None:
+        _last_crop_state[session_id] = (crop, 0, False)
+        return False
+
+    previous_crop, streak, already_logged = previous
+    diff = float(np.mean(np.abs(crop.astype(np.int16) - previous_crop.astype(np.int16))))
+
+    if diff < STATIC_IMAGE_DIFF_THRESHOLD:
+        streak += 1
+    else:
+        streak = 0
+        already_logged = False
+
+    should_log = streak >= STATIC_IMAGE_STREAK_THRESHOLD and not already_logged
+    if should_log:
+        already_logged = True
+
+    _last_crop_state[session_id] = (crop, streak, already_logged)
+    return should_log
+
 
 STORAGE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -323,6 +394,10 @@ def _track_head_down(
 class FaceService:
 
     @staticmethod
+    def discard_session(session_id: int) -> None:
+        discard_session(session_id)
+
+    @staticmethod
     def benchmark_latency_ms() -> float:
         start = time.perf_counter()
         _DETECTOR.setInputSize((640, 480))
@@ -474,6 +549,19 @@ class FaceService:
 
         crop = _crop_from_detection(image, detection) if detection is not None else None
 
+        if _check_static_image(session_id, crop):
+            # A sustained run of near-identical crops - see STATIC_IMAGE_DIFF_THRESHOLD's comment
+            # for why this exists (no LBPH-distance threshold can catch a photo held up to the
+            # webcam, since it only compares texture, not liveness). Evidence here IS the webcam
+            # frame, unlike PROLONGED_HEAD_DOWN - this is a direct visual claim ("this looks like
+            # the same static image repeatedly"), not a geometric proxy.
+            ViolationService.log_violation(
+                session_id,
+                ViolationCreate(event_type="STATIC_IMAGE_SUSPECTED"),
+                db,
+                evidence_bytes=image_bytes
+            )
+
         if crop is None:
             # Gated on person_present (any pose-model person box), not fallback_confidence (a
             # single keypoint's confidence) - a real head-down poll can have a low nose-keypoint
@@ -525,3 +613,36 @@ class FaceService:
             "identity_match": match,
             "confidence": float(confidence)
         }
+
+
+if __name__ == "__main__":
+    # Self-check for the static-image streak bookkeeping only - no YuNet/LBPH models involved.
+    _last_crop_state.clear()
+    still = np.full((4, 4), 100, dtype=np.uint8)
+    moved = np.full((4, 4), 200, dtype=np.uint8)
+
+    assert _check_static_image(1, still) is False, "first crop has nothing to compare against yet"
+    assert _check_static_image(1, still) is False, "streak=1, below STATIC_IMAGE_STREAK_THRESHOLD"
+    assert _check_static_image(1, still) is False, "streak=2, still below threshold"
+    assert _check_static_image(1, still) is True, "streak=3 crosses STATIC_IMAGE_STREAK_THRESHOLD"
+    assert _check_static_image(1, still) is False, "already logged this episode - must not re-fire"
+
+    assert _check_static_image(1, moved) is False, "real motion breaks the streak"
+    assert _check_static_image(1, moved) is False, "streak reset to 0 by the motion, then to 1"
+
+    # A fresh streak after motion can fire again.
+    assert _check_static_image(1, moved) is False
+    assert _check_static_image(1, moved) is True, "second sustained-static episode should fire again"
+
+    # A different session's state is independent of session 1's.
+    assert _check_static_image(2, still) is False
+
+    # crop=None (no face detected) resets state entirely.
+    assert _check_static_image(1, None) is False
+    assert 1 not in _last_crop_state
+
+    discard_session(2)
+    assert 2 not in _last_crop_state
+    discard_session(999)  # never existed - must not raise
+
+    print("face_service static-image self-check passed")
