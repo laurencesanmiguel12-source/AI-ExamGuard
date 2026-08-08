@@ -61,11 +61,29 @@ _last_crop_state: dict[int, tuple[np.ndarray, int, bool]] = {}
 # compares texture and has no concept of "is this a live person in front of a camera."
 #
 # First, deliberately simple mechanism: a genuinely live face has continuous micro-movement
-# (breathing, blinking, involuntary sway) between ~15s polls even when a student is trying to
-# sit still; a static photo (printed or on a screen) does not, beyond webcam sensor noise. These
-# two numbers are starting guesses, not measured values - they need the same kind of real-data
-# calibration every other threshold in this file got (see analyze_face_recognition_threshold.py
-# for the pattern to follow) before being trusted.
+# (breathing, blinking, involuntary sway) between polls even when a student is trying to sit
+# still; a static photo (printed or on a screen) does not, beyond webcam sensor noise.
+#
+# Live-tested 2026-08-08 (real webcam, backend/training/analyze_static_image_threshold.py) - a
+# SOBERING result, a real signal-ceiling finding, not a mistuned number:
+# - Genuine still-sitting (reading a question, not moving on purpose): consecutive-poll diffs
+#   11.3-30.9 (n=6 pairs). Current 3.0 threshold correctly never fires on this - good.
+# - A photo HAND-HELD to the webcam (the realistic attack - someone just holding a phone, not
+#   rigging a mount): consecutive-poll diffs 7.2-20.3 (n=6 pairs across two attempts) - this
+#   OVERLAPS the genuine-sitting range. Visually confirmed why: natural hand tremor visibly
+#   shifts the photo's position between polls, producing pixel movement comparable to a live
+#   person's natural micro-movement.
+# - Conclusion: raising STATIC_IMAGE_DIFF_THRESHOLD to try to separate these two distributions
+#   isn't safe - they genuinely overlap in this data, the same "not a mistuned number" shape as
+#   HEAD_DOWN_PITCH_THRESHOLD_DEGREES's ceiling. A hand-held (not perfectly rigid) photo may not
+#   be reliably caught by frame-differencing alone. A fully rigid, hands-off comparison was
+#   attempted but produced unusable data (phone screen auto-brightness blew out to white,
+#   unrelated confound) - not yet resolved either way.
+# **How to apply**: don't tune this threshold further expecting it to fix the hand-held-photo
+# case - that's this signal's ceiling, same category as the head-down pitch finding. If this
+# gap matters enough to close, it likely needs a different signal entirely (e.g. blink detection
+# using YuNet's eye landmarks, which a photo - hand-held or rigid - can never produce), not a
+# threshold adjustment on frame-difference.
 STATIC_IMAGE_DIFF_THRESHOLD = 3.0  # mean absolute grayscale pixel difference (0-255 scale)
 STATIC_IMAGE_STREAK_THRESHOLD = 3  # consecutive suspiciously-static polls (~45s at a 15s cadence)
 
