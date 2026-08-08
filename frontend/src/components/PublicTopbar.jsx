@@ -29,7 +29,7 @@ export default function PublicTopbar() {
           <div className="text-left">
             <div className="text-foreground font-display font-bold text-sm leading-none">AI ExamGuard</div>
             <div className="text-muted-foreground text-[9px] font-mono uppercase tracking-[0.2em]">
-              Arellano University
+              Multi-School Proctoring
             </div>
           </div>
         </button>
