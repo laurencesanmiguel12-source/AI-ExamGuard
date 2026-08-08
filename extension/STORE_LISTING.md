@@ -62,12 +62,21 @@ which is the extension's actual effect visible in context. More screenshots can 
 way (crop to 1.6:1 first, then resize to exactly 1280x800 or 640x400 - stretching without cropping
 distorts the image).
 
-## Known gotcha before submitting
+## Known gotcha, resolved 2026-08-08
 
-manifest.json currently has a "key" field, which fixes this extension's ID
-(ippkohhninlboeifildoaaehgjpdhgde) for local unpacked installs - frontend/.env's
-VITE_EXTENSION_ID depends on this exact value. Whether the Chrome Web Store preserves this ID on
-first publish or assigns its own depends on current Store behavior (not verified here - check at
-submission time). If the published ID differs from the unpacked one, VITE_EXTENSION_ID needs
-updating to match once the Store assigns a real ID, and every deployed frontend needs redeploying
-with the new value before the published extension will actually connect to exam pages.
+manifest.json used to have a "key" field, which the Chrome Web Store's own validator rejects
+outright ("key field is not allowed in manifest") - it was stripped from a scratchpad copy before
+the first submission's zip was built, but never removed from this committed file, so every future
+rebuild-from-source would have hit the same rejection again. Removed here for good.
+
+**Real side effect of removing it**: that field is also what pinned this extension's ID to a fixed
+value (ippkohhninlboeifildoaaehgjpdhgde) for local unpacked installs - without it, Chrome derives
+an unpacked extension's ID from the absolute filesystem path it's loaded from, which differs
+per machine/clone location. frontend/.env's VITE_EXTENSION_ID depends on this exact value, so
+anyone loading the unpacked extension fresh (`chrome://extensions` -> Load unpacked) needs to copy
+whatever ID Chrome actually assigns into their own frontend/.env, not assume the old hardcoded one
+still applies.
+
+Separately, the **published** Store extension has its own real, permanent ID, assigned once at
+first publish - open the Developer Dashboard listing and confirm VITE_EXTENSION_ID matches it
+before trusting a deployed frontend to actually connect to the live extension.
