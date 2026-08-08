@@ -12,13 +12,25 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+function loginRedirectPath() {
+  // School-scoped routes are always "/:schoolSlug/...". Deep-link back into the same school's
+  // login instead of the tenant-less SchoolPicker, so an expired token doesn't force the user to
+  // re-find their school from scratch on top of logging back in.
+  const [, firstSegment] = window.location.pathname.split("/");
+  if (!firstSegment || firstSegment === "login" || firstSegment === "schools") {
+    return "/login";
+  }
+  return `/${firstSegment}/login`;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("access_token");
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      const target = loginRedirectPath();
+      if (window.location.pathname !== target) {
+        window.location.href = target;
       }
     }
     return Promise.reject(error);

@@ -38,33 +38,40 @@ const STATUS_STYLE = {
 
 function RetakeReviewButtons({ sessionId, onDecided }) {
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   async function decide(decision) {
     setSubmitting(true);
+    setError("");
     try {
       const updated = await reviewRetake(sessionId, decision);
       onDecided(updated);
+    } catch {
+      setError("Couldn't record that decision. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        disabled={submitting}
-        onClick={() => decide("GRANT")}
-        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
-      >
-        Grant Retake
-      </button>
-      <button
-        disabled={submitting}
-        onClick={() => decide("DENY")}
-        className="px-2.5 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
-      >
-        Deny
-      </button>
+    <div>
+      <div className="flex items-center gap-2">
+        <button
+          disabled={submitting}
+          onClick={() => decide("GRANT")}
+          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
+        >
+          Grant Retake
+        </button>
+        <button
+          disabled={submitting}
+          onClick={() => decide("DENY")}
+          className="px-2.5 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-mono uppercase tracking-wider transition-colors"
+        >
+          Deny
+        </button>
+      </div>
+      {error && <div className="text-[10px] text-red-600 mt-1">{error}</div>}
     </div>
   );
 }
@@ -80,6 +87,7 @@ export default function Reports() {
   const [error, setError] = useState("");
   const [expandedSessionId, setExpandedSessionId] = useState(null);
   const [violationsBySession, setViolationsBySession] = useState({});
+  const [violationsError, setViolationsError] = useState(null);
 
   useEffect(() => {
     Promise.all([getInstructors(), getExams()])
@@ -127,9 +135,15 @@ export default function Reports() {
       return;
     }
     setExpandedSessionId(sessionId);
+    setViolationsError(null);
     if (!violationsBySession[sessionId]) {
-      const data = await getSessionViolations(sessionId);
-      setViolationsBySession((v) => ({ ...v, [sessionId]: data }));
+      try {
+        const data = await getSessionViolations(sessionId);
+        setViolationsBySession((v) => ({ ...v, [sessionId]: data }));
+      } catch {
+        setViolationsError(sessionId);
+        setExpandedSessionId(null);
+      }
     }
   }
 
@@ -358,6 +372,9 @@ export default function Reports() {
                       )}
                     </button>
                   </div>
+                  {violationsError === a.session_id && (
+                    <div className="px-6 pb-3 text-[11px] text-red-600">Couldn't load violations for this session.</div>
+                  )}
                   {expandedSessionId === a.session_id && (
                     <div className="px-6 pb-4 bg-secondary/20">
                       {violationsBySession[a.session_id] ? (

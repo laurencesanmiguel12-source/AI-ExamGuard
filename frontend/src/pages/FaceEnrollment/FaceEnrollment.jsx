@@ -18,11 +18,22 @@ export default function FaceEnrollment() {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [captures, setCaptures] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
 
   const { videoRef, error: cameraError, ready, captureFrame } = useCamera(true);
+
+  // One object URL per capture, revoked whenever the capture list changes or the page leaves -
+  // creating a fresh URL inline in the render below (the previous approach) leaked a growing
+  // number of blob URLs, since createObjectURL was called again on every re-render with no
+  // matching revokeObjectURL.
+  useEffect(() => {
+    const urls = captures.map((blob) => URL.createObjectURL(blob));
+    setPreviewUrls(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [captures]);
 
   useEffect(() => {
     getStudents()
@@ -133,7 +144,7 @@ export default function FaceEnrollment() {
                   <div className="grid grid-cols-5 gap-2 mb-6">
                     {captures.map((blob, i) => (
                       <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-border">
-                        <img src={URL.createObjectURL(blob)} alt="" className="w-full h-full object-cover" />
+                        <img src={previewUrls[i]} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => handleRemove(i)}
                           className="absolute top-0.5 right-0.5 bg-black/60 rounded p-0.5"

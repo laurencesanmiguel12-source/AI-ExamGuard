@@ -94,8 +94,16 @@ CANDIDATE_CORROBORATION_COUNT = 3
 # processes - acceptable here since it only spans one exam session's ~15s-interval polling and
 # this app already runs as a single uvicorn process (same tradeoff as the extension's
 # live-connection state elsewhere in this codebase). Upgrade to a DB-backed window if this ever
-# runs multi-worker.
+# runs multi-worker. Entries are evicted via discard_session() once a session ends (see
+# ExamSessionService.submit_exam) - without that call this dict grows by one key per exam session
+# ever taken, forever, for the life of the process.
 _recent_candidates: dict[int, deque] = {}
+
+
+def discard_session(session_id: int) -> None:
+    """Evicts a finished session's corroboration window. Safe to call even if the session never
+    polled object-check at all (no-op)."""
+    _recent_candidates.pop(session_id, None)
 
 
 def _record_candidate(session_id: int, is_candidate: bool) -> bool:
@@ -176,6 +184,10 @@ def _phone_near_hands(image, pose_results):
 
 
 class ObjectDetectionService:
+
+    @staticmethod
+    def discard_session(session_id: int) -> None:
+        discard_session(session_id)
 
     @staticmethod
     def benchmark_latency_ms() -> float:
@@ -266,4 +278,11 @@ if __name__ == "__main__":
     # Window is a rolling maxlen - once full, a new poll evicts the oldest, so one miss breaks it.
     _recent_candidates[3] = deque([True, True, True], maxlen=CANDIDATE_WINDOW_SIZE)
     assert _record_candidate(3, False) is False, "a miss should evict one hit and break corroboration"
+
+    # discard_session must actually free the entry, and be a no-op for a session that never polled.
+    assert 1 in _recent_candidates
+    discard_session(1)
+    assert 1 not in _recent_candidates
+    discard_session(999)  # never existed - must not raise
+
     print("object_detection_service self-check passed")

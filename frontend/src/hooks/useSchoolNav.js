@@ -23,11 +23,15 @@ export function useSchool() {
 
   useEffect(() => {
     let active = true;
-    getSchoolBySlug(schoolSlug).then((found) => {
-      if (!active) return;
-      if (!found) navigate("/", { replace: true });
-      else setSchool(found);
-    });
+    getSchoolBySlug(schoolSlug)
+      .then((found) => {
+        if (!active) return;
+        if (!found) navigate("/", { replace: true });
+        else setSchool(found);
+      })
+      .catch(() => {
+        if (active) navigate("/", { replace: true });
+      });
     return () => {
       active = false;
     };

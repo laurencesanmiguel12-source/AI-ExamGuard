@@ -12,7 +12,7 @@ class Violation(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     exam_session_id: Mapped[int] = mapped_column(
-        ForeignKey("exam_sessions.id")
+        ForeignKey("exam_sessions.id"), index=True
     )
 
     event_type: Mapped[str] = mapped_column(

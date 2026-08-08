@@ -6,7 +6,7 @@ export default function Modal({ title, onClose, children }) {
       <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-lg">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="font-display font-bold text-lg text-foreground">{title}</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>

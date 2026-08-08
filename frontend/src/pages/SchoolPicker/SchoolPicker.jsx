@@ -6,9 +6,12 @@ import Card from "../../components/ui/Card";
 
 export default function SchoolPicker() {
   const [schools, setSchools] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    getSchools().then(setSchools);
+    getSchools()
+      .then(setSchools)
+      .catch(() => setError(true));
   }, []);
 
   return (
@@ -32,7 +35,9 @@ export default function SchoolPicker() {
         </div>
 
         <Card className="p-6">
-          {schools === null ? (
+          {error ? (
+            <p className="text-sm text-red-600 text-center py-4">Couldn't load schools. Please try again.</p>
+          ) : schools === null ? (
             <p className="text-sm text-muted-foreground text-center py-4">Loading schools…</p>
           ) : schools.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No schools registered yet.</p>

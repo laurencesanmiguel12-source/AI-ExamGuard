@@ -23,6 +23,7 @@ export default function Courses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -48,6 +49,7 @@ export default function Courses() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSubmitting(true);
     try {
       if (editing.id) {
         await updateCourse(editing.id, form);
@@ -58,6 +60,8 @@ export default function Courses() {
       refresh();
     } catch {
       setError("Couldn't save this course.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -104,9 +108,10 @@ export default function Courses() {
             />
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {editing.id ? "Save Changes" : "Create Course"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Course"}
             </button>
           </form>
         </Modal>

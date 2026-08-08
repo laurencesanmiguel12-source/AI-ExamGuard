@@ -25,6 +25,8 @@ const EMPTY_FORM = {
 function SubjectsModal({ instructor, allSubjects, onClose }) {
   const [assignedIds, setAssignedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [pendingId, setPendingId] = useState(null);
+  const [error, setError] = useState("");
 
   function refresh() {
     setLoading(true);
@@ -36,16 +38,27 @@ function SubjectsModal({ instructor, allSubjects, onClose }) {
   useEffect(refresh, []);
 
   async function toggle(subjectId, checked) {
-    if (checked) {
-      await assignInstructorSubject(instructor.id, subjectId);
-    } else {
-      await unassignInstructorSubject(instructor.id, subjectId);
+    setError("");
+    setPendingId(subjectId);
+    try {
+      if (checked) {
+        await assignInstructorSubject(instructor.id, subjectId);
+      } else {
+        await unassignInstructorSubject(instructor.id, subjectId);
+      }
+      refresh();
+    } catch {
+      setError("Couldn't update that assignment. Please try again.");
+    } finally {
+      setPendingId(null);
     }
-    refresh();
   }
 
   return (
     <Modal title={`Subjects — ${instructor.employee_number}`} onClose={onClose}>
+      {error && (
+        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>
+      )}
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : allSubjects.length === 0 ? (
@@ -58,6 +71,7 @@ function SubjectsModal({ instructor, allSubjects, onClose }) {
                 type="checkbox"
                 className="w-4 h-4 accent-primary"
                 checked={assignedIds.has(s.id)}
+                disabled={pendingId === s.id}
                 onChange={(e) => toggle(s.id, e.target.checked)}
               />
               <span className="text-sm text-foreground">
@@ -99,6 +113,7 @@ export default function Instructors() {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
   const [managingSubjects, setManagingSubjects] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -127,6 +142,7 @@ export default function Instructors() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSubmitting(true);
     try {
       if (editing.id) {
         await updateInstructor(editing.id, { employee_number: form.employee_number });
@@ -137,6 +153,8 @@ export default function Instructors() {
       refresh();
     } catch (err) {
       setError(err.response?.data?.detail ?? "Couldn't save this instructor.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -222,9 +240,10 @@ export default function Instructors() {
             )}
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {editing.id ? "Save Changes" : "Create Instructor"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Instructor"}
             </button>
           </form>
         </Modal>

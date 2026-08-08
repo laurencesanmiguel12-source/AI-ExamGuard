@@ -19,11 +19,11 @@ class ExamSession(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     student_id: Mapped[int] = mapped_column(
-        ForeignKey("students.id")
+        ForeignKey("students.id"), index=True
     )
 
     exam_id: Mapped[int] = mapped_column(
-        ForeignKey("exams.id")
+        ForeignKey("exams.id"), index=True
     )
 
     started_at: Mapped[datetime] = mapped_column(

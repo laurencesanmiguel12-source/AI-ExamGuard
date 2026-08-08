@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.auth.ownership import require_exam_owner
 from app.core.database import get_db
+from app.models.course import Course
 from app.models.exam import Exam
 from app.models.exam_session import ExamSession, GRADED_STATUSES
 from app.models.instructor import Instructor
 from app.models.student import Student
+from app.models.subject import Subject
 from app.models.user import User
 from app.schemas.choice import ChoiceCreate, ChoiceResponse, ChoiceUpdate
 from app.schemas.csv_import import CSVImportResponse
@@ -44,6 +46,14 @@ def list_exam_questions(
     role = current_user.role.name.lower()
 
     if role == "admin":
+        exam_school_id = (
+            db.query(Course.school_id)
+            .join(Subject, Subject.course_id == Course.id)
+            .filter(Subject.id == exam.subject_id)
+            .scalar()
+        )
+        if exam_school_id != current_user.school_id:
+            raise HTTPException(status_code=404, detail="Exam not found.")
         return QuestionService.get_all_for_exam(exam, db)
 
     if role == "instructor":

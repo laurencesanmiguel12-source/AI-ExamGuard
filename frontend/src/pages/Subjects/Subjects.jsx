@@ -20,6 +20,7 @@ export default function Subjects() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -57,6 +58,7 @@ export default function Subjects() {
     event.preventDefault();
     setError("");
     const payload = { ...form, course_id: Number(form.course_id) };
+    setSubmitting(true);
     try {
       if (editing.id) {
         await updateSubject(editing.id, payload);
@@ -67,6 +69,8 @@ export default function Subjects() {
       refresh();
     } catch {
       setError("Couldn't save this subject.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -130,9 +134,10 @@ export default function Subjects() {
             </SelectField>
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {editing.id ? "Save Changes" : "Create Subject"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Subject"}
             </button>
           </form>
         </Modal>

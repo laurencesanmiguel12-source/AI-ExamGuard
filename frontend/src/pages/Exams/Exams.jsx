@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ListChecks, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useSchoolSlug } from "../../hooks/useSchoolNav";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
@@ -41,6 +42,7 @@ function toLocalInput(iso) {
 
 export default function Exams() {
   const { user } = useAuth();
+  const schoolSlug = useSchoolSlug();
   const [exams, setExams] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [instructors, setInstructors] = useState([]);
@@ -50,6 +52,7 @@ export default function Exams() {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -78,7 +81,7 @@ export default function Exams() {
       label: "Content",
       render: (row) => (
         <Link
-          to={`/exams/${row.id}/content`}
+          to={`/${schoolSlug}/exams/${row.id}/content`}
           className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
         >
           <ListChecks className="w-3.5 h-3.5" /> Manage Content
@@ -90,7 +93,7 @@ export default function Exams() {
       label: "Roster",
       render: (row) => (
         <Link
-          to={`/exams/${row.id}/roster`}
+          to={`/${schoolSlug}/exams/${row.id}/roster`}
           className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
         >
           <Users className="w-3.5 h-3.5" /> Manage Roster
@@ -126,6 +129,7 @@ export default function Exams() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSubmitting(true);
     const payload = {
       ...form,
       duration_minutes: Number(form.duration_minutes),
@@ -147,6 +151,8 @@ export default function Exams() {
       refresh();
     } catch (err) {
       setError(ownershipMessage(err) ?? "Couldn't save this exam.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -293,9 +299,10 @@ export default function Exams() {
             />
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {editing.id ? "Save Changes" : "Create Exam"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Exam"}
             </button>
           </form>
         </Modal>

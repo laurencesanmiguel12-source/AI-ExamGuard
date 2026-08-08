@@ -471,10 +471,22 @@ class FaceService:
                 "person_present": person_present
             }
 
-        recognizer = cv2.face.LBPHFaceRecognizer_create()
-        recognizer.read(student.face_model_path)
+        try:
+            recognizer = cv2.face.LBPHFaceRecognizer_create()
+            recognizer.read(student.face_model_path)
+            label, confidence = recognizer.predict(crop)
+        except cv2.error:
+            # Missing/corrupt .yml on disk (e.g. deleted out from under a still-referencing DB
+            # row) is an infrastructure fault, not evidence the student isn't who they say -
+            # don't log IDENTITY_MISMATCH against them for it. A face WAS genuinely detected
+            # (we're past the crop-is-None branch above), so this isn't FACE_LOST either.
+            return {
+                "face_detected": True,
+                "identity_match": False,
+                "confidence": None,
+                "person_present": person_present
+            }
 
-        label, confidence = recognizer.predict(crop)
         match = label == student.id and confidence < CONFIDENCE_THRESHOLD
 
         if not match:

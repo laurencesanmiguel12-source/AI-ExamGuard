@@ -42,7 +42,8 @@ class StudentAnswerService:
         question = (
             db.query(Question)
             .filter(
-                Question.id == request.question_id
+                Question.id == request.question_id,
+                Question.exam_id == session.exam_id
             )
             .first()
         )
@@ -70,7 +71,8 @@ class StudentAnswerService:
             choice = (
                 db.query(Choice)
                 .filter(
-                    Choice.id == request.choice_id
+                    Choice.id == request.choice_id,
+                    Choice.question_id == request.question_id
                 )
                 .first()
             )

@@ -91,8 +91,11 @@ export default function AdminDashboard() {
   }, [tab]);
 
   async function handlePurge() {
-    setConfirmingPurge(false);
+    // Don't close the confirm dialog until the purge actually succeeds - it's the one thing that
+    // can show a failure (ConfirmDialog catches a thrown error and displays it inline); closing
+    // eagerly, as this used to, would unmount the dialog before a failed purge ever surfaced.
     const result = await purgeExpiredEvidence();
+    setConfirmingPurge(false);
     setPurgeResult(result.purged_count);
     loadRetentionPreview();
   }
@@ -105,7 +108,7 @@ export default function AdminDashboard() {
         <div>
           <SectionTag text="Administrator" />
           <h2 className="font-display font-black text-foreground text-4xl">Admin Dashboard</h2>
-          <p className="text-muted-foreground text-sm mt-1">System management · Arellano University AI ExamGuard</p>
+          <p className="text-muted-foreground text-sm mt-1">System management · AI ExamGuard</p>
         </div>
       </div>
 

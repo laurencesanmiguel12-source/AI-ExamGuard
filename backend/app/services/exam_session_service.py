@@ -3,15 +3,18 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.student_answer import StudentAnswer
+from app.models.course import Course
 from app.models.exam import Exam
 from app.models.exam_session import ExamSession
 from app.models.instructor import Instructor
 from app.models.student import Student
+from app.models.subject import Subject
 from app.models.user import User
 from app.schemas.exam_session import (
     ExamSessionUpdate,
 )
 from app.services.exam_service import ExamService
+from app.services.object_detection_service import ObjectDetectionService
 from app.services.risk_service import RiskService
 
 
@@ -117,7 +120,14 @@ class ExamSessionService:
         role = current_user.role.name.lower()
 
         if role == "admin":
-            return db.query(ExamSession).all()
+            return (
+                db.query(ExamSession)
+                .join(Exam, ExamSession.exam_id == Exam.id)
+                .join(Subject, Exam.subject_id == Subject.id)
+                .join(Course, Subject.course_id == Course.id)
+                .filter(Course.school_id == current_user.school_id)
+                .all()
+            )
 
         if role == "instructor":
             instructor = (
@@ -214,6 +224,8 @@ class ExamSessionService:
 
         db.commit()
         db.refresh(session)
+
+        ObjectDetectionService.discard_session(session.id)
 
         return session
 

@@ -114,6 +114,18 @@ class ExamService:
                     status_code=403,
                     detail="This exam is not available for your course."
                 )
+        else:
+            exam_school_id = (
+                db.query(Course.school_id)
+                .join(Subject, Subject.course_id == Course.id)
+                .filter(Subject.id == exam.subject_id)
+                .scalar()
+            )
+            if exam_school_id != current_user.school_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Exam not found."
+                )
 
         return exam
 

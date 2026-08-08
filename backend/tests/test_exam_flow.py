@@ -117,6 +117,30 @@ def test_full_take_exam_flow_scores_correctly(client, make_instructor, make_stud
     assert body["passed"] is True
 
 
+def test_cannot_forge_score_with_a_choice_from_a_different_question(
+    client, make_instructor, make_student, make_exam, auth_headers
+):
+    """save_answer used to trust choice_id blindly - any real Choice row scored as correct if
+    is_correct was True, regardless of which question (or exam) it actually belonged to. A
+    student could pair a legitimate question_id with a correct choice_id copied from any other
+    question and get full marks without ever seeing the right answer."""
+    instructor = make_instructor()
+    exam = make_exam(instructor=instructor, total_points=20, passing_score=50)
+    instructor_headers = auth_headers(instructor.user)
+    question_id, correct_id, wrong_id = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
+    other_question_id, other_correct_id, _ = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
+
+    student = make_student(course=exam.subject.course)
+    student_headers = auth_headers(student.user)
+    session_id = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id}).json()["id"]
+
+    forged = client.post(f"/exam-sessions/{session_id}/answers", headers=student_headers, json={
+        "question_id": question_id,
+        "choice_id": other_correct_id,  # correct, but for a *different* question
+    })
+    assert forged.status_code == 404
+
+
 def test_wrong_answer_fails_the_exam(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=10, passing_score=50)

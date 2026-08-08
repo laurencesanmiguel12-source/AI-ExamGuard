@@ -170,6 +170,58 @@ def test_live_sessions_never_shows_another_schools_session(
     assert response.json()["sessions"] == []
 
 
+def test_admin_cannot_fetch_another_schools_exam_by_id(client, make_exam, make_user, make_school, auth_headers):
+    """get_by_id_for_user only ever checked eligibility for the student branch - an instructor or
+    admin from any school could fetch any other school's exam by id with zero scoping."""
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+    exam_b = make_exam()  # default_school - a different school from school_a
+
+    response = client.get(f"/exams/{exam_b.id}", headers=auth_headers(admin_a))
+    assert response.status_code == 404
+
+
+def test_admin_cannot_view_another_schools_exam_answer_key(
+    client, make_instructor, make_exam, make_user, make_school, auth_headers
+):
+    """list_exam_questions' admin branch returned the full answer key (is_correct included) for
+    any exam id with no school check at all."""
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+    instructor_b = make_instructor()  # default_school
+    exam_b = make_exam(instructor=instructor_b)
+    client.post(f"/exams/{exam_b.id}/questions", headers=auth_headers(instructor_b.user), json={
+        "question_text": "Hijack me", "question_type": "MULTIPLE_CHOICE", "points": 10, "order_number": 1,
+    })
+
+    response = client.get(f"/exams/{exam_b.id}/questions", headers=auth_headers(admin_a))
+    assert response.status_code == 404
+
+
+def test_exam_sessions_admin_list_is_scoped_to_the_callers_school(
+    client, db, make_exam, make_student, make_user, make_school, auth_headers
+):
+    """ExamSessionService.get_all's admin branch was a bare db.query(ExamSession).all() -
+    every session in the deployment, regardless of school."""
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+
+    other_exam = make_exam()  # default_school
+    other_student = make_student(course=other_exam.subject.course)
+    from datetime import datetime, timezone
+    from app.models.exam_session import ExamSession
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+
+    response = client.get("/exam-sessions/", headers=auth_headers(admin_a))
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_audit_log_is_scoped_to_the_callers_school(client, db, make_user, make_school, auth_headers):
     school_b = make_school()
     admin_a = make_user("admin")

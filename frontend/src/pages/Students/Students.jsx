@@ -32,6 +32,7 @@ export default function Students() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
     setLoading(true);
@@ -89,6 +90,7 @@ export default function Students() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSubmitting(true);
     try {
       if (editing.id) {
         const payload = {
@@ -115,6 +117,8 @@ export default function Students() {
       refresh();
     } catch (err) {
       setError(err.response?.data?.detail ?? "Couldn't save this student.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -241,9 +245,10 @@ export default function Students() {
             )}
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary/90 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+              disabled={submitting}
+              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {editing.id ? "Save Changes" : "Create Student"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Student"}
             </button>
           </form>
         </Modal>
