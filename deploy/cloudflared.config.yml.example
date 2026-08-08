@@ -1,0 +1,36 @@
+# Template for cloudflared's tunnel config. NOT read from this repo path automatically - after
+# running the setup commands below on the machine that will actually run the tunnel (the friend's
+# PC), copy this file to:
+#   Windows: C:\Users\<user>\.cloudflared\config.yml
+#   Linux/macOS: ~/.cloudflared/config.yml
+# filling in the placeholders first.
+#
+# Setup, in order, on that machine:
+#   1. cloudflared tunnel login                              (opens a browser, picks the Cloudflare
+#                                                               account/zone this domain lives in)
+#   2. cloudflared tunnel create ai-examguard                 (prints the tunnel's UUID, writes
+#                                                               <UUID>.json into ~/.cloudflared/)
+#   3. cloudflared tunnel route dns ai-examguard api.yourdomain.com
+#   4. Copy this file to ~/.cloudflared/config.yml, fill in <TUNNEL_ID> below with step 2's UUID
+#   5. cloudflared service install                            (runs it as a persistent Windows
+#                                                               service reading this same config -
+#                                                               don't run it as a foreground command
+#                                                               you have to keep a terminal open for)
+
+tunnel: <TUNNEL_ID>
+credentials-file: <TUNNEL_ID>.json   # cloudflared resolves this relative to its own config dir
+                                       # (~/.cloudflared/) - no need to write the full path.
+
+ingress:
+  # The backend API - the only thing this project's tunnel needs to expose. Swap the hostname for
+  # whatever real domain you routed in step 3 above.
+  - hostname: api.yourdomain.com
+    service: http://localhost:8000
+
+  # Only add this if you decide to serve the frontend from this same PC instead of Cloudflare
+  # Pages (see the hosting-decision notes) - route its own subdomain to wherever it's served from.
+  # - hostname: yourdomain.com
+  #   service: http://localhost:3000
+
+  # Required catch-all - cloudflared refuses to start without one, and it must be last.
+  - service: http_status:404
