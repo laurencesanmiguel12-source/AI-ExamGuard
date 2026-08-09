@@ -27,8 +27,14 @@ def main():
     image_files = sorted(f for f in os.listdir(BATCH_DIR) if f.lower().endswith(".jpg"))
 
     for split in ("train", "val"):
-        os.makedirs(os.path.join(SPLIT_DIR, split, "images"), exist_ok=True)
-        os.makedirs(os.path.join(SPLIT_DIR, split, "labels"), exist_ok=True)
+        images_dir = os.path.join(SPLIT_DIR, split, "images")
+        labels_dir = os.path.join(SPLIT_DIR, split, "labels")
+        if os.path.isdir(images_dir):
+            shutil.rmtree(images_dir)
+        if os.path.isdir(labels_dir):
+            shutil.rmtree(labels_dir)
+        os.makedirs(images_dir)
+        os.makedirs(labels_dir)
 
     counts = {"train": 0, "val": 0}
     empty_labels_written = 0
