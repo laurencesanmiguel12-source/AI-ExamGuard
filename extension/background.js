@@ -1,6 +1,6 @@
 import { matchDomain } from "./blocklist.js";
 
-const EXPECTED_ORIGIN = "https://scholarship-eat-mathematics-corrected.trycloudflare.com";
+const EXPECTED_ORIGIN = "https://aiexamguard.com";
 
 // Keyed by an incrementing id, not by sessionId - a student could have multiple exam tabs open.
 const ports = new Map();
