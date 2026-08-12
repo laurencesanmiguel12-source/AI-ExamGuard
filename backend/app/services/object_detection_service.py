@@ -40,6 +40,20 @@ CONFIDENCE_THRESHOLD = 0.35
 # frozen-holdout aggregate numbers.
 PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
 PHONE_SPECIALIST_CLASS = 0  # single-class model (see backend/training/prepare_dataset.py)
+# phone_specialist.pt (trained via finetune_phone_face.py) is actually a 2-class model - class 1
+# is "face", computed on every predict() call but discarded until this constant started being
+# read. Consuming it fixes a real, documented-live production bug: the model fires 0.88-0.90
+# confidence on a bare face, producing a phone box nearly identical (IoU 0.8-1.0) to its own
+# simultaneously-detected face box - well above PHONE_SPECIALIST_CONFIDENCE_THRESHOLD, so it
+# bypasses the 3-of-3 corroboration safety net entirely. Threshold below is not a new guess: it's
+# the same 0.45 cutoff found while labeling a 1773-frame review video, where IoU(phone_box,
+# face_box) across 3043 real phone boxes was cleanly bimodal (0.0-0.2 genuine / 0.8-1.0 this bug,
+# only 0.7% in between) - see ai_examguard_phone_detection_personal_video_labeling memory. A
+# geometric post-filter rather than a retrain: two prior retrain attempts to fix this exact bug via
+# more training data both regressed the frozen holdout and were dropped (same memory) - this reuses
+# a model output already being computed for free instead of touching model weights.
+FACE_SPECIALIST_CLASS = 1
+PHONE_FACE_IOU_SUPPRESSION_THRESHOLD = 0.45
 
 # COCO-17 keypoint indices (confirmed against ultralytics' own coco-pose.yaml, not assumed).
 LEFT_WRIST_KPT = 9
@@ -169,6 +183,40 @@ def _hand_crop(image, x, y):
     return image[y1:y2, x1:x2]
 
 
+def _iou(box_a, box_b) -> float:
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    if ix2 <= ix1 or iy2 <= iy1:
+        return 0.0
+
+    intersection = (ix2 - ix1) * (iy2 - iy1)
+    area_a = (ax2 - ax1) * (ay2 - ay1)
+    area_b = (bx2 - bx1) * (by2 - by1)
+    return intersection / (area_a + area_b - intersection)
+
+
+def _non_face_shaped_phone_confs(results_boxes) -> list[float]:
+    """Phone-class confidences from one predict() call, dropping any phone box that overlaps a
+    same-pass face-class box above PHONE_FACE_IOU_SUPPRESSION_THRESHOLD - see that constant's
+    comment for why (a real, documented face-shaped false positive)."""
+    if results_boxes is None:
+        return []
+
+    boxes_xyxy = results_boxes.xyxy.tolist()
+    classes = results_boxes.cls.tolist()
+    confs = results_boxes.conf.tolist()
+    face_boxes = [box for box, cls in zip(boxes_xyxy, classes) if cls == FACE_SPECIALIST_CLASS]
+
+    return [
+        conf for box, cls, conf in zip(boxes_xyxy, classes, confs)
+        if cls == PHONE_SPECIALIST_CLASS
+        and not any(_iou(box, face_box) >= PHONE_FACE_IOU_SUPPRESSION_THRESHOLD for face_box in face_boxes)
+    ]
+
+
 def _phone_near_hands(image, pose_results):
     for x, y in _wrist_points(pose_results, image.shape):
         crop = _hand_crop(image, x, y)
@@ -176,8 +224,7 @@ def _phone_near_hands(image, pose_results):
             continue
 
         crop_results = _PHONE_MODEL.predict(crop, verbose=False, conf=HAND_REGION_PHONE_THRESHOLD)[0]
-        crop_classes = crop_results.boxes.cls.tolist() if crop_results.boxes is not None else []
-        if PHONE_SPECIALIST_CLASS in crop_classes:
+        if _non_face_shaped_phone_confs(crop_results.boxes):
             return True
 
     return False
@@ -228,13 +275,7 @@ class ObjectDetectionService:
         phone_results = _PHONE_MODEL.predict(
             image, verbose=False, conf=PHONE_CANDIDATE_THRESHOLD
         )[0]
-        if phone_results.boxes is not None:
-            phone_scores = [
-                conf for conf, cls in zip(phone_results.boxes.conf.tolist(), phone_results.boxes.cls.tolist())
-                if cls == PHONE_SPECIALIST_CLASS
-            ]
-        else:
-            phone_scores = []
+        phone_scores = _non_face_shaped_phone_confs(phone_results.boxes)
         max_phone_conf = max(phone_scores, default=0.0)
 
         phone_detected = max_phone_conf >= PHONE_SPECIALIST_CONFIDENCE_THRESHOLD
@@ -267,7 +308,48 @@ class ObjectDetectionService:
         }
 
 
+class _FakeList(list):
+    """Stand-in for ultralytics' tensor-backed .xyxy/.cls/.conf - only .tolist() is used by
+    _non_face_shaped_phone_confs, so a plain list subclass is enough to self-check it without
+    loading a real YOLO model."""
+    def tolist(self):
+        return list(self)
+
+
+class _FakeBoxes:
+    def __init__(self, xyxy, cls, conf):
+        self.xyxy = _FakeList(xyxy)
+        self.cls = _FakeList(cls)
+        self.conf = _FakeList(conf)
+
+
 if __name__ == "__main__":
+    # _iou / _non_face_shaped_phone_confs - the face-anchored-FP suppression logic, no YOLO
+    # models involved.
+    assert _iou((0, 0, 10, 10), (0, 0, 10, 10)) == 1.0, "identical boxes should have IoU 1.0"
+    assert _iou((0, 0, 10, 10), (20, 20, 30, 30)) == 0.0, "disjoint boxes should have IoU 0.0"
+
+    # A phone box nearly identical to the face box (the documented bug) must be suppressed...
+    boxes = _FakeBoxes(
+        xyxy=[(10, 10, 110, 110), (10, 10, 108, 108)],
+        cls=[PHONE_SPECIALIST_CLASS, FACE_SPECIALIST_CLASS],
+        conf=[0.90, 0.95],
+    )
+    assert _non_face_shaped_phone_confs(boxes) == [], "face-anchored phone box should be suppressed"
+
+    # ...but a spatially distinct, genuinely-held phone box must survive alongside a real face.
+    boxes = _FakeBoxes(
+        xyxy=[(300, 300, 380, 420), (10, 10, 108, 108)],
+        cls=[PHONE_SPECIALIST_CLASS, FACE_SPECIALIST_CLASS],
+        conf=[0.60, 0.95],
+    )
+    assert _non_face_shaped_phone_confs(boxes) == [0.60], "genuine phone box should not be suppressed"
+
+    # No boxes at all, and no face detected at all, must both be safe no-ops.
+    assert _non_face_shaped_phone_confs(None) == []
+    boxes = _FakeBoxes(xyxy=[(300, 300, 380, 420)], cls=[PHONE_SPECIALIST_CLASS], conf=[0.60])
+    assert _non_face_shaped_phone_confs(boxes) == [0.60], "phone box with no face in frame should survive"
+
     # Self-check for the corroboration bookkeeping only - no YOLO models involved.
     _recent_candidates.clear()
     assert _record_candidate(1, True) is False

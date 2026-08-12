@@ -30,6 +30,11 @@ tuned against real hardware" independently of the whole-frame threshold).
 import os
 
 PHONE_SPECIALIST_CLASS = 0
+# Keep in sync with object_detection_service.py - see its comment for why (a real, documented
+# face-shaped false-positive bug fixed by suppressing phone boxes that overlap the model's own
+# same-pass face-class detection).
+FACE_SPECIALIST_CLASS = 1
+PHONE_FACE_IOU_SUPPRESSION_THRESHOLD = 0.45
 LEFT_WRIST_KPT = 9
 RIGHT_WRIST_KPT = 10
 WRIST_VISIBILITY_THRESHOLD = 0.10
@@ -108,9 +113,15 @@ def analyze_frame(image, gt_boxes, phone_model, pose_model, conf_floor, iou_thre
     h, w = image.shape[:2]
 
     result = phone_model.predict(image, verbose=False, conf=conf_floor, device=device)[0]
+    face_boxes = [
+        tuple(float(v) for v in box.xyxy[0])
+        for box in result.boxes if int(box.cls[0]) == FACE_SPECIALIST_CLASS
+    ]
     preds = [
         (float(box.conf[0]), tuple(float(v) for v in box.xyxy[0]))
         for box in result.boxes if int(box.cls[0]) == PHONE_SPECIALIST_CLASS
+        and not any(iou(tuple(float(v) for v in box.xyxy[0]), fb) >= PHONE_FACE_IOU_SUPPRESSION_THRESHOLD
+                    for fb in face_boxes)
     ]
     max_conf_any = max((c for c, _ in preds), default=0.0)
     best_match_conf = None
@@ -129,9 +140,15 @@ def analyze_frame(image, gt_boxes, phone_model, pose_model, conf_floor, iou_thre
         if crop is None or crop.size == 0:
             continue
         crop_result = phone_model.predict(crop, verbose=False, conf=HAND_REGION_PHONE_THRESHOLD, device=device)[0]
+        crop_face_boxes = [
+            tuple(float(v) for v in box.xyxy[0])
+            for box in crop_result.boxes if int(box.cls[0]) == FACE_SPECIALIST_CLASS
+        ]
         crop_boxes = [
             tuple(float(v) for v in box.xyxy[0])
             for box in crop_result.boxes if int(box.cls[0]) == PHONE_SPECIALIST_CLASS
+            and not any(iou(tuple(float(v) for v in box.xyxy[0]), fb) >= PHONE_FACE_IOU_SUPPRESSION_THRESHOLD
+                        for fb in crop_face_boxes)
         ]
         if crop_boxes:
             fallback_hit = True
