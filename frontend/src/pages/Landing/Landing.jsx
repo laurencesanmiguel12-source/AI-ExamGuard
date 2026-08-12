@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   Shield, Eye, BarChart3, CheckCircle, Lock, Star, ClipboardList,
-  GraduationCap, Users, Activity,
+  GraduationCap, Users, Activity, Download,
 } from "lucide-react";
 import PublicTopbar from "../../components/PublicTopbar";
 import SectionTag from "../../components/ui/SectionTag";
@@ -500,6 +500,10 @@ export default function Landing() {
               <Lock className="w-4 h-4"/> Sign In
             </button>
           </div>
+          <a href="/ai-examguard-tab-monitor.zip" download
+            className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 text-[11px] font-mono uppercase tracking-widest mt-8 transition-colors">
+            <Download className="w-3.5 h-3.5"/> Already registered? Download the Tab Monitor browser extension
+          </a>
         </div>
       </section>
     </div>
