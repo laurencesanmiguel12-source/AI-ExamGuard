@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { Eye, FileText, BarChart3 } from "lucide-react";
+import { Eye, FileText, BarChart3, Download } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
@@ -202,7 +202,7 @@ export default function InstructorDashboard() {
             <ViolationBreakdownChart violationCounts={myViolationCounts} />
           </Card>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => navigate("/reports")}
               className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
@@ -217,6 +217,14 @@ export default function InstructorDashboard() {
               <BarChart3 className="w-5 h-5 text-primary" />
               <span className="text-[11px] font-mono text-muted-foreground">Analytics</span>
             </button>
+            <a
+              href="/ai-examguard-tab-monitor.zip"
+              download
+              className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
+            >
+              <Download className="w-5 h-5 text-emerald-600" />
+              <span className="text-[11px] font-mono text-muted-foreground">Extension</span>
+            </a>
           </div>
         </div>
       </div>
