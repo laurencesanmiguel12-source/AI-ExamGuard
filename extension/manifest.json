@@ -3,6 +3,7 @@
   "name": "AI-ExamGuard Tab Monitor",
   "version": "0.1.0",
   "description": "Watches for AI-tool/search-engine tab activity during AI-ExamGuard exams and reports it to the exam page.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqiU5tkAtZfE1G3sMgV+wQPBNUkz9eD6G+qnvjAl4lLilLDOLv+e8a47bkYyW/5aiE2zi4HaHA1QF3S6uDkzc8WGjm3mQh0JsRCVaUu11fRupmatxfwE/rYRZfWaLDqEZQyVY4jSL/laliThnW9IrxWzkReAMocNmss+4G2jNmzi6AsacvdZL5MjaQgaiv88iQA3i/NXwbn1oXKfV6TA4bTYTWC6TP8jLkIl0cbNZv0OofkQAcDQjfx4pVF9eXsJEVuWV9E0Q3JlygIZz0iWc9QKTbx3YuLOfhc0RFyxZxZxbSvv4OWAgMiD5jOmvpSMVG095wH53290W6yCOMWctkQIDAQAB",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
