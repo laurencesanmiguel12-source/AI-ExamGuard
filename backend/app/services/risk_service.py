@@ -47,30 +47,46 @@ WINDOW_SECONDS = 120
 TIMELINE_POINTS = 11
 
 
-def _score(violations):
-    # An overturned appeal means the violation was flagged in error - it shouldn't still count
-    # against the student's risk score just because the row is never deleted (it stays as the
-    # historical record of the appeal decision).
-    violations = [v for v in violations if v.appeal_status != "OVERTURNED"]
-
-    behavioral_total = sum(WEIGHTS.get(v.event_type, 0) for v in violations)
-
-    vision_counts = Counter()
-    for v in violations:
-        feature = VISION_EVENT_TYPES.get(v.event_type)
-        if feature:
-            vision_counts[feature] += 1
-
-    vision_score = RiskModelService.predict(
-        face_lost_count=vision_counts["face_lost_count"],
-        phone_detected_count=vision_counts["phone_detected_count"],
-        multiple_people_count=vision_counts["multiple_people_count"],
-    )
-
-    return float(min(100, behavioral_total + vision_score))
-
-
 class RiskService:
+
+    @staticmethod
+    def score_violations(violations):
+        """Behavioral weights + fitted vision model -> a single 0-100 risk score. Shared by every
+        caller that needs risk scoring (live monitor, per-session summary, per-exam/school-wide
+        reports) so the WEIGHTS dict and RiskModelService stay the one source of truth."""
+
+        # An overturned appeal means the violation was flagged in error - it shouldn't still count
+        # against the student's risk score just because the row is never deleted (it stays as the
+        # historical record of the appeal decision).
+        violations = [v for v in violations if v.appeal_status != "OVERTURNED"]
+
+        behavioral_total = sum(WEIGHTS.get(v.event_type, 0) for v in violations)
+
+        vision_counts = Counter()
+        for v in violations:
+            feature = VISION_EVENT_TYPES.get(v.event_type)
+            if feature:
+                vision_counts[feature] += 1
+
+        vision_score = RiskModelService.predict(
+            face_lost_count=vision_counts["face_lost_count"],
+            phone_detected_count=vision_counts["phone_detected_count"],
+            multiple_people_count=vision_counts["multiple_people_count"],
+        )
+
+        return float(min(100, behavioral_total + vision_score))
+
+    @staticmethod
+    def risk_band(score: float) -> str:
+        """LOW/MEDIUM/HIGH/CRITICAL at the same <25/<50/<75 thresholds
+        frontend/src/components/ui/RiskPill.jsx already encodes - keep both in sync if either changes."""
+        if score < 25:
+            return "LOW"
+        if score < 50:
+            return "MEDIUM"
+        if score < 75:
+            return "HIGH"
+        return "CRITICAL"
 
     @staticmethod
     def compute_risk(
@@ -89,7 +105,7 @@ class RiskService:
             .all()
         )
 
-        return _score(violations)
+        return RiskService.score_violations(violations)
 
     @staticmethod
     def get_session_summary(session: ExamSession, db: Session) -> dict:
@@ -107,7 +123,7 @@ class RiskService:
             .all()
         )
 
-        risk_score = _score(violations)
+        risk_score = RiskService.score_violations(violations)
 
         start_time = session.started_at
         end_time = session.submitted_at or datetime.now(timezone.utc)
@@ -121,7 +137,7 @@ class RiskService:
             t = start_time + (end_time - start_time) * fraction
             window_start = t - timedelta(seconds=WINDOW_SECONDS)
             windowed = [v for v in violations if window_start <= v.created_at <= t]
-            timeline.append({"time": t, "risk": _score(windowed)})
+            timeline.append({"time": t, "risk": RiskService.score_violations(windowed)})
 
         return {"risk_score": risk_score, "timeline": timeline}
 
@@ -173,7 +189,7 @@ class RiskService:
                 "exam_id": s.exam_id,
                 "exam_title": s.exam.title if s.exam else f"#{s.exam_id}",
                 "started_at": s.started_at,
-                "risk_score": _score(windowed),
+                "risk_score": RiskService.score_violations(windowed),
                 "violation_counts": dict(Counter(v.event_type for v in session_violations)),
             })
 

@@ -1,5 +1,5 @@
 from app.schemas.violation import ViolationCreate, ViolationResponse, RecentViolation
-from app.services.risk_service import WEIGHTS, _score
+from app.services.risk_service import WEIGHTS, RiskService
 from datetime import datetime, timezone
 
 print("========== VIOLATION CREATE (with detail) ==========")
@@ -48,10 +48,11 @@ print(f"SEARCH_ENGINE_DETECTED weight: {WEIGHTS['SEARCH_ENGINE_DETECTED']}")
 class FakeViolation:
     def __init__(self, event_type):
         self.event_type = event_type
+        self.appeal_status = None
 
 
-score_one_ai_tool = _score([FakeViolation("AI_TOOL_DETECTED")])
-score_capped = _score([FakeViolation("AI_TOOL_DETECTED"), FakeViolation("AI_TOOL_DETECTED"), FakeViolation("AI_TOOL_DETECTED")])
+score_one_ai_tool = RiskService.score_violations([FakeViolation("AI_TOOL_DETECTED")])
+score_capped = RiskService.score_violations([FakeViolation("AI_TOOL_DETECTED"), FakeViolation("AI_TOOL_DETECTED"), FakeViolation("AI_TOOL_DETECTED")])
 print(f"\nScore for 1x AI_TOOL_DETECTED: {score_one_ai_tool} (expect 40)")
 print(f"Score for 3x AI_TOOL_DETECTED (capped): {score_capped} (expect 100)")
 assert score_one_ai_tool == 40.0

@@ -41,3 +41,6 @@ class ExamReport(BaseModel):
     pass_rate: float
     attempts: list[AttemptReport]
     questions: list[QuestionReport]
+    violation_breakdown: dict[str, int]
+    average_risk_score: float
+    risk_distribution: dict[str, int]

@@ -17,6 +17,7 @@ from app.routes.violation import violations_router
 from app.routes.exam_session import router as exam_session_router
 from app.routes.student_answer import router as student_answer_router
 from app.routes.report import router as report_router
+from app.routes.analytics import router as analytics_router
 from app.routes.face import router as face_router
 from app.routes.object_detection import router as object_detection_router
 from app.routes.system import router as system_router
@@ -52,6 +53,7 @@ app.include_router(violations_router)
 app.include_router(exam_session_router)
 app.include_router(student_answer_router)
 app.include_router(report_router)
+app.include_router(analytics_router)
 app.include_router(face_router)
 app.include_router(object_detection_router)
 app.include_router(system_router)

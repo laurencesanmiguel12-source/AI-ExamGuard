@@ -6,11 +6,18 @@ import { getCourses } from "../../api/courses";
 import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
+import { getSchoolAnalytics } from "../../api/analytics";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+import RiskPill from "../../components/ui/RiskPill";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import ViolationBreakdownChart from "../../components/ViolationBreakdownChart";
+
+function accuracyColor(percentage) {
+  return percentage >= 75 ? "#10b981" : percentage >= 50 ? "#f97316" : "#ef4444";
+}
 
 const AUDIT_ACTION_LABELS = {
   VIEW_VIOLATIONS: "Viewed violations",
@@ -30,6 +37,9 @@ export default function AdminDashboard() {
   const [auditLog, setAuditLog] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState(false);
+  const [schoolAnalytics, setSchoolAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState(false);
   const [retentionPreview, setRetentionPreview] = useState(null);
   const [retentionLoading, setRetentionLoading] = useState(false);
   const [retentionError, setRetentionError] = useState(false);
@@ -70,6 +80,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (tab === "audit" && auditLog === null && !auditLoading) {
       loadAuditLog();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  function loadSchoolAnalytics() {
+    setAnalyticsLoading(true);
+    setAnalyticsError(false);
+    getSchoolAnalytics()
+      .then(setSchoolAnalytics)
+      .catch(() => setAnalyticsError(true))
+      .finally(() => setAnalyticsLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab === "analytics" && schoolAnalytics === null && !analyticsLoading) {
+      loadSchoolAnalytics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -135,6 +161,7 @@ export default function AdminDashboard() {
         {[
           ["overview", "Overview"],
           ["exams", "Exams"],
+          ["analytics", "Analytics"],
           ["system", "System"],
           ["audit", "Audit"],
           ["retention", "Retention"],
@@ -217,6 +244,105 @@ export default function AdminDashboard() {
             ))}
           </div>
         </Card>
+      )}
+
+      {tab === "analytics" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-muted-foreground">
+              School-wide exam performance and integrity signals, aggregated across every instructor and exam.
+            </p>
+            <button
+              onClick={loadSchoolAnalytics}
+              disabled={analyticsLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50 transition-colors flex-shrink-0"
+            >
+              <RefreshCw className={`w-3 h-3 ${analyticsLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {analyticsError && (
+            <Card className="p-5 text-sm text-red-600">Couldn't load analytics. Try refreshing.</Card>
+          )}
+
+          {!analyticsError && !schoolAnalytics && (
+            <Card className="p-5 text-sm text-muted-foreground">Loading analytics…</Card>
+          )}
+
+          {schoolAnalytics && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Total Exams</div>
+                  <div className="font-display text-3xl font-black text-foreground">{schoolAnalytics.total_exams}</div>
+                </Card>
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Aggregate Pass Rate</div>
+                  <div className="font-display text-3xl font-black text-emerald-600">
+                    {schoolAnalytics.aggregate_pass_rate.toFixed(1)}%
+                  </div>
+                </Card>
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Avg Risk Score</div>
+                  <div className="font-display text-3xl font-black text-foreground">
+                    {schoolAnalytics.aggregate_average_risk_score.toFixed(0)}
+                  </div>
+                </Card>
+                <Card className="p-5">
+                  <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Total Violations</div>
+                  <div className="font-display text-3xl font-black text-orange-600">{schoolAnalytics.total_violations}</div>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <Card className="xl:col-span-2">
+                  <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                    Instructors
+                  </div>
+                  <div className="divide-y divide-border">
+                    {schoolAnalytics.instructors.length === 0 && (
+                      <div className="px-6 py-6 text-sm text-muted-foreground">No instructors yet.</div>
+                    )}
+                    {schoolAnalytics.instructors.map((i) => {
+                      // Flags an instructor whose exams may need a closer look - unusually low
+                      // pass rate or unusually high proctoring risk, same red-highlight treatment
+                      // InstructorDashboard.jsx already uses for individual high-risk sessions.
+                      const flagged = i.exam_count > 0 && (i.avg_pass_rate < 50 || i.avg_risk_score >= 75);
+                      return (
+                        <div
+                          key={i.instructor_id}
+                          className={`px-6 py-3 flex items-center gap-4 ${flagged ? "bg-red-50/60" : ""}`}
+                        >
+                          <span className="text-sm text-foreground flex-1 truncate">{i.instructor_name}</span>
+                          <span className="text-[11px] font-mono text-muted-foreground w-24 flex-shrink-0">
+                            {i.exam_count} exam{i.exam_count === 1 ? "" : "s"}
+                          </span>
+                          <span
+                            className="font-mono text-xs font-bold w-14 text-right flex-shrink-0"
+                            style={{ color: accuracyColor(i.avg_pass_rate) }}
+                          >
+                            {i.avg_pass_rate.toFixed(0)}%
+                          </span>
+                          <RiskPill value={Math.round(i.avg_risk_score)} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                    Violation Breakdown
+                  </div>
+                  <div className="p-6">
+                    <ViolationBreakdownChart violationCounts={schoolAnalytics.violation_breakdown} />
+                  </div>
+                </Card>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {tab === "system" && (

@@ -1,7 +1,7 @@
 """Risk-threshold retake flagging: submit_exam flags a session for instructor review when its
 final risk score exceeds the exam's max_risk_score, start_exam blocks a new attempt until the
 instructor grants or denies it, and an overturned appeal actually lowers the risk score it's
-supposed to affect (see RiskService._score's appeal_status filter)."""
+supposed to affect (see RiskService.score_violations's appeal_status filter)."""
 
 
 def _log_violation(client, headers, session_id, event_type):

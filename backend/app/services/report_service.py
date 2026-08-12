@@ -1,3 +1,5 @@
+from collections import Counter
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,8 @@ from app.models.exam_session import ExamSession, GRADED_STATUSES
 from app.models.question import Question
 from app.models.student import Student
 from app.models.student_answer import StudentAnswer
+from app.models.violation import Violation
+from app.services.risk_service import RiskService
 
 
 class ReportService:
@@ -124,6 +128,33 @@ class ReportService:
                 "accuracy": accuracy,
             })
 
+        # Scoped to submitted (graded) attempts only, same population as average_score/pass_rate
+        # above - a still-IN_PROGRESS session's violations are already visible on the live monitor
+        # (RiskService.get_live_sessions) and shouldn't muddy this exam's "final result" analytics.
+        violations = (
+            db.query(Violation)
+            .filter(Violation.exam_session_id.in_(submitted_session_ids))
+            .all()
+            if submitted_session_ids else []
+        )
+        violation_breakdown = dict(Counter(v.event_type for v in violations))
+
+        violations_by_session = {}
+        for v in violations:
+            violations_by_session.setdefault(v.exam_session_id, []).append(v)
+
+        session_risk_scores = [
+            RiskService.score_violations(violations_by_session.get(sid, []))
+            for sid in submitted_session_ids
+        ]
+        average_risk_score = (
+            sum(session_risk_scores) / len(session_risk_scores)
+            if session_risk_scores else 0
+        )
+        risk_distribution = {band: 0 for band in ("LOW", "MEDIUM", "HIGH", "CRITICAL")}
+        for score in session_risk_scores:
+            risk_distribution[RiskService.risk_band(score)] += 1
+
         return {
             "exam_id": exam.id,
             "title": exam.title,
@@ -139,4 +170,7 @@ class ReportService:
             "pass_rate": pass_rate,
             "attempts": attempts,
             "questions": question_reports,
+            "violation_breakdown": violation_breakdown,
+            "average_risk_score": average_risk_score,
+            "risk_distribution": risk_distribution,
         }

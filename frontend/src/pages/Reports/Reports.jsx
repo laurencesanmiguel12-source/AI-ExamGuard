@@ -5,12 +5,22 @@ import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
 import { getExamReport } from "../../api/reports";
+import { getInstructorAnalytics } from "../../api/analytics";
 import { getSessionViolations } from "../../api/violations";
 import { reviewRetake } from "../../api/examSessions";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+import RiskPill from "../../components/ui/RiskPill";
 import { SelectField } from "../../components/ui/FormField";
 import ViolationsPanel from "../../components/ViolationsPanel";
+import ViolationBreakdownChart from "../../components/ViolationBreakdownChart";
+
+const RISK_BANDS = [
+  { key: "LOW", label: "Low", color: "#10b981" },
+  { key: "MEDIUM", label: "Medium", color: "#3b82f6" },
+  { key: "HIGH", label: "High", color: "#f97316" },
+  { key: "CRITICAL", label: "Critical", color: "#ef4444" },
+];
 
 const TT = { background: "#fff", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 8, fontSize: 11, fontFamily: "JetBrains Mono", color: "#0f172a" };
 const TT_LABEL = { color: "#64748b" };
@@ -88,6 +98,13 @@ export default function Reports() {
   const [expandedSessionId, setExpandedSessionId] = useState(null);
   const [violationsBySession, setViolationsBySession] = useState({});
   const [violationsError, setViolationsError] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+
+  useEffect(() => {
+    getInstructorAnalytics()
+      .then(setAnalytics)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([getInstructors(), getExams()])
@@ -203,6 +220,42 @@ export default function Reports() {
         </Card>
       )}
 
+      {analytics && analytics.exams.length > 1 && (
+        <Card className="mb-6">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+            <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+              My Exams at a Glance
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {analytics.overall_pass_rate.toFixed(1)}% overall pass rate · {analytics.overall_average_risk_score.toFixed(0)} avg risk
+            </span>
+          </div>
+          <div className="divide-y divide-border">
+            {analytics.exams.map((e) => (
+              <button
+                key={e.exam_id}
+                onClick={() => setSelectedExamId(e.exam_id)}
+                className={`w-full px-6 py-3 flex items-center gap-4 text-left hover:bg-secondary/50 transition-colors ${
+                  e.exam_id === selectedExamId ? "bg-secondary/40" : ""
+                }`}
+              >
+                <span className="text-sm text-foreground flex-1 truncate">{e.title}</span>
+                <span className="text-[11px] font-mono text-muted-foreground w-28 flex-shrink-0">
+                  {e.submitted_count} submitted
+                </span>
+                <span
+                  className="font-mono text-xs font-bold w-14 text-right flex-shrink-0"
+                  style={{ color: accuracyColor(e.pass_rate) }}
+                >
+                  {e.pass_rate.toFixed(0)}%
+                </span>
+                <RiskPill value={Math.round(e.average_risk_score)} />
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
 
       {loadingReport && <div className="text-sm text-muted-foreground">Loading report…</div>}
@@ -282,6 +335,50 @@ export default function Reports() {
                       ))}
                     </div>
                   </>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <Card>
+              <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                Violation Breakdown
+              </div>
+              <div className="p-6">
+                <ViolationBreakdownChart violationCounts={report.violation_breakdown} />
+              </div>
+            </Card>
+
+            <Card>
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                  Risk Distribution
+                </span>
+                {report.submitted_count > 0 && <RiskPill value={Math.round(report.average_risk_score)} />}
+              </div>
+              <div className="p-6">
+                {report.submitted_count === 0 ? (
+                  <p className="text-sm text-muted-foreground">No submitted attempts yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {RISK_BANDS.map(({ key, label, color }) => {
+                      const count = report.risk_distribution[key] ?? 0;
+                      const max = Math.max(1, ...Object.values(report.risk_distribution));
+                      return (
+                        <div key={key} className="flex items-center gap-3">
+                          <span className="text-[11px] font-mono text-muted-foreground w-16">{label}</span>
+                          <div className="flex-1 h-1.5 bg-black/8 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${(count / max) * 100}%`, backgroundColor: color, transition: "width 0.8s ease" }}
+                            />
+                          </div>
+                          <span className="font-mono text-xs text-foreground/70 w-6 text-right">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </Card>
