@@ -218,8 +218,9 @@ export default function InstructorDashboard() {
               <span className="text-[11px] font-mono text-muted-foreground">Analytics</span>
             </button>
             <a
-              href="/ai-examguard-tab-monitor.zip"
-              download
+              href="https://chromewebstore.google.com/detail/ai-examguard-tab-monitor/gbkbkbcbbehpcoifmkenkjafkfbphmkf"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
             >
               <Download className="w-5 h-5 text-emerald-600" />

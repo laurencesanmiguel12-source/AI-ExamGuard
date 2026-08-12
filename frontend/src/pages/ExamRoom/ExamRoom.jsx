@@ -436,15 +436,15 @@ export default function ExamRoom() {
               </h2>
               <p className="text-sm text-muted-foreground mb-6">
                 This exam requires the AI-ExamGuard Tab Monitor browser extension (Chrome/Edge
-                only). Download it below, then load it as an unpacked extension via
-                chrome://extensions (Developer mode) before retrying.
+                only). Install it from the Chrome Web Store below, then retry.
               </p>
               <a
-                href="/ai-examguard-tab-monitor.zip"
-                download
+                href="https://chromewebstore.google.com/detail/ai-examguard-tab-monitor/gbkbkbcbbehpcoifmkenkjafkfbphmkf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block w-full text-center bg-card border border-border hover:bg-muted text-foreground py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors mb-3"
               >
-                Download Extension
+                Get Extension
               </a>
               <button
                 onClick={retryExtensionCheck}
