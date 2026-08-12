@@ -10,6 +10,7 @@ dist-ssr/
 backend/storage/
 backend/training/datasets/
 backend/training/runs/
+backend/training/face_landmarker.task
 yolo26n.pt
 backend/training/resume_detached*.log
 backend/training/detached_*.log
