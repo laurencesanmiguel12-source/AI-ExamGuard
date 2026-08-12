@@ -32,7 +32,7 @@
     "type": "module"
   },
   "externally_connectable": {
-    "matches": ["http://localhost:5173/*"]
+    "matches": ["https://scholarship-eat-mathematics-corrected.trycloudflare.com/*"]
   },
   "action": {
     "default_popup": "popup.html",
