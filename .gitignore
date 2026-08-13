@@ -8,6 +8,7 @@ dist/
 dist-ssr/
 *.local
 backend/storage/
+backups/
 backend/training/datasets/
 backend/training/runs/
 backend/training/face_landmarker.task
