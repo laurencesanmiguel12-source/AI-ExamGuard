@@ -18,6 +18,12 @@ EVIDENCE_EVENT_TYPES = {
     "AI_TOOL_DETECTED", "SEARCH_ENGINE_DETECTED", "STATIC_IMAGE_SUSPECTED",
 }
 
+# Object-detection evidence only - no student identity to link, unlike FACE_LOST/
+# IDENTITY_MISMATCH. These are the two types eligible to auto-enter the continuous-training
+# review queue (see training_review_service.py). Identity-linked evidence is deliberately excluded
+# until there's separate, explicit consent for reusing biometric-identity frames as training data.
+TRAINING_CANDIDATE_EVENT_TYPES = {"PHONE_DETECTED", "MULTIPLE_PEOPLE"}
+
 STORAGE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "storage",
@@ -82,6 +88,10 @@ class ViolationService:
                 f.write(evidence_bytes)
 
             violation.evidence_path = evidence_path
+
+            if request.event_type in TRAINING_CANDIDATE_EVENT_TYPES:
+                violation.training_review_status = "PENDING"
+
             db.commit()
             db.refresh(violation)
 

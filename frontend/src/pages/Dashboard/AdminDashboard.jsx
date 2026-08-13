@@ -8,6 +8,8 @@ import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
 import { getSchoolAnalytics } from "../../api/analytics";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
+import { getPendingTrainingCandidates, reviewTrainingCandidate } from "../../api/trainingReview";
+import { getEvidenceBlobUrl } from "../../api/violations";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
@@ -45,6 +47,10 @@ export default function AdminDashboard() {
   const [retentionError, setRetentionError] = useState(false);
   const [confirmingPurge, setConfirmingPurge] = useState(false);
   const [purgeResult, setPurgeResult] = useState(null);
+  const [trainingCandidates, setTrainingCandidates] = useState(null);
+  const [trainingLoading, setTrainingLoading] = useState(false);
+  const [trainingError, setTrainingError] = useState(false);
+  const [trainingPreviewUrls, setTrainingPreviewUrls] = useState({});
 
   useEffect(() => {
     Promise.all([getStudents(), getInstructors(), getCourses(user.school_id), getExams()])
@@ -116,6 +122,35 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  function loadTrainingCandidates() {
+    setTrainingLoading(true);
+    setTrainingError(false);
+    getPendingTrainingCandidates()
+      .then(setTrainingCandidates)
+      .catch(() => setTrainingError(true))
+      .finally(() => setTrainingLoading(false));
+  }
+
+  useEffect(() => {
+    if (tab === "training" && trainingCandidates === null && !trainingLoading) {
+      loadTrainingCandidates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  function loadTrainingPreview(violationId) {
+    if (trainingPreviewUrls[violationId]) return;
+    getEvidenceBlobUrl(violationId).then((url) =>
+      setTrainingPreviewUrls((prev) => ({ ...prev, [violationId]: url }))
+    );
+  }
+
+  function handleTrainingDecision(violationId, decision) {
+    reviewTrainingCandidate(violationId, decision).then(() => {
+      setTrainingCandidates((prev) => prev.filter((c) => c.id !== violationId));
+    });
+  }
+
   async function handlePurge() {
     // Don't close the confirm dialog until the purge actually succeeds - it's the one thing that
     // can show a failure (ConfirmDialog catches a thrown error and displays it inline); closing
@@ -165,6 +200,7 @@ export default function AdminDashboard() {
           ["system", "System"],
           ["audit", "Audit"],
           ["retention", "Retention"],
+          ["training", "Training Review"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -594,6 +630,77 @@ export default function AdminDashboard() {
               onConfirm={handlePurge}
               onCancel={() => setConfirmingPurge(false)}
             />
+          )}
+        </div>
+      )}
+
+      {tab === "training" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-muted-foreground">
+              Phone-detection and multiple-people evidence, awaiting your review before it's ever
+              used to improve detection models. Approving copies the image into the training set;
+              rejecting discards it from this queue only (see the{" "}
+              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">
+                privacy policy
+              </a>). Face-verification evidence never appears here.
+            </p>
+            <button
+              onClick={loadTrainingCandidates}
+              disabled={trainingLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 disabled:opacity-50 transition-colors flex-shrink-0"
+            >
+              <RefreshCw className={`w-3 h-3 ${trainingLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+
+          {trainingError && (
+            <Card className="p-5 text-sm text-red-600">Couldn't load the training review queue. Try refreshing.</Card>
+          )}
+
+          {!trainingError && !trainingCandidates && (
+            <Card className="p-5 text-sm text-muted-foreground">Loading training review queue…</Card>
+          )}
+
+          {trainingCandidates && (
+            <Card>
+              <div className="divide-y divide-border">
+                {trainingCandidates.length === 0 && (
+                  <div className="px-6 py-6 text-sm text-muted-foreground">Nothing awaiting review right now.</div>
+                )}
+                {trainingCandidates.map((c) => (
+                  <div key={c.id} className="px-6 py-4 flex items-center gap-4">
+                    {trainingPreviewUrls[c.id] ? (
+                      <img src={trainingPreviewUrls[c.id]} alt="" className="w-16 h-16 rounded-lg object-cover border border-border flex-shrink-0" />
+                    ) : (
+                      <button
+                        onClick={() => loadTrainingPreview(c.id)}
+                        className="w-16 h-16 rounded-lg border border-border bg-secondary text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                      >
+                        View
+                      </button>
+                    )}
+                    <div className="flex-1">
+                      <div className="text-sm text-foreground font-medium">{c.event_type}</div>
+                      <div className="text-[11px] font-mono text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
+                    </div>
+                    <button
+                      onClick={() => handleTrainingDecision(c.id, "REJECTED")}
+                      className="px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => handleTrainingDecision(c.id, "APPROVED")}
+                      className="px-3 py-1.5 rounded-lg bg-primary text-white text-[11px] font-mono uppercase tracking-wider hover:bg-primary/90 transition-colors"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       )}

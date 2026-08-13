@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Landing from "./pages/Landing/Landing";
+import PrivacyPolicy from "./pages/PrivacyPolicy/PrivacyPolicy";
 import Login from "./pages/Login/Login";
 import Register from "./pages/Register/Register";
 import SchoolSignup from "./pages/SchoolSignup/SchoolSignup";
@@ -29,6 +30,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/login" element={<SchoolPicker />} />
           <Route path="/schools/register" element={<SchoolSignup />} />
 

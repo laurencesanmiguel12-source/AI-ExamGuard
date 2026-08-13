@@ -37,7 +37,7 @@ const MARKETING_FEATURES = [
     bg: "#f5f3ff",
     border: "#ddd6fe",
     title: "Privacy-Conscious by Default",
-    desc: "Evidence auto-expires on a fixed retention window, every access is audit-logged, and admins have direct purge controls — proctoring without a permanent surveillance archive.",
+    desc: "Evidence auto-expires on a fixed retention window, every access is audit-logged, and admins have direct purge controls. Only admin-approved phone/device evidence — never face data — may be reused to improve detection models.",
   },
   {
     icon: Star,
@@ -505,6 +505,12 @@ export default function Landing() {
             className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 text-[11px] font-mono uppercase tracking-widest mt-8 transition-colors">
             <Download className="w-3.5 h-3.5"/> Already registered? Get the Tab Monitor extension from the Chrome Web Store
           </a>
+          <div className="mt-2">
+            <button onClick={() => navigate("/privacy-policy")}
+              className="text-white/30 hover:text-white/60 text-[11px] font-mono uppercase tracking-widest transition-colors">
+              Privacy Policy
+            </button>
+          </div>
         </div>
       </section>
     </div>

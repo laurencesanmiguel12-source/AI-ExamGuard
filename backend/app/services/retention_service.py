@@ -39,6 +39,17 @@ def _eligible_query(db: Session, school_id: int):
         # for never-appealed violations (appeal_status IS NULL), silently excluding them too -
         # confirmed by a real failing test case, not a hypothetical.
         .filter(or_(Violation.appeal_status.is_(None), Violation.appeal_status != "PENDING"))
+        # Same shape for the training-review queue: an unreviewed (PENDING) candidate, or an
+        # APPROVED one that export_reviewed_evidence.py hasn't copied out yet, still needs its
+        # file on disk. REJECTED and already-exported APPROVED items are safe to purge on the
+        # normal schedule - a copy already lives in the training set for the latter.
+        .filter(
+            or_(
+                Violation.training_review_status.is_(None),
+                Violation.training_review_status == "REJECTED",
+                Violation.training_exported_at.isnot(None),
+            )
+        )
     )
 
 

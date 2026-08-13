@@ -72,3 +72,19 @@ class RiskTimelinePoint(BaseModel):
 class RiskSummaryResponse(BaseModel):
     risk_score: float
     timeline: list[RiskTimelinePoint]
+
+
+class TrainingReviewCandidate(BaseModel):
+    id: int
+    exam_session_id: int
+    event_type: str
+    detail: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
+class TrainingReviewRequest(BaseModel):
+    decision: str  # "APPROVED" or "REJECTED"

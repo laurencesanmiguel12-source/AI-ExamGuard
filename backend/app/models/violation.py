@@ -82,6 +82,35 @@ class Violation(Base, TimestampMixin):
         nullable=True
     )
 
+    # Continuous-training review queue. None = not a training candidate (wrong event_type, or no
+    # evidence). "PENDING" is set automatically at creation for object-detection evidence types
+    # (see TRAINING_CANDIDATE_EVENT_TYPES in violation_service.py) - identity-linked types
+    # (FACE_LOST, IDENTITY_MISMATCH) are deliberately excluded, since reusing biometric-identity
+    # frames for training needs its own separate consent, not this disclosure. "APPROVED"/
+    # "REJECTED" set by an admin via training_review_service.py. RetentionService protects
+    # PENDING and not-yet-exported APPROVED evidence from the 90-day purge.
+    training_review_status: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True
+    )
+
+    training_reviewed_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    training_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    # Set once export_reviewed_evidence.py has copied this evidence file into the training
+    # dataset. Only then is the live copy safe to purge on the normal 90-day schedule.
+    training_exported_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
     exam_session = relationship(
         "ExamSession",
         back_populates="violations"
