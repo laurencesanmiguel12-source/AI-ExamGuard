@@ -7,3 +7,4 @@ storage/
 # resource files already committed under app/resources/ (yolov8s.pt, phone_specialist.pt,
 # risk_model.joblib, etc.), not the scripts that produced them.
 training/
+loadtest/

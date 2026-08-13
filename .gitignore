@@ -15,6 +15,7 @@ backend/training/face_landmarker.task
 yolo26n.pt
 backend/training/resume_detached*.log
 backend/training/detached_*.log
+backend/loadtest/results_*
 kaggle.json
 extension/keys/
 extension/*.zip
