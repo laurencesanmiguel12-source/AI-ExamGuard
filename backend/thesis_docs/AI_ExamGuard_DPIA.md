@@ -50,10 +50,12 @@ transport layer — see Section 6.4) and reachable publicly via a Cloudflare Tun
 
 ## 3. Data Protection Officer / Accountable Party
 
-**Not yet appointed.** RA 10173 and the NPC's Five Pillars require every personal information
-controller to designate a DPO responsible for overseeing compliance. This is a real, open gap
-(see Section 9.1) — until it is closed, there is no single accountable party for this PIA's
-findings, for data-subject rights requests, or for breach response.
+**Designated for thesis-documentation purposes as of 2026-08-13** — see
+`AI_ExamGuard_DPO_and_NPC_Registration.md` for the full designation, responsibilities, and what
+still separates this from a real, legal, NPC-registered appointment (notarized NPC Form 2022-01,
+a discoverable in-app DPO contact channel, and — if AI ExamGuard is ever operated by a formal
+institution rather than an individual — a real appointment instrument). Treat this section as
+"named, not yet formalized," not as "closed."
 
 ## 4. Description of the Processing Operations
 
@@ -210,15 +212,18 @@ data-subject rights request channel.
 These are the items that should be closed before this PIA can be cited as demonstrating full DPA
 compliance, in rough priority order:
 
-1. **Appoint a Data Protection Officer** and register them with the NPC. Nothing in this section
-   has an accountable owner until this happens.
+1. ~~**Appoint a Data Protection Officer**~~ — **designated 2026-08-13** for thesis-documentation
+   purposes (Section 3); notarized NPC Form 2022-01 registration is still a real, separate step —
+   see `AI_ExamGuard_DPO_and_NPC_Registration.md` Part 1.4.
 2. **Capture consent as a real, timestamped, revocable record**, not just a UI click-through —
    particularly for the secondary training-data-reuse purpose (Section 4.9), which is a weaker
    fit for "implied by exam disclosure" than the core proctoring purpose is.
-3. **Determine and act on NPC registration status.** Given this system processes sensitive
-   personal information (biometric data) as a matter of course, registration of the data
-   processing system (and the DPO) with the NPC is very likely required regardless of the
-   organization's employee count.
+3. ~~**Determine and act on NPC registration status.**~~ — **readiness assessment done
+   2026-08-13**, see `AI_ExamGuard_DPO_and_NPC_Registration.md` Part 2: the "poses risk to data
+   subjects" trigger plausibly applies today regardless of user count, and a real current
+   enrolled-user count still needs to be pulled from the live database before a final
+   determination. The PIC-vs-PIP question (does each school or AI ExamGuard itself hold the
+   registration obligation?) is a real open structural question, not yet resolved.
 4. **Write and adopt a breach-response procedure** meeting the DPA's 72-hour notification
    requirement to both the NPC and affected data subjects. This does not exist today.
 5. **Confirm or implement encryption at rest** for the database volume and evidence file storage,
