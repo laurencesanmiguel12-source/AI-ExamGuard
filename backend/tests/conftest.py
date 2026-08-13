@@ -38,7 +38,15 @@ import app.models  # noqa: E402, F401 - registers every model on Base.metadata b
 from app.auth.jwt import create_access_token  # noqa: E402
 from app.auth.security import hash_password  # noqa: E402
 from app.core.database import get_db  # noqa: E402
+from app.core.rate_limit import limiter  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
+
+# The limiter is a module-level singleton keyed by IP - every test's TestClient shares the same
+# "testclient" address, so without this, unrelated tests calling /auth/login or /auth/register
+# accumulate against the same bucket across the whole session and can trip a 429 depending on test
+# order/count, not on anything the test itself is doing wrong. Disabled globally here;
+# test_rate_limiting.py re-enables it for the one test that actually verifies the limiting works.
+limiter.enabled = False
 from app.models.base import Base  # noqa: E402
 from app.models.course import Course  # noqa: E402
 from app.models.exam import Exam  # noqa: E402

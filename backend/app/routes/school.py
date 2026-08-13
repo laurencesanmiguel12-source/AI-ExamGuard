@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.schemas.school import SchoolRegisterRequest, SchoolResponse
 from app.services.school_service import SchoolService
 
@@ -24,13 +25,17 @@ def get_schools(
 
 
 # Public (no auth) - self-service school signup, same pattern as public student registration.
-# This is the first-ever way to create an admin account in this codebase.
+# This is the first-ever way to create an admin account in this codebase - tightest rate limit of
+# the three public signup/login endpoints, since a new school is a rare, deliberate action, not
+# something a legitimate user does repeatedly.
 @router.post(
     "/register",
     response_model=SchoolResponse
 )
+@limiter.limit("3/hour")
 def register_school(
-    request: SchoolRegisterRequest,
+    request: Request,
+    body: SchoolRegisterRequest,
     db: Session = Depends(get_db)
 ):
-    return SchoolService.register(request, db)
+    return SchoolService.register(body, db)
