@@ -40,6 +40,28 @@ landmark model bundle downloaded into this directory first:
     python -c "import urllib.request as u; u.urlretrieve(
         'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
         'face_landmarker.task')"
+
+LIVE RESULT, 2026-08-13 (the required gate before any production decision, per the caveat above -
+see capture_live_frames.py / analyze_live_landmark_geometry.py): this offline synthetic-tremor
+finding does NOT survive contact with real hand-held-photo tremor. Two independent live rounds per
+condition (n=14 pairs each, real webcam, real held phone displaying a different person's photo):
+naive non-rigid-residual comparison overlaps (genuine [3.5, 32.4] vs spoof [0.7, 20.4]).
+
+A same-session refinement was tried and also falsified, not just "still noisy": gate the
+comparison on rigid-fit quality first (only trust the non-rigid residual when the 2D-similarity
+model actually fit the "rigid" points well - reasoning: real 3D tilt should break the model's fit,
+not just add non-rigid noise). This looked promising on the first round alone (n=7: clean
+separation, spoof's gated max 3.4 vs genuine's min 3.5) but broke on the second genuine round -
+genuine rigid-fit residuals reached 49.95, since normal head turning/shifting during natural
+sitting is ALSO real 3D motion a 2D similarity transform can't model, just as much as a hand
+tilting a photo. Gated result across both rounds: genuine [3.5, 9.8] (9/14 passed the gate) vs
+spoof [0.7, 6.4] (12/14 passed) - still overlaps.
+
+**Conclusion: real ceiling, not a tuning gap** - same shape as the frame-differencing and
+blink-detection dead ends this refinement was meant to fix (see
+ai_examguard_face_recognition_threshold_finding memory). Do not re-attempt this exact
+rigid-vs-non-rigid-residual technique (gated or not) without a genuinely different idea. mediapipe
+remains deliberately NOT adopted as a production dependency on the strength of this result.
 """
 import glob
 import os
