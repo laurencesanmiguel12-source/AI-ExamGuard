@@ -33,7 +33,7 @@ WHAT IT DOES NOT DO
 - It has no visibility into any site outside its fixed monitored list.
 
 PERMISSIONS, EXPLAINED
-- tabs / webNavigation: needed to detect which site a browser tab has navigated to.
+- webNavigation: needed to detect which site a browser tab has navigated to.
 - Host permissions for the specific monitored sites only (not "all sites"): needed to capture an
   evidence screenshot of one of those tabs at the moment it's detected. No permission is requested
   for any site outside the fixed monitored list.
