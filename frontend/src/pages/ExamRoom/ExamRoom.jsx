@@ -14,6 +14,7 @@ import { checkObjects } from "../../api/objectDetection";
 import useProctoring from "../../hooks/useProctoring";
 import useExtensionMonitor from "../../hooks/useExtensionMonitor";
 import useCamera from "../../hooks/useCamera";
+import useClientFaceDetector from "../../hooks/useClientFaceDetector";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
@@ -202,6 +203,14 @@ export default function ExamRoom() {
   const { videoRef, error: cameraError, ready: cameraReady, captureFrame } = useCamera(
     phase === "in-progress" && needsCamera
   );
+  const { detect: detectFaceLocally } = useClientFaceDetector(
+    phase === "in-progress" && needsFaceCheck
+  );
+  // Every ~12th poll (roughly once/minute at the 5s cadence below) forces a full server-side
+  // check regardless of what the local detector reports - an independent audit sample that
+  // catches a tampered/lying client reporting "confident" every poll. See
+  // face_service.py's client_confident_crop docstring for the server-side half of this.
+  const faceCheckPollCountRef = useRef(0);
 
   useEffect(() => {
     if (phase !== "in-progress" || !session || !needsCamera || !cameraReady) return;
@@ -213,7 +222,22 @@ export default function ExamRoom() {
         if (!blob || cancelled) return;
 
         if (needsFaceCheck) {
-          const faceResult = await checkFace(session.id, blob, currentQuestionRef.current).catch(() => null);
+          const pollCount = ++faceCheckPollCountRef.current;
+          const isAuditPoll = pollCount % 12 === 0;
+
+          let faceBlob = blob;
+          let clientConfidentCrop = false;
+          if (!isAuditPoll) {
+            const localCrop = await detectFaceLocally(videoRef.current).catch(() => null);
+            if (localCrop) {
+              faceBlob = localCrop;
+              clientConfidentCrop = true;
+            }
+          }
+
+          const faceResult = await checkFace(
+            session.id, faceBlob, currentQuestionRef.current, clientConfidentCrop
+          ).catch(() => null);
           if (!cancelled && faceResult) {
             if (faceResult.face_detected === null || faceResult.face_detected === undefined) {
               // Backend skipped the check entirely - not accommodated (needsFaceCheck is true),

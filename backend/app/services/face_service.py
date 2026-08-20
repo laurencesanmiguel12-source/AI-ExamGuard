@@ -189,6 +189,19 @@ def _crop_from_detection(image, detection):
     return cv2.resize(crop, FACE_SIZE)
 
 
+def _decode_client_crop(image_bytes: bytes):
+    """Decodes a client-trusted crop (opencv.js already cropped+grayscaled it) and defensively
+    resizes to FACE_SIZE if the client sent something off-spec - LBPH.predict requires an exact
+    size match against the trained model, so a mismatched crop must never silently reach it.
+    Pure decode/resize, no detector model involved - kept separate so it's testable without
+    loading YuNet, same convention as _check_static_image/_record_candidate."""
+    array = np.frombuffer(image_bytes, dtype=np.uint8)
+    crop = cv2.imdecode(array, cv2.IMREAD_GRAYSCALE)
+    if crop is not None and crop.shape != FACE_SIZE[::-1]:
+        crop = cv2.resize(crop, FACE_SIZE)
+    return crop
+
+
 def _detect_and_crop(image_bytes: bytes):
     array = np.frombuffer(image_bytes, dtype=np.uint8)
     image = cv2.imdecode(array, cv2.IMREAD_COLOR)
@@ -503,7 +516,8 @@ class FaceService:
         db: Session,
         question_id: int | None = None,
         question_text: str | None = None,
-        question_type: str | None = None
+        question_type: str | None = None,
+        client_confident_crop: bool = False
     ):
 
         session = (
@@ -531,30 +545,66 @@ class FaceService:
                 "confidence": None
             }
 
-        array = np.frombuffer(image_bytes, dtype=np.uint8)
-        image = cv2.imdecode(array, cv2.IMREAD_COLOR)
+        if client_confident_crop:
+            # Client-trusted path (MediaPipe Face Detector running in-browser - see
+            # frontend/src/hooks/useClientFaceDetector.js). image_bytes here is ALREADY a
+            # cropped, grayscale, FACE_SIZE face region, not a raw frame - the client only takes
+            # this path when ITS OWN detector was confident a face was present, so server-side
+            # YuNet detection + the pose-model fallback (the two calls that share the
+            # module-level _DETECTOR object load-testing found serializes under concurrency - see
+            # ai_examguard_load_testing memory) are skipped entirely for this poll. A client
+            # reporting "no face"/uncertain always sends a full raw frame instead and falls
+            # through to the branch below, so FACE_LOST is still only ever decided from real
+            # server-side detection, never a client's self-report.
+            #
+            # No pose estimate is available here - MediaPipe's 6-keypoint layout (eyes, nose,
+            # mouth CENTER, two ear tragions) doesn't match what _estimate_head_pose's solvePnP
+            # call was calibrated against (YuNet's eyes/nose/two mouth CORNERS), and inventing new
+            # untested 3D reference geometry wasn't worth the risk for this pass. Head-down
+            # tracking is deliberately left untouched on this path (see below) rather than fed a
+            # fabricated pose - PROLONGED_HEAD_DOWN's detection cadence drops to however often a
+            # real frame reaches the server (uncertain/no-face polls + the periodic audit sample),
+            # a disclosed limitation, same category as STATIC_IMAGE_SUSPECTED's existing
+            # tolerated detection lag, not a silently accepted regression.
+            crop = _decode_client_crop(image_bytes)
+            pose = None
+            person_present = True
+            head_present_via_fallback = False
+            track_head_down = False
+        else:
+            array = np.frombuffer(image_bytes, dtype=np.uint8)
+            image = cv2.imdecode(array, cv2.IMREAD_COLOR)
 
-        # Single detect() call feeds both the identity crop and the head-pose estimate below -
-        # no extra model cost for tracking head-down duration on top of the existing check.
-        detection = _detect_largest_face(image) if image is not None else None
-        pose = _estimate_head_pose(image, detection) if detection is not None else None
+            # Single detect() call feeds both the identity crop and the head-pose estimate below
+            # - no extra model cost for tracking head-down duration on top of the existing check.
+            detection = _detect_largest_face(image) if image is not None else None
+            pose = _estimate_head_pose(image, detection) if detection is not None else None
 
-        # YuNet found no face at all - before concluding no one's there, check the pose-model
-        # fallback. A live smoke-test (2026-07-31) found a real head-down tilt can make YuNet
-        # lose facial landmarks entirely, well before pitch would cross the down threshold - so
-        # treating "no face landmarks" as automatically "no head" made this feature nearly
-        # untriggerable by the exact behavior it exists to catch. See
-        # _pose_fallback_signals's docstring for why this needs two separate signals, not one.
-        person_present, fallback_confidence = (
-            _pose_fallback_signals(image) if detection is None and image is not None
-            else (False, 0.0)
-        )
-        head_present_via_fallback = fallback_confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD
+            # YuNet found no face at all - before concluding no one's there, check the pose-model
+            # fallback. A live smoke-test (2026-07-31) found a real head-down tilt can make YuNet
+            # lose facial landmarks entirely, well before pitch would cross the down threshold -
+            # so treating "no face landmarks" as automatically "no head" made this feature nearly
+            # untriggerable by the exact behavior it exists to catch. See
+            # _pose_fallback_signals's docstring for why this needs two separate signals, not one.
+            person_present, fallback_confidence = (
+                _pose_fallback_signals(image) if detection is None and image is not None
+                else (False, 0.0)
+            )
+            head_present_via_fallback = fallback_confidence >= _HEAD_PRESENCE_CONFIDENCE_THRESHOLD
+            crop = _crop_from_detection(image, detection) if detection is not None else None
+            track_head_down = True
 
-        head_down_duration, should_log_head_down = _track_head_down(
-            session, pose, head_present_via_fallback
-        )
-        db.commit()
+        if track_head_down:
+            head_down_duration, should_log_head_down = _track_head_down(
+                session, pose, head_present_via_fallback
+            )
+            db.commit()
+        else:
+            # Deliberately not called at all (not even as a "miss") on the client-trusted path -
+            # an in-progress head-down streak from a recent real-frame poll must survive a run of
+            # confident-face polls untouched, not get reset by HEAD_DOWN_MISS_TOLERANCE just
+            # because this poll had no pose data to offer either way.
+            head_down_duration, should_log_head_down = 0.0, False
 
         if should_log_head_down:
             # Evidence here is deliberately *not* a webcam frame - it's a weaker, geometric proxy
@@ -574,14 +624,15 @@ class FaceService:
                 question_type=question_type
             )
 
-        crop = _crop_from_detection(image, detection) if detection is not None else None
-
         if _check_static_image(session_id, crop):
             # A sustained run of near-identical crops - see STATIC_IMAGE_DIFF_THRESHOLD's comment
             # for why this exists (no LBPH-distance threshold can catch a photo held up to the
             # webcam, since it only compares texture, not liveness). Evidence here IS the webcam
             # frame, unlike PROLONGED_HEAD_DOWN - this is a direct visual claim ("this looks like
-            # the same static image repeatedly"), not a geometric proxy.
+            # the same static image repeatedly"), not a geometric proxy. On the client-trusted
+            # path, image_bytes is the small face crop, not the full frame - less room context
+            # for a reviewer, but still shows the actual claim being made (same face image
+            # repeated), which is what this violation type is about.
             ViolationService.log_violation(
                 session_id,
                 ViolationCreate(event_type="STATIC_IMAGE_SUSPECTED"),
@@ -643,6 +694,23 @@ class FaceService:
 
 
 if __name__ == "__main__":
+    # Self-check for _decode_client_crop - no YuNet model involved, just decode/resize.
+    correct_size = np.random.randint(0, 255, FACE_SIZE[::-1], dtype=np.uint8)
+    ok, encoded = cv2.imencode(".png", correct_size)
+    assert ok
+    decoded = _decode_client_crop(encoded.tobytes())
+    assert decoded.shape == FACE_SIZE[::-1], "already-correct-size crop should pass through unresized"
+
+    wrong_size = np.random.randint(0, 255, (50, 50), dtype=np.uint8)
+    ok, encoded = cv2.imencode(".png", wrong_size)
+    assert ok
+    decoded = _decode_client_crop(encoded.tobytes())
+    assert decoded.shape == FACE_SIZE[::-1], "off-spec client crop must be resized before reaching LBPH"
+
+    assert _decode_client_crop(b"not an image") is None, "garbage bytes must decode to None, not raise"
+
+    print("face_service client-crop decode self-check passed")
+
     # Self-check for the static-image streak bookkeeping only - no YuNet/LBPH models involved.
     _last_crop_state.clear()
     still = np.full((4, 4), 100, dtype=np.uint8)

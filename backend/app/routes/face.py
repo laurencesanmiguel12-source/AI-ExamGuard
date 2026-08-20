@@ -32,12 +32,17 @@ async def enroll_face(
 async def check_face(
     session_id: int,
     file: UploadFile = File(...),
-    # Optional - not yet sent by the frontend (that's the next piece of work). When present,
-    # only used to snapshot context onto a PROLONGED_HEAD_DOWN violation if one fires on this
-    # poll; harmless if omitted.
+    # Optional - only used to snapshot context onto a PROLONGED_HEAD_DOWN violation if one fires
+    # on this poll; harmless if omitted.
     question_id: int | None = Form(None),
     question_text: str | None = Form(None),
     question_type: str | None = Form(None),
+    # True means: the client (MediaPipe Face Detector, running in-browser) already ran its own
+    # detection and is confident a face is present, so `file` is a small pre-cropped face region
+    # rather than a full frame - see FaceService.verify's client_confident_crop docstring for
+    # what this skips server-side. False/absent means `file` is a full raw frame and the existing
+    # server-side detection pipeline runs unchanged.
+    client_confident_crop: bool = Form(False),
     db: Session = Depends(get_db),
     session: ExamSession = Depends(require_session_owner_student)
 ):
@@ -48,5 +53,6 @@ async def check_face(
         db,
         question_id=question_id,
         question_text=question_text,
-        question_type=question_type
+        question_type=question_type,
+        client_confident_crop=client_confident_crop
     )
