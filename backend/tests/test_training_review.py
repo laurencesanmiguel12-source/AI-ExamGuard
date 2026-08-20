@@ -22,7 +22,7 @@ def _log_violation(client, headers, session_id, event_type):
 
 def test_phone_detected_evidence_auto_enters_review_queue(client, make_student, make_exam, auth_headers, db):
     exam = make_exam(total_points=0, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     start = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
     session_id = start.json()["id"]
@@ -37,7 +37,7 @@ def test_face_lost_evidence_never_enters_review_queue(client, make_student, make
     """FACE_LOST evidence is a biometric-identity frame, not object-detection evidence - it must
     stay out of the training pipeline entirely until there's separate consent for that."""
     exam = make_exam(total_points=0, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     start = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
     session_id = start.json()["id"]
@@ -50,7 +50,7 @@ def test_face_lost_evidence_never_enters_review_queue(client, make_student, make
 
 def test_admin_can_approve_a_pending_candidate(client, make_student, make_exam, auth_headers, make_user, db):
     exam = make_exam(total_points=0, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     admin = make_user("admin", school=exam.subject.course.school)
     headers = auth_headers(student.user)
     start = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
@@ -76,7 +76,7 @@ def test_admin_can_approve_a_pending_candidate(client, make_student, make_exam, 
 def test_non_admin_cannot_review_training_candidates(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
     session_id = start.json()["id"]

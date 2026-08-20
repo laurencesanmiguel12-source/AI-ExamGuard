@@ -66,7 +66,7 @@ def test_student_cannot_start_a_session_for_an_inactive_exam(client, make_studen
 
 def test_student_cannot_start_two_sessions_for_the_same_exam(client, make_student, make_exam, auth_headers):
     exam = make_exam()
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
 
     first = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
@@ -93,7 +93,7 @@ def test_full_take_exam_flow_scores_correctly(client, make_instructor, make_stud
     instructor_headers = auth_headers(instructor.user)
     question_id, correct_id, wrong_id = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
@@ -130,7 +130,7 @@ def test_cannot_forge_score_with_a_choice_from_a_different_question(
     question_id, correct_id, wrong_id = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
     other_question_id, other_correct_id, _ = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     session_id = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id}).json()["id"]
 
@@ -147,7 +147,7 @@ def test_wrong_answer_fails_the_exam(client, make_instructor, make_student, make
     instructor_headers = auth_headers(instructor.user)
     question_id, correct_id, wrong_id = _create_question_with_choices(client, instructor_headers, exam.id, points=10)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
@@ -167,7 +167,7 @@ def test_wrong_answer_fails_the_exam(client, make_instructor, make_student, make
 
 def test_cannot_submit_the_same_session_twice(client, make_instructor, make_student, make_exam, auth_headers):
     exam = make_exam()
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
@@ -185,7 +185,7 @@ def test_cannot_answer_after_submitting(client, make_instructor, make_student, m
     exam = make_exam(instructor=instructor)
     question_id, correct_id, _ = _create_question_with_choices(client, auth_headers(instructor.user), exam.id)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     start = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id})
     session_id = start.json()["id"]
@@ -202,7 +202,7 @@ def test_cannot_answer_after_submitting(client, make_instructor, make_student, m
 
 def test_ai_tool_violation_with_evidence_is_retrievable(client, make_student, make_exam, auth_headers):
     exam = make_exam()
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
 
@@ -226,7 +226,7 @@ def test_ai_tool_violation_without_evidence_still_logs(client, make_student, mak
     """The extension can't always capture a screenshot (background tab, permission gap, etc.) -
     the violation itself must still be logged even when no evidence file is attached."""
     exam = make_exam()
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
 
@@ -244,7 +244,7 @@ def test_tab_switch_violation_never_has_evidence_even_if_sent(client, make_stude
     anyway (shouldn't happen from real clients, but the server shouldn't trust the event_type
     label alone) is silently ignored, not stored."""
     exam = make_exam()
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     headers = auth_headers(student.user)
     session_id = client.post("/exam-sessions/start", headers=headers, json={"exam_id": exam.id}).json()["id"]
 

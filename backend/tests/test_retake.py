@@ -17,7 +17,7 @@ def _log_violation(client, headers, session_id, event_type):
 def test_submit_flags_retake_when_risk_exceeds_threshold(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50, max_risk_score=30)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
@@ -34,7 +34,7 @@ def test_submit_flags_retake_when_risk_exceeds_threshold(client, make_instructor
 
 def test_submit_does_not_flag_when_under_threshold(client, make_instructor, make_student, make_exam, auth_headers):
     exam = make_exam(total_points=0, passing_score=50, max_risk_score=30)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
@@ -50,7 +50,7 @@ def test_submit_does_not_flag_when_under_threshold(client, make_instructor, make
 def test_retake_blocked_until_instructor_grants_it(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50, max_risk_score=10)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     instructor_headers = auth_headers(instructor.user)
 
@@ -78,7 +78,7 @@ def test_retake_blocked_until_instructor_grants_it(client, make_instructor, make
 def test_retake_denied_permanently_blocks_a_new_attempt(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50, max_risk_score=10)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     instructor_headers = auth_headers(instructor.user)
 
@@ -103,7 +103,7 @@ def test_non_owning_instructor_cannot_review_a_retake(client, make_instructor, m
     owner = make_instructor()
     other = make_instructor()
     exam = make_exam(instructor=owner, total_points=0, passing_score=50, max_risk_score=10)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     start = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam.id})
@@ -127,7 +127,7 @@ def test_flagged_retake_session_still_counts_as_a_graded_attempt_in_reports(
     student unable to see their answer key on review (see GRADED_STATUSES)."""
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50, max_risk_score=10)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     instructor_headers = auth_headers(instructor.user)
 
@@ -154,7 +154,7 @@ def test_flagged_retake_session_still_counts_as_a_graded_attempt_in_reports(
 def test_overturned_appeal_lowers_the_risk_score(client, make_instructor, make_student, make_exam, auth_headers):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=0, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
     instructor_headers = auth_headers(instructor.user)
 

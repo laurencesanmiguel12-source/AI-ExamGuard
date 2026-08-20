@@ -36,17 +36,12 @@ class ExamService:
         if subject is None or subject.course_id != student.course_id:
             return False
 
-        # Opt-in narrowing: an exam with no roster rows stays course-wide (today's default
-        # behavior). The moment an instructor rosters >=1 student, it's restricted to just them.
-        has_roster = (
-            db.query(ExamRoster)
-            .filter(ExamRoster.exam_id == exam.id)
-            .first()
-            is not None
-        )
-        if not has_roster:
-            return True
-
+        # Roster-required by default (changed 2026-08-20 from opt-in narrowing, where an
+        # exam with zero roster rows was course-wide by default): a student is only eligible
+        # once an instructor has explicitly rostered them for this specific exam. This was a
+        # deliberate policy flip, not a bug fix - live production feedback was that a newly
+        # self-registered student seeing every unrostered course exam immediately was the wrong
+        # default for this deployment.
         return (
             db.query(ExamRoster)
             .filter(ExamRoster.exam_id == exam.id, ExamRoster.student_id == student.id)

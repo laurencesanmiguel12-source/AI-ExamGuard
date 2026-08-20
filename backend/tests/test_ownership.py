@@ -221,7 +221,7 @@ def test_eligible_student_can_view_questions_but_not_yet_the_answer_key(client, 
     exam = make_exam(instructor=instructor)
     _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
 
     response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(student.user))
 
@@ -238,7 +238,7 @@ def test_student_mid_exam_still_does_not_see_the_answer_key(client, db, make_ins
     exam = make_exam(instructor=instructor)
     _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     _start_session(db, student, exam)  # IN_PROGRESS, not SUBMITTED
 
     response = client.get(f"/exams/{exam.id}/questions", headers=auth_headers(student.user))
@@ -253,7 +253,7 @@ def test_student_who_already_submitted_can_see_the_answer_key_for_review(client,
     exam = make_exam(instructor=instructor)
     _add_question_with_a_correct_choice(client, auth_headers(instructor.user), exam.id)
 
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     session = _start_session(db, student, exam)
     session.status = "SUBMITTED"
     db.commit()

@@ -42,7 +42,7 @@ def test_instructor_analytics_reflects_pass_rate_and_risk(
 ):
     instructor = make_instructor()
     exam = make_exam(instructor=instructor, total_points=10, passing_score=50)
-    student = make_student(course=exam.subject.course)
+    student = make_student(course=exam.subject.course, exam=exam)
     student_headers = auth_headers(student.user)
 
     session_id = client.post(
@@ -73,7 +73,7 @@ def test_school_analytics_aggregates_violation_breakdown(
     instructor_a = make_instructor(user=make_user("instructor", school=school_a))
     course_a = make_course(school=school_a)
     exam = make_exam(instructor=instructor_a, subject=make_subject(course=course_a))
-    student = make_student(course=course_a)
+    student = make_student(course=course_a, exam=exam)
     student_headers = auth_headers(student.user)
 
     session_id = client.post(

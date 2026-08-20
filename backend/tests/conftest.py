@@ -50,6 +50,7 @@ limiter.enabled = False
 from app.models.base import Base  # noqa: E402
 from app.models.course import Course  # noqa: E402
 from app.models.exam import Exam  # noqa: E402
+from app.models.exam_roster import ExamRoster  # noqa: E402
 from app.models.instructor import Instructor  # noqa: E402
 from app.models.instructor_subject import InstructorSubject  # noqa: E402
 from app.models.role import Role  # noqa: E402
@@ -248,6 +249,12 @@ def make_student(db, make_user, make_course):
         n = counter["n"]
         user = overrides.pop("user", None) or make_user("student")
         course = overrides.pop("course", None) or make_course()
+        # exam=<Exam> is sugar for "also roster this student for that exam" - since
+        # ExamService.is_student_eligible is roster-required by default (2026-08-20, changed
+        # from opt-in narrowing), most exam-flow tests need this alongside course membership,
+        # not course membership alone. Not a Student column - popped before constructing the
+        # model, same pattern as user/course above.
+        exam = overrides.pop("exam", None)
         # skip_face_check=True by default - these fixtures build students for exam-flow tests,
         # not face-enrollment tests, and exam start now requires either an enrolled face model
         # or this flag (see ExamSessionService.start_exam) - override explicitly for tests that
@@ -262,6 +269,9 @@ def make_student(db, make_user, make_course):
         db.commit()
         db.refresh(student)
         student.user = user
+        if exam is not None:
+            db.add(ExamRoster(exam_id=exam.id, student_id=student.id))
+            db.commit()
         return student
     return _make
 
