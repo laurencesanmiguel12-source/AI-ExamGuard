@@ -206,10 +206,19 @@ export default function ExamRoom() {
   const { detect: detectFaceLocally } = useClientFaceDetector(
     phase === "in-progress" && needsFaceCheck
   );
-  // Every ~12th poll (roughly once/minute at the 5s cadence below) forces a full server-side
-  // check regardless of what the local detector reports - an independent audit sample that
-  // catches a tampered/lying client reporting "confident" every poll. See
-  // face_service.py's client_confident_crop docstring for the server-side half of this.
+  // Every ~3rd poll (roughly once/15s at the 5s cadence below) forces a full server-side check
+  // regardless of what the local detector reports - both an independent audit sample (catches a
+  // tampered/lying client reporting "confident" every poll) and, as important, PROLONGED_HEAD_DOWN's
+  // only real data source: face_service.py's client_confident_crop path skips _track_head_down
+  // entirely (no raw frame to estimate pose from), so real duration tracking only ever advances on
+  // these audited polls. Raised from every 12th (2026-08-20): live-tested that MediaPipe still
+  // reports 0.50-0.77 confidence (above its own 0.5 "trust this" cutoff) during a genuine head-down
+  // tilt on 3 of 4 real polls sampled, only dropping to 0 detections intermittently - meaning a
+  // sustained head-down episode could see NO real pose check at all for a full audit interval,
+  // purely by chance of whether MediaPipe happened to lose the face. 1-in-3 restores roughly the
+  // same real-check cadence (~15s) that HEAD_DOWN_DURATION_THRESHOLD_SECONDS=25s and
+  // HEAD_DOWN_MISS_TOLERANCE=1 were originally empirically tuned against, before this client-side
+  // path existed. See face_service.py's client_confident_crop docstring for the server-side half.
   const faceCheckPollCountRef = useRef(0);
 
   useEffect(() => {
@@ -223,7 +232,7 @@ export default function ExamRoom() {
 
         if (needsFaceCheck) {
           const pollCount = ++faceCheckPollCountRef.current;
-          const isAuditPoll = pollCount % 12 === 0;
+          const isAuditPoll = pollCount % 3 === 0;
 
           let faceBlob = blob;
           let clientConfidentCrop = false;

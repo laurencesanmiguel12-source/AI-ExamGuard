@@ -671,8 +671,9 @@ class FaceService:
             # doesn't. Rather than falsely accuse real students of impersonation, identity
             # verification is skipped entirely on this path - same reduced-cadence tradeoff
             # already accepted for PROLONGED_HEAD_DOWN above (see that branch's comment), not a
-            # silent regression. The ~1-in-12 audit poll (real full frame, real YuNet crop) and
-            # any client-uncertain poll still verify identity normally every time.
+            # silent regression. The ~1-in-3 audit poll (real full frame, real YuNet crop -
+            # raised from 1-in-12 the same day, see ExamRoom.jsx's faceCheckPollCountRef comment)
+            # and any client-uncertain poll still verify identity normally every time.
             return {
                 "face_detected": True,
                 "identity_match": None,
