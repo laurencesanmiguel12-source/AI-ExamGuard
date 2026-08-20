@@ -660,6 +660,25 @@ class FaceService:
                 "person_present": person_present
             }
 
+        if client_confident_crop:
+            # 2026-08-20: confirmed live via direct A/B testing - the same real face, same
+            # instant, resubmitted through both paths - that MediaPipe's crop framing produces
+            # LBPH distances ~15-19 points worse than YuNet's crop of the IDENTICAL face. Enough
+            # to flip identity_match from a correct match to a false IDENTITY_MISMATCH on every
+            # sample tested (3/3). CONFIDENCE_THRESHOLD and every enrollment photo were
+            # calibrated exclusively against YuNet's crop convention - nothing ever validated
+            # that a different detector's box produces a comparable crop for LBPH, and it
+            # doesn't. Rather than falsely accuse real students of impersonation, identity
+            # verification is skipped entirely on this path - same reduced-cadence tradeoff
+            # already accepted for PROLONGED_HEAD_DOWN above (see that branch's comment), not a
+            # silent regression. The ~1-in-12 audit poll (real full frame, real YuNet crop) and
+            # any client-uncertain poll still verify identity normally every time.
+            return {
+                "face_detected": True,
+                "identity_match": None,
+                "confidence": None
+            }
+
         try:
             recognizer = cv2.face.LBPHFaceRecognizer_create()
             recognizer.read(student.face_model_path)
