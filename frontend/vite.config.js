@@ -12,4 +12,11 @@ export default defineConfig({
     // Host header through, which fails that check without this.
     allowedHosts: true,
   },
+  // `vite preview` (serving the production build) needs the same Host-header allowance and port
+  // as the dev server above, since it's the same named Cloudflare Tunnel forwarding to it - the
+  // preview server has its own separate config block, it doesn't inherit `server`'s.
+  preview: {
+    port: 5173,
+    allowedHosts: true,
+  },
 })
