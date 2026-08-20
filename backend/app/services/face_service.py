@@ -74,17 +74,26 @@ _last_crop_state: dict[int, tuple[np.ndarray, int, bool]] = {}
 #   shifts the photo's position between polls, producing pixel movement comparable to a live
 #   person's natural micro-movement.
 # - Conclusion: raising STATIC_IMAGE_DIFF_THRESHOLD to try to separate these two distributions
-#   isn't safe - they genuinely overlap in this data, the same "not a mistuned number" shape as
-#   HEAD_DOWN_PITCH_THRESHOLD_DEGREES's ceiling. A hand-held (not perfectly rigid) photo may not
-#   be reliably caught by frame-differencing alone. A fully rigid, hands-off comparison was
-#   attempted but produced unusable data (phone screen auto-brightness blew out to white,
-#   unrelated confound) - not yet resolved either way.
+#   isn't safe for the HAND-HELD case - they genuinely overlap in this data, the same "not a
+#   mistuned number" shape as HEAD_DOWN_PITCH_THRESHOLD_DEGREES's ceiling. A hand-held (not
+#   perfectly rigid) photo is not reliably caught by frame-differencing alone, and that part of
+#   the ceiling stands.
+#
+# 2026-08-20 follow-up: the fully rigid/hands-off case (left unresolved above after an earlier
+# attempt produced unusable data) was redone properly - phone propped with zero hand contact,
+# screen kept awake, real ambient light - and DOES separate cleanly, confirmed across TWO
+# independent live rounds (backend/training/analyze_static_image_threshold.py):
+# - Round 1: diffs 4.24-6.68 (n=5 pairs). Round 2: diffs 3.06-6.68 (n=4 pairs). Pooled: 3.06-6.68,
+#   zero overlap with genuine's 11.3-30.9 floor, on two separate captures (unlike the FaceMesh
+#   rigid-vs-non-rigid attempt, which looked clean on round 1 and broke on round 2 - this one held).
+# Raised 3.0 -> 8.0 on this evidence: catches a fully-rigid spoof (max observed 6.68) while
+# staying safely under genuine's floor (11.3). The hand-held ceiling above is UNCHANGED - this
+# only closes the narrower rigid-mount sub-case.
 # **How to apply**: don't tune this threshold further expecting it to fix the hand-held-photo
-# case - that's this signal's ceiling, same category as the head-down pitch finding. If this
-# gap matters enough to close, it likely needs a different signal entirely (e.g. blink detection
-# using YuNet's eye landmarks, which a photo - hand-held or rigid - can never produce), not a
-# threshold adjustment on frame-difference.
-STATIC_IMAGE_DIFF_THRESHOLD = 3.0  # mean absolute grayscale pixel difference (0-255 scale)
+# case - that's still this signal's real ceiling. If that gap matters enough to close, it likely
+# needs a different signal entirely (e.g. blink detection using dense eyelid landmarks, which a
+# photo - hand-held or rigid - can never produce), not a threshold adjustment on frame-difference.
+STATIC_IMAGE_DIFF_THRESHOLD = 8.0  # mean absolute grayscale pixel difference (0-255 scale)
 STATIC_IMAGE_STREAK_THRESHOLD = 3  # consecutive suspiciously-static polls (~45s at a 15s cadence)
 
 
