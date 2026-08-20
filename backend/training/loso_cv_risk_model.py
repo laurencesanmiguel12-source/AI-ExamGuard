@@ -21,6 +21,16 @@ camera/lighting/individual pose habits). Report:
    with replacement, not which windows - windows within a subject are correlated with each other,
    so resampling at the window level would understate the real uncertainty).
 
+**2026-08-20 update**: the dataset grew from 11 to 24 real subjects (all 13 remaining real OEP
+subjects were sitting on disk with usable gt.txt the whole time, just never extracted/processed -
+see ai_examguard_risk_model_dataset_expansion memory). Re-run on 24 subjects: pooled AUC improved
+0.797->0.813, and the 95% CI tightened from [0.666, 0.941] (width 0.275) to [0.712, 0.902] (width
+0.190) - a real, evidence-backed tightening, not just a bigger number. The "11 subjects"/"11 times"
+language below describes the ORIGINAL situation that motivated writing this script - the code
+itself is dynamic (derives subject count from the data), only these comments describe a stale
+count. Re-running this script requires no changes; it already reflects however many subjects are
+in features.csv.
+
 Usage: ../../.venv/Scripts/python.exe loso_cv_risk_model.py [--C 1.0] [--bootstrap 2000]
 """
 import argparse

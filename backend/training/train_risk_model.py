@@ -13,13 +13,19 @@ Also prints a comparison against the OLD hand-set weights (FACE_LOST=25, PHONE_D
 MULTIPLE_PEOPLE=25, capped at 100, thresholded at 50) evaluated on the same val windows, so the
 improvement (or lack of one) from training is measured, not assumed.
 
-**--final mode** (2026-08-01): fits on ALL 11 subjects' windows instead of the original
+**--final mode** (2026-08-01): fits on ALL subjects' windows instead of the original
 train/(subject09,11)-val split, for the actual production model. This is safe to do now that
-loso_cv_risk_model.py has already given an honest generalization estimate (pooled AUC 0.797, 95% CI
-[0.666, 0.941] - see ai_examguard_thesis_scope_recommendations memory) without needing a permanently
--reserved val set - the original split only existed to produce a single val number, which LOSO-CV
-does better. --final prints an in-sample fit check only (NOT a real held-out metric - restating that
-loudly so it's never mistaken for one) and points back to the LOSO-CV numbers as the number to cite.
+loso_cv_risk_model.py has already given an honest generalization estimate without needing a
+permanently-reserved val set - the original split only existed to produce a single val number,
+which LOSO-CV does better. --final prints an in-sample fit check only (NOT a real held-out metric -
+restating that loudly so it's never mistaken for one) and points back to the LOSO-CV numbers as the
+number to cite.
+
+**2026-08-20 update**: dataset expanded from 11 to 24 real subjects (all remaining real OEP
+subjects, previously sitting unextracted on disk - see ai_examguard_risk_model_dataset_expansion
+memory). Production retrained on the full 24-subject set; current citable generalization estimate
+is LOSO-CV's pooled AUC 0.813, 95% CI [0.712, 0.902] (tightened from 0.797/[0.666, 0.941] on 11
+subjects) - update this note again if the dataset grows further.
 
 Usage: ../../.venv/Scripts/python.exe train_risk_model.py [--C 1.0]
        ../../.venv/Scripts/python.exe train_risk_model.py --final   (production fit on all subjects)
