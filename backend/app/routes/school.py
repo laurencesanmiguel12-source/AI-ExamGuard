@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_super_admin
 from app.core.database import get_db
 from app.core.rate_limit import limiter
-from app.schemas.school import SchoolRegisterRequest, SchoolResponse
+from app.models.user import User
+from app.schemas.school import SchoolRegisterRequest, SchoolResponse, SchoolUpdate
 from app.services.school_service import SchoolService
 
 router = APIRouter(
@@ -39,3 +41,19 @@ def register_school(
     db: Session = Depends(get_db)
 ):
     return SchoolService.register(body, db)
+
+
+# Super admin only - edit a school's identity, or deactivate/reactivate it (blocks login for
+# every one of its users without deleting their data - see School.is_active and
+# AuthService.login).
+@router.put(
+    "/{school_id}",
+    response_model=SchoolResponse
+)
+def update_school(
+    school_id: int,
+    body: SchoolUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    return SchoolService.update(school_id, body, db)

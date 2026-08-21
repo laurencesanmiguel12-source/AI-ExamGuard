@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import is_super_admin
 from app.models.course import Course
 from app.models.subject import Subject
 from app.models.user import User
@@ -11,12 +12,10 @@ class SubjectService:
 
     @staticmethod
     def get_all(current_user: User, db: Session):
-        return (
-            db.query(Subject)
-            .join(Course, Subject.course_id == Course.id)
-            .filter(Course.school_id == current_user.school_id)
-            .all()
-        )
+        query = db.query(Subject).join(Course, Subject.course_id == Course.id)
+        if not is_super_admin(current_user):
+            query = query.filter(Course.school_id == current_user.school_id)
+        return query.all()
 
     @staticmethod
     def get_by_id(subject_id: int, current_user: User, db: Session):
@@ -33,7 +32,7 @@ class SubjectService:
                 detail="Subject not found."
             )
 
-        if subject.course.school_id != current_user.school_id:
+        if not is_super_admin(current_user) and subject.course.school_id != current_user.school_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to manage this subject."
@@ -56,7 +55,7 @@ class SubjectService:
                 detail="Course not found."
             )
 
-        if course.school_id != current_user.school_id:
+        if not is_super_admin(current_user) and course.school_id != current_user.school_id:
             raise HTTPException(
                 status_code=403,
                 detail="This course belongs to a different school."
@@ -109,7 +108,7 @@ class SubjectService:
             course = db.query(Course).filter(Course.id == request.course_id).first()
             if course is None:
                 raise HTTPException(status_code=404, detail="Course not found.")
-            if course.school_id != current_user.school_id:
+            if not is_super_admin(current_user) and course.school_id != current_user.school_id:
                 raise HTTPException(status_code=403, detail="This course belongs to a different school.")
             subject.course_id = request.course_id
 

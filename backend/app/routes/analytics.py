@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_admin
+from app.auth.dependencies import effective_school_id, require_admin
 from app.auth.instructor_context import get_current_instructor
 from app.core.database import get_db
 from app.models.instructor import Instructor
@@ -34,4 +34,4 @@ def get_school_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return AnalyticsService.get_school_summary(current_user.school_id, db)
+    return AnalyticsService.get_school_summary(effective_school_id(current_user), db)

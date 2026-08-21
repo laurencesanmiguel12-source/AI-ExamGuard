@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_admin, require_instructor
+from app.auth.dependencies import is_super_admin, require_admin, require_instructor
 from app.core.database import get_db
 from app.models.course import Course
 from app.models.exam import Exam
@@ -47,7 +47,7 @@ def require_course_owner(
     if course is None:
         raise HTTPException(status_code=404, detail="Course not found.")
 
-    if course.school_id != current_user.school_id:
+    if not is_super_admin(current_user) and course.school_id != current_user.school_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to manage this course."

@@ -3,6 +3,7 @@ import os
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import is_super_admin
 from app.auth.service import AuthService
 from app.models.course import Course
 from app.models.student import Student
@@ -14,12 +15,10 @@ class StudentService:
 
     @staticmethod
     def get_all(current_user: User, db: Session):
-        return (
-            db.query(Student)
-            .join(User, Student.user_id == User.id)
-            .filter(User.school_id == current_user.school_id)
-            .all()
-        )
+        query = db.query(Student).join(User, Student.user_id == User.id)
+        if not is_super_admin(current_user):
+            query = query.filter(User.school_id == current_user.school_id)
+        return query.all()
 
     @staticmethod
     def get_by_id(student_id: int, current_user: User, db: Session):
@@ -36,7 +35,7 @@ class StudentService:
                 detail="Student not found."
             )
 
-        if student.user.school_id != current_user.school_id:
+        if not is_super_admin(current_user) and student.user.school_id != current_user.school_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to manage this student."
@@ -98,7 +97,7 @@ class StudentService:
             course = db.query(Course).filter(Course.id == request.course_id).first()
             if course is None:
                 raise HTTPException(status_code=404, detail="Course not found.")
-            if course.school_id != current_user.school_id:
+            if not is_super_admin(current_user) and course.school_id != current_user.school_id:
                 raise HTTPException(status_code=403, detail="This course belongs to a different school.")
             student.course_id = request.course_id
 

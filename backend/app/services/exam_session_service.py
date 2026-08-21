@@ -121,15 +121,16 @@ class ExamSessionService:
 
         role = current_user.role.name.lower()
 
-        if role == "admin":
-            return (
+        if role == "admin" or role == "super_admin":
+            query = (
                 db.query(ExamSession)
                 .join(Exam, ExamSession.exam_id == Exam.id)
                 .join(Subject, Exam.subject_id == Subject.id)
                 .join(Course, Subject.course_id == Course.id)
-                .filter(Course.school_id == current_user.school_id)
-                .all()
             )
+            if role != "super_admin":
+                query = query.filter(Course.school_id == current_user.school_id)
+            return query.all()
 
         if role == "instructor":
             instructor = (

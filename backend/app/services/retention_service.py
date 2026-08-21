@@ -19,17 +19,23 @@ from app.services.audit_log_service import AuditLogService
 EVIDENCE_RETENTION_DAYS = 90
 
 
-def _eligible_query(db: Session, school_id: int):
+def _eligible_query(db: Session, school_id: int | None):
     cutoff = datetime.now(timezone.utc) - timedelta(days=EVIDENCE_RETENTION_DAYS)
-    return (
+    query = (
         db.query(Violation)
         # Scoped by school - previously system-wide, so School A's admin could preview/purge
-        # School B's biometric evidence.
+        # School B's biometric evidence. school_id=None is the one legitimate exception - a
+        # super admin previewing across every school at once - but see purge_expired_evidence's
+        # own comment for why the actual delete never allows that.
         .join(ExamSession, Violation.exam_session_id == ExamSession.id)
         .join(Exam, ExamSession.exam_id == Exam.id)
         .join(Subject, Exam.subject_id == Subject.id)
         .join(Course, Subject.course_id == Course.id)
-        .filter(Course.school_id == school_id)
+    )
+    if school_id is not None:
+        query = query.filter(Course.school_id == school_id)
+    return (
+        query
         .filter(Violation.evidence_path.isnot(None))
         .filter(Violation.created_at < cutoff)
         # A PENDING appeal still needs its evidence reviewed - never purge out from under an
@@ -56,7 +62,7 @@ def _eligible_query(db: Session, school_id: int):
 class RetentionService:
 
     @staticmethod
-    def preview_purge(db: Session, school_id: int):
+    def preview_purge(db: Session, school_id: int | None):
         violations = _eligible_query(db, school_id).order_by(Violation.created_at).all()
         return {
             "retention_days": EVIDENCE_RETENTION_DAYS,
@@ -74,6 +80,11 @@ class RetentionService:
 
     @staticmethod
     def purge_expired_evidence(db: Session, actor_user_id: int, school_id: int) -> int:
+        # Deliberately not int | None like preview_purge/_eligible_query - actually deleting
+        # files is not something a super admin should ever be able to trigger platform-wide by
+        # omission. routes/retention.py enforces this: a super admin must pass an explicit
+        # ?school_id= to purge at all, a regular admin's own school_id is always used regardless
+        # of what they pass.
         violations = _eligible_query(db, school_id).all()
 
         purged = 0

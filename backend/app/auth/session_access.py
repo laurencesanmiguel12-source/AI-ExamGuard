@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, is_super_admin
 from app.auth.student_context import get_current_student
 from app.core.database import get_db
 from app.models.course import Course
@@ -85,8 +85,8 @@ def require_session_read_access(
 
     role = current_user.role.name.lower()
 
-    if role == "admin":
-        if _session_school_id(session, db) != current_user.school_id:
+    if role == "admin" or role == "super_admin":
+        if not is_super_admin(current_user) and _session_school_id(session, db) != current_user.school_id:
             raise HTTPException(status_code=404, detail="Exam session not found.")
         return session
 
@@ -116,8 +116,8 @@ def require_session_manage_access(
 
     role = current_user.role.name.lower()
 
-    if role == "admin":
-        if _session_school_id(session, db) != current_user.school_id:
+    if role == "admin" or role == "super_admin":
+        if not is_super_admin(current_user) and _session_school_id(session, db) != current_user.school_id:
             raise HTTPException(status_code=404, detail="Exam session not found.")
         return session
 
@@ -167,8 +167,8 @@ def require_violation_read_access(
 
     role = current_user.role.name.lower()
 
-    if role == "admin":
-        if _session_school_id(session, db) != current_user.school_id:
+    if role == "admin" or role == "super_admin":
+        if not is_super_admin(current_user) and _session_school_id(session, db) != current_user.school_id:
             raise HTTPException(status_code=404, detail="Violation not found.")
         return violation
 
@@ -195,8 +195,8 @@ def require_violation_manage_access(
 
     role = current_user.role.name.lower()
 
-    if role == "admin":
-        if _session_school_id(session, db) != current_user.school_id:
+    if role == "admin" or role == "super_admin":
+        if not is_super_admin(current_user) and _session_school_id(session, db) != current_user.school_id:
             raise HTTPException(status_code=404, detail="Violation not found.")
         return violation
 

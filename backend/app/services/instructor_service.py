@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import is_super_admin
 from app.auth.service import AuthService
 from app.models.instructor import Instructor
 from app.models.user import User
@@ -14,12 +15,10 @@ class InstructorService:
 
     @staticmethod
     def get_all(current_user: User, db: Session):
-        return (
-            db.query(Instructor)
-            .join(User, Instructor.user_id == User.id)
-            .filter(User.school_id == current_user.school_id)
-            .all()
-        )
+        query = db.query(Instructor).join(User, Instructor.user_id == User.id)
+        if not is_super_admin(current_user):
+            query = query.filter(User.school_id == current_user.school_id)
+        return query.all()
 
     @staticmethod
     def get_by_id(instructor_id: int, current_user: User, db: Session):
@@ -36,7 +35,7 @@ class InstructorService:
                 detail="Instructor not found."
             )
 
-        if instructor.user.school_id != current_user.school_id:
+        if not is_super_admin(current_user) and instructor.user.school_id != current_user.school_id:
             raise HTTPException(
                 status_code=403,
                 detail="You do not have permission to manage this instructor."

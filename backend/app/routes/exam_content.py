@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, is_super_admin
 from app.auth.ownership import require_exam_owner
 from app.core.database import get_db
 from app.models.course import Course
@@ -45,15 +45,16 @@ def list_exam_questions(
 
     role = current_user.role.name.lower()
 
-    if role == "admin":
-        exam_school_id = (
-            db.query(Course.school_id)
-            .join(Subject, Subject.course_id == Course.id)
-            .filter(Subject.id == exam.subject_id)
-            .scalar()
-        )
-        if exam_school_id != current_user.school_id:
-            raise HTTPException(status_code=404, detail="Exam not found.")
+    if role == "admin" or role == "super_admin":
+        if not is_super_admin(current_user):
+            exam_school_id = (
+                db.query(Course.school_id)
+                .join(Subject, Subject.course_id == Course.id)
+                .filter(Subject.id == exam.subject_id)
+                .scalar()
+            )
+            if exam_school_id != current_user.school_id:
+                raise HTTPException(status_code=404, detail="Exam not found.")
         return QuestionService.get_all_for_exam(exam, db)
 
     if role == "instructor":

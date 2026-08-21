@@ -13,23 +13,26 @@ from app.services.audit_log_service import AuditLogService
 REVIEW_DECISIONS = {"APPROVED", "REJECTED"}
 
 
-def _school_scoped_query(db: Session, school_id: int):
-    return (
+def _school_scoped_query(db: Session, school_id: int | None):
+    query = (
         db.query(Violation)
         # Scoped by school, same pattern as retention_service - an admin only ever reviews or
-        # exports their own school's evidence for training use.
+        # exports their own school's evidence for training use. school_id=None is the super
+        # admin exception, matching every other list-style query in this codebase.
         .join(ExamSession, Violation.exam_session_id == ExamSession.id)
         .join(Exam, ExamSession.exam_id == Exam.id)
         .join(Subject, Exam.subject_id == Subject.id)
         .join(Course, Subject.course_id == Course.id)
-        .filter(Course.school_id == school_id)
     )
+    if school_id is not None:
+        query = query.filter(Course.school_id == school_id)
+    return query
 
 
 class TrainingReviewService:
 
     @staticmethod
-    def list_pending(db: Session, school_id: int):
+    def list_pending(db: Session, school_id: int | None):
         return (
             _school_scoped_query(db, school_id)
             .filter(Violation.training_review_status == "PENDING")
@@ -42,6 +45,7 @@ class TrainingReviewService:
         violation_id: int,
         decision: str,
         reviewer_user_id: int,
+        school_id: int | None,
         db: Session
     ):
         if decision not in REVIEW_DECISIONS:
@@ -50,7 +54,10 @@ class TrainingReviewService:
                 detail=f"decision must be one of {sorted(REVIEW_DECISIONS)}."
             )
 
-        violation = db.query(Violation).filter(Violation.id == violation_id).first()
+        # This had NO school check at all before (not even a wrong one) - any admin could
+        # approve/reject any other school's training-review candidates by id. school_id=None
+        # (super admin) is the one deliberate exception to this filter.
+        violation = _school_scoped_query(db, school_id).filter(Violation.id == violation_id).first()
 
         if violation is None:
             raise HTTPException(status_code=404, detail="Violation not found.")

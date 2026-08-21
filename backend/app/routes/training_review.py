@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_admin
+from app.auth.dependencies import effective_school_id, require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.violation import (
@@ -22,7 +22,7 @@ def list_pending(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    return TrainingReviewService.list_pending(db, current_user.school_id)
+    return TrainingReviewService.list_pending(db, effective_school_id(current_user))
 
 
 @router.put("/{violation_id}", response_model=ViolationResponse)
@@ -33,5 +33,5 @@ def review(
     current_user: User = Depends(require_admin)
 ):
     return TrainingReviewService.review(
-        violation_id, request.decision, current_user.id, db
+        violation_id, request.decision, current_user.id, effective_school_id(current_user), db
     )

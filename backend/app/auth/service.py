@@ -134,6 +134,15 @@ class AuthService:
                 detail="Invalid email or password."
             )
 
+        # A super admin's own school_id is just wherever their account happens to live (see
+        # effective_school_id's docstring) - deactivating that school shouldn't lock them out of
+        # the platform, since deactivating schools is itself a super-admin-only action.
+        if user.role.name.lower() != "super_admin" and not user.school.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="This school's account has been deactivated. Contact your platform administrator."
+            )
+
         token = create_access_token(
             {
                 "sub": user.email

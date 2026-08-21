@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import is_super_admin
 from app.models.course import Course
 from app.models.exam import Exam
 from app.models.exam_roster import ExamRoster
@@ -55,14 +56,16 @@ class ExamService:
         if current_user.role.name.lower() != "student":
             # Previously db.query(Exam).all() - every exam in the entire deployment, with zero
             # scoping. Harmless in the single-school world this was written in; a direct
-            # cross-tenant leak the moment a second school shares this deployment.
-            return (
+            # cross-tenant leak the moment a second school shares this deployment. Super admin
+            # deliberately skips the filter - that's its one legitimate use.
+            query = (
                 db.query(Exam)
                 .join(Subject, Exam.subject_id == Subject.id)
                 .join(Course, Subject.course_id == Course.id)
-                .filter(Course.school_id == current_user.school_id)
-                .all()
             )
+            if not is_super_admin(current_user):
+                query = query.filter(Course.school_id == current_user.school_id)
+            return query.all()
 
         student = db.query(Student).filter(Student.user_id == current_user.id).first()
         if student is None:
@@ -109,7 +112,7 @@ class ExamService:
                     status_code=403,
                     detail="This exam is not available for your course."
                 )
-        else:
+        elif not is_super_admin(current_user):
             exam_school_id = (
                 db.query(Course.school_id)
                 .join(Subject, Subject.course_id == Course.id)

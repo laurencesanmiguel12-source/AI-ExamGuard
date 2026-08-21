@@ -347,3 +347,169 @@ def test_admin_cannot_review_another_schools_violation_appeal(
         json={"status": "UPHELD", "response": "denied"},
     )
     assert response.status_code == 404
+
+
+# --- super admin: the intentional exception to every school check above ---
+
+def test_super_admin_can_read_another_schools_session(
+    client, db, make_exam, make_student, make_user, auth_headers
+):
+    """The whole point of super_admin - unlike test_admin_cannot_fetch_another_schools_session_by_id,
+    this should succeed regardless of which school the session belongs to."""
+    from app.models.exam_session import ExamSession
+
+    super_admin = make_user("super_admin")  # belongs to default_school - irrelevant to its access
+
+    other_exam = make_exam()  # a different (default) school in practice, but doesn't matter here
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    response = client.get(f"/exam-sessions/{session.id}", headers=auth_headers(super_admin))
+    assert response.status_code == 200
+
+
+def test_super_admin_can_review_another_schools_violation_appeal(
+    client, db, make_exam, make_student, make_user, auth_headers
+):
+    from app.models.exam_session import ExamSession
+    from app.models.violation import Violation
+
+    super_admin = make_user("super_admin")
+
+    other_exam = make_exam()
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    violation = Violation(
+        exam_session_id=session.id, event_type="PHONE_DETECTED",
+        appeal_status="PENDING", appeal_reason="not me",
+    )
+    db.add(violation)
+    db.commit()
+    db.refresh(violation)
+
+    response = client.put(
+        f"/violations/{violation.id}/appeal-review", headers=auth_headers(super_admin),
+        json={"status": "UPHELD", "response": "denied"},
+    )
+    assert response.status_code == 200
+
+
+def test_super_admin_sees_students_from_every_school(
+    client, db, make_student, make_course, make_user, make_school, auth_headers
+):
+    school_b = make_school()
+    super_admin = make_user("super_admin")
+    student_b = make_student(course=make_course(school=school_b))
+    db.commit()
+
+    response = client.get("/students/", headers=auth_headers(super_admin))
+    assert response.status_code == 200
+    student_ids = {s["id"] for s in response.json()}
+    assert student_b.id in student_ids
+
+
+def test_regular_admin_cannot_list_platform_users(client, make_user, auth_headers):
+    admin = make_user("admin")
+    response = client.get("/admin/users/", headers=auth_headers(admin))
+    assert response.status_code == 403
+
+
+def test_super_admin_can_list_platform_users(client, make_user, auth_headers):
+    super_admin = make_user("super_admin")
+    other = make_user("instructor")
+
+    response = client.get("/admin/users/", headers=auth_headers(super_admin))
+    assert response.status_code == 200
+    user_ids = {u["id"] for u in response.json()}
+    assert other.id in user_ids
+
+
+def test_super_admin_can_change_a_users_role(client, make_user, make_role, auth_headers):
+    make_role("admin")  # roles are lazily created on demand - "admin" isn't touched otherwise here
+    super_admin = make_user("super_admin")
+    target = make_user("instructor")
+
+    response = client.put(
+        f"/admin/users/{target.id}/role", headers=auth_headers(super_admin),
+        json={"role_name": "admin"},
+    )
+    assert response.status_code == 200
+    assert response.json()["role_name"] == "admin"
+
+
+def test_super_admin_cannot_change_their_own_role(client, make_user, auth_headers):
+    super_admin = make_user("super_admin")
+
+    response = client.put(
+        f"/admin/users/{super_admin.id}/role", headers=auth_headers(super_admin),
+        json={"role_name": "admin"},
+    )
+    assert response.status_code == 400
+
+
+def test_regular_admin_cannot_change_a_users_role(client, make_user, auth_headers):
+    admin = make_user("admin")
+    target = make_user("instructor")
+
+    response = client.put(
+        f"/admin/users/{target.id}/role", headers=auth_headers(admin),
+        json={"role_name": "admin"},
+    )
+    assert response.status_code == 403
+
+
+def test_super_admin_can_create_an_admin_for_any_school(client, make_user, make_role, make_school, auth_headers):
+    make_role("admin")  # roles are lazily created on demand - "admin" isn't touched otherwise here
+    super_admin = make_user("super_admin")
+    school_b = make_school()
+
+    response = client.post(
+        "/admin/users/", headers=auth_headers(super_admin),
+        json={
+            "username": "new_admin_b", "email": "new_admin_b@example.com", "password": "TestPass123!",
+            "first_name": "New", "last_name": "Admin", "role_name": "admin", "school_id": school_b.id,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["school_id"] == school_b.id
+    assert response.json()["role_name"] == "admin"
+
+
+def test_super_admin_can_deactivate_a_school_and_its_admin_is_blocked_from_login(
+    client, make_user, make_school, auth_headers
+):
+    """make_user defaults every account to the real known TEST_PASSWORD ("TestPass123!") - same
+    password test_auth.py's own login tests rely on - so this can log in for real before/after
+    deactivating, rather than only checking the PUT response."""
+    super_admin = make_user("super_admin")
+    school_b = make_school()
+    admin_b = make_user("admin", school=school_b, email="admin_b@example.com")
+
+    pre_login = client.post("/auth/login", json={
+        "email": "admin_b@example.com", "password": "TestPass123!",
+    })
+    assert pre_login.status_code == 200
+
+    deactivate = client.put(
+        f"/schools/{school_b.id}", headers=auth_headers(super_admin),
+        json={"is_active": False},
+    )
+    assert deactivate.status_code == 200
+    assert deactivate.json()["is_active"] is False
+
+    post_login = client.post("/auth/login", json={
+        "email": "admin_b@example.com", "password": "TestPass123!",
+    })
+    assert post_login.status_code == 403

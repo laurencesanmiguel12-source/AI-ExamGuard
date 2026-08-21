@@ -99,21 +99,23 @@ class AnalyticsService:
         }
 
     @staticmethod
-    def get_school_summary(school_id: int, db: Session):
+    def get_school_summary(school_id: int | None, db: Session):
+        # school_id=None (super admin, no explicit target) aggregates every school into one
+        # summary - a real semantic compromise (mixes distinct schools' numbers together) rather
+        # than a proper per-school breakdown, but that's a platform-analytics feature nobody
+        # asked for yet; this at least gives a super admin *something* instead of erroring.
 
-        exams = (
+        exam_query = (
             db.query(Exam)
             .join(Subject, Exam.subject_id == Subject.id)
             .join(Course, Subject.course_id == Course.id)
-            .filter(Course.school_id == school_id)
-            .all()
         )
-        instructors = (
-            db.query(Instructor)
-            .join(User, Instructor.user_id == User.id)
-            .filter(User.school_id == school_id)
-            .all()
-        )
+        instructor_query = db.query(Instructor).join(User, Instructor.user_id == User.id)
+        if school_id is not None:
+            exam_query = exam_query.filter(Course.school_id == school_id)
+            instructor_query = instructor_query.filter(User.school_id == school_id)
+        exams = exam_query.all()
+        instructors = instructor_query.all()
 
         def instructor_name(instructor):
             return f"{instructor.user.first_name} {instructor.user.last_name}" if instructor.user else f"#{instructor.id}"
