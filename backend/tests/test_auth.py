@@ -142,3 +142,48 @@ def test_admin_only_route_accepts_an_admin(client, make_user, auth_headers):
     admin_user = make_user("admin")
     response = client.get("/admin/audit-log", headers=auth_headers(admin_user))
     assert response.status_code == 200
+
+
+def test_register_rejects_an_email_that_differs_only_in_case(client, make_role, make_course):
+    """Real bug found live: registering "Name@gmail.com" when "name@gmail.com" already existed
+    returned 200 (a real second account created), not the expected 400 - confirmed against
+    production, not assumed. Case-insensitive comparison is what create_user_account is
+    supposed to enforce."""
+    make_role("student")
+    course = make_course()
+    first = client.post("/auth/register", json={
+        "username": "caseuser1", "email": "case.test@example.com", "password": "TestPass123!",
+        "first_name": "Case", "last_name": "Test", "course_id": course.id,
+    })
+    assert first.status_code == 200
+
+    duplicate = client.post("/auth/register", json={
+        "username": "caseuser2", "email": "CASE.TEST@EXAMPLE.COM", "password": "TestPass123!",
+        "first_name": "Case", "last_name": "Duplicate", "course_id": course.id,
+    })
+    assert duplicate.status_code == 400
+
+
+def test_login_is_case_insensitive_on_stored_email(client, make_user):
+    """The other half of the same bug: an account whose stored email happens to be mixed-case
+    (this codebase has a real @gmail.com account like this) was unreachable via login the
+    moment someone typed it back in a different case than it was stored in - indistinguishable
+    from "not registered" from the user's side."""
+    make_user("student", email="MixedCase@Example.com")
+
+    response = client.post("/auth/login", json={
+        "email": "mixedcase@example.com",
+        "password": "TestPass123!",
+    })
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
+def test_login_trims_stray_whitespace_on_email(client, make_user):
+    make_user("student", email="whitespace@example.com")
+
+    response = client.post("/auth/login", json={
+        "email": "  whitespace@example.com  ",
+        "password": "TestPass123!",
+    })
+    assert response.status_code == 200

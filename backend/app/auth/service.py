@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth.security import hash_password
@@ -31,6 +32,21 @@ class AuthService:
         and linked profile row differing. Leaves the transaction open (flush, not commit) so the
         caller can add its profile row (Student/Instructor) and commit both together."""
 
+        # Real bug found live: this and login() below both used a case-sensitive `==` on email,
+        # so "Name@gmail.com" and "name@gmail.com" were treated as two different addresses -
+        # registration let a real duplicate account through untouched (confirmed: registering an
+        # already-used email in a different case returned 200, not the expected 400), and the
+        # matching case-sensitive lookup in login() meant the ORIGINAL account became
+        # unreachable the moment someone typed their own email back in a different case than
+        # they happened to register with - indistinguishable from "this email was never
+        # registered" from the user's side. Gmail addresses specifically are case-insensitive by
+        # convention, so this wasn't a hypothetical edge case for a real @gmail.com account hit
+        # by it. Normalizing (strip + lowercase) at creation, and comparing case-insensitively
+        # here and in login(), fixes both directions without needing to touch any already-stored
+        # row - existing mixed-case emails still match correctly against a case-insensitive
+        # comparison.
+        email = email.strip().lower()
+
         existing_username = (
             db.query(User)
             .filter(User.username == username)
@@ -45,7 +61,7 @@ class AuthService:
 
         existing_email = (
             db.query(User)
-            .filter(User.email == email)
+            .filter(func.lower(User.email) == email)
             .first()
         )
 
@@ -113,9 +129,12 @@ class AuthService:
     @staticmethod
     def login(request: LoginRequest, db: Session):
 
+        # Case-insensitive to match create_user_account's own normalization - see its comment
+        # for the real account this broke login for. strip() guards the same sloppy-input
+        # pattern (this codebase has real accounts with stray whitespace in other fields).
         user = (
             db.query(User)
-            .filter(User.email == request.email)
+            .filter(func.lower(User.email) == request.email.strip().lower())
             .first()
         )
 
