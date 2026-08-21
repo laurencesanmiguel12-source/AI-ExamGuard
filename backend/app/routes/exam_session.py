@@ -105,9 +105,11 @@ def update_session(
 def delete_session(
     session_id: int,
     db: Session = Depends(get_db),
-    session: ExamSession = Depends(require_session_manage_access)
+    session: ExamSession = Depends(require_session_manage_access),
+    current_user: User = Depends(get_current_user)
 ):
     return ExamSessionService.delete(
         session_id,
+        current_user.id,
         db
     )

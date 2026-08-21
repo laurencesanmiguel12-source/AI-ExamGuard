@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.exam_session import (
     ExamSessionUpdate,
 )
+from app.services.audit_log_service import AuditLogService
 from app.services.exam_service import ExamService
 from app.services.face_service import FaceService
 from app.services.object_detection_service import ObjectDetectionService
@@ -305,6 +306,7 @@ class ExamSessionService:
     @staticmethod
     def delete(
         session_id: int,
+        actor_user_id: int,
         db: Session
     ):
 
@@ -320,8 +322,19 @@ class ExamSessionService:
                 detail="Session not found."
             )
 
+        # Captured before delete - a deleted session's violations cascade away with it (see
+        # Violation.exam_session's cascade="all, delete-orphan"), so this audit row is the only
+        # surviving record that a session (and any proctoring evidence logged against it) ever
+        # existed. Without this, an admin/instructor could silently erase exam-session history
+        # with zero trace - a real gap for a proctoring system specifically.
+        detail = f"student_id={session.student_id} exam_id={session.exam_id} status={session.status}"
+
         db.delete(session)
         db.commit()
+
+        AuditLogService.log(
+            actor_user_id, "DELETE_EXAM_SESSION", "exam_session", session_id, db, detail=detail
+        )
 
         return {
             "message": "Session deleted successfully."

@@ -256,3 +256,24 @@ def test_tab_switch_violation_never_has_evidence_even_if_sent(client, make_stude
     )
     assert response.status_code == 200
     assert response.json()["has_evidence"] is False
+
+
+def test_deleting_a_session_writes_an_audit_log_entry(client, make_student, make_exam, make_user, auth_headers):
+    """A deleted session's violations cascade away with it (Violation.exam_session's cascade="all,
+    delete-orphan") - this audit row is the only surviving record that the session, and any
+    proctoring evidence logged against it, ever existed."""
+    exam = make_exam()
+    student = make_student(course=exam.subject.course, exam=exam)
+    admin = make_user("admin")
+    session_id = client.post(
+        "/exam-sessions/start", headers=auth_headers(student.user), json={"exam_id": exam.id}
+    ).json()["id"]
+
+    response = client.delete(f"/exam-sessions/{session_id}", headers=auth_headers(admin))
+    assert response.status_code == 200
+
+    audit = client.get("/admin/audit-log", headers=auth_headers(admin)).json()
+    entry = next(e for e in audit if e["action"] == "DELETE_EXAM_SESSION" and e["resource_id"] == session_id)
+    assert entry["actor_user_id"] == admin.id
+    assert f"student_id={student.id}" in entry["detail"]
+    assert f"exam_id={exam.id}" in entry["detail"]
