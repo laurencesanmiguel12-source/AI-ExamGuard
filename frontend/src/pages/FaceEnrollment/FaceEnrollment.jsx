@@ -7,6 +7,7 @@ import { enrollFace } from "../../api/faceEnrollment";
 import useCamera from "../../hooks/useCamera";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
+import FaceEnrollmentGuideModal from "../../components/FaceEnrollmentGuideModal";
 
 const TARGET_CAPTURES = 5;
 const MIN_CAPTURES = 3;
@@ -22,8 +23,11 @@ export default function FaceEnrollment() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  // Gates the camera itself, not just the UI - useCamera(false) never calls getUserMedia, so the
+  // webcam isn't turned on until the student has actually seen the guide and given consent below.
+  const [consented, setConsented] = useState(false);
 
-  const { videoRef, error: cameraError, ready, captureFrame } = useCamera(true);
+  const { videoRef, error: cameraError, ready, captureFrame } = useCamera(consented);
 
   // One object URL per capture, revoked whenever the capture list changes or the page leaves -
   // creating a fresh URL inline in the render below (the previous approach) leaked a growing
@@ -68,6 +72,10 @@ export default function FaceEnrollment() {
 
   return (
     <div className="min-h-screen bg-background px-6 py-10 max-w-2xl mx-auto">
+      {!loading && student && !consented && (
+        <FaceEnrollmentGuideModal onContinue={() => setConsented(true)} />
+      )}
+
       <SectionTag text="Biometric Setup" />
       <h2 className="font-display font-black text-foreground text-4xl mb-1">Face Enrollment</h2>
       <p className="text-muted-foreground text-sm mb-8">

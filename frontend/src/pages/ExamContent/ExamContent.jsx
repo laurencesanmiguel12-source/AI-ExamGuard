@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { ArrowLeft, Plus, Upload } from "lucide-react";
+import { ArrowLeft, Plus, Upload, Download } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
   getExamQuestions,
@@ -195,6 +195,25 @@ export default function ExamContent() {
     }
   }
 
+  // Real, valid, importable rows - not placeholder text - one example per accepted
+  // question_type so an instructor can see the exact shape (including that Identification rows
+  // have no choice columns filled in) rather than guessing from the prose description alone.
+  const CSV_TEMPLATE =
+    "question_text,question_type,points,order_number,choice_1,choice_1_correct,choice_2,choice_2_correct,choice_3,choice_3_correct,choice_4,choice_4_correct\n" +
+    "What is the capital of France?,Multiple Choice,5,1,Paris,true,London,false,Berlin,false,Madrid,false\n" +
+    "The Earth revolves around the Sun.,True/False,5,2,True,true,False,false,,,,\n" +
+    "Name the process by which plants convert sunlight into energy.,Identification,10,3,,,,,,,,\n";
+
+  function handleDownloadTemplate() {
+    const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "exam_questions_template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleCsvFileChange(event) {
     const file = event.target.files?.[0] ?? null;
     setCsvFile(file);
@@ -317,11 +336,17 @@ export default function ExamContent() {
       <div className="mt-8">
         <h3 className="text-sm font-semibold text-foreground mb-3">Bulk Import via CSV</h3>
         <Card className="p-6">
-          <p className="text-xs text-muted-foreground mb-4">
+          <p className="text-xs text-muted-foreground mb-3">
             One row per question. Columns: question_text, question_type, points, order_number,
             choice_1, choice_1_correct, choice_2, choice_2_correct, … up to choice_6.
             question_type must be exactly "Multiple Choice", "True/False", or "Identification".
           </p>
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 transition-colors mb-4"
+          >
+            <Download className="w-3.5 h-3.5" /> Download CSV Template
+          </button>
           <input
             type="file"
             accept=".csv"

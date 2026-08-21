@@ -9,6 +9,12 @@ import { getStudents } from "../../api/students";
 import { getSessionRiskSummary, getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
+import EnrollmentPromptModal from "../../components/EnrollmentPromptModal";
+
+// sessionStorage (not localStorage) - "dismissed for this session", not forever. A fresh login
+// (new tab/browser session) prompts again; navigating around the dashboard within the same
+// session after dismissing once doesn't nag on every visit.
+const DISMISS_KEY = "enrollmentPromptDismissed";
 
 // A finished exam's risk score/timeline used to be recomputed here in JS, mirroring
 // risk_service.py's WEIGHTS by hand (the backend's /risk endpoint only scores a trailing 120s
@@ -29,6 +35,7 @@ export default function StudentDashboard() {
   const [stats, setStats] = useState(null);
   const [me, setMe] = useState(null);
   const [riskTimeline, setRiskTimeline] = useState([]);
+  const [showEnrollPrompt, setShowEnrollPrompt] = useState(false);
 
   useEffect(() => {
     getExams()
@@ -88,8 +95,31 @@ export default function StudentDashboard() {
     };
   }, [user.id]);
 
+  useEffect(() => {
+    if (!me) return;
+    const needsEnrollment = !me.skip_face_check && !me.face_model_path;
+    if (needsEnrollment && sessionStorage.getItem(DISMISS_KEY) !== "1") {
+      setShowEnrollPrompt(true);
+    }
+  }, [me]);
+
+  function dismissEnrollPrompt() {
+    sessionStorage.setItem(DISMISS_KEY, "1");
+    setShowEnrollPrompt(false);
+  }
+
   return (
     <div>
+      {showEnrollPrompt && (
+        <EnrollmentPromptModal
+          onEnrollNow={() => {
+            dismissEnrollPrompt();
+            navigate("/face-enrollment");
+          }}
+          onDismiss={dismissEnrollPrompt}
+        />
+      )}
+
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-1">

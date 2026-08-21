@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { Eye, FileText, BarChart3, Download } from "lucide-react";
+import { Eye, FileText, BarChart3, Download, Bell, BellOff } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
 import { getLiveSessions } from "../../api/violations";
+import { playNotificationChime } from "../../utils/notificationSound";
 import Card from "../../components/ui/Card";
 import RiskPill from "../../components/ui/RiskPill";
 import RiskBar from "../../components/ui/RiskBar";
 import ViolationBreakdownChart, { VIOLATION_META } from "../../components/ViolationBreakdownChart";
+
+const SOUND_PREF_KEY = "liveMonitorSoundEnabled";
 
 const ALERT_SEVERITY = {
   FULLSCREEN_EXIT: "critical",
@@ -32,6 +35,14 @@ export default function InstructorDashboard() {
   const [loading, setLoading] = useState(true);
   const [liveSessions, setLiveSessions] = useState([]);
   const [recentEvents, setRecentEvents] = useState([]);
+  const [soundEnabled, setSoundEnabled] = useState(
+    () => localStorage.getItem(SOUND_PREF_KEY) !== "off"
+  );
+  // Most-recent event timestamp seen across all polls so far, scoped to MY exams (not every
+  // instructor's) - compared against on each new poll to detect genuinely new arrivals. null
+  // means "haven't completed a first poll yet", which matters below: the first poll establishes
+  // the baseline silently, it doesn't chime for every pre-existing recent event on page load.
+  const lastSeenEventTimeRef = useRef(null);
 
   useEffect(() => {
     Promise.all([getInstructors(), getExams()])
@@ -69,6 +80,24 @@ export default function InstructorDashboard() {
   const mySessions = liveSessions.filter((s) => myExamIds.has(s.exam_id));
   const myRecentEvents = recentEvents.filter((e) => myExamIds.has(e.exam_id));
   const criticalCount = mySessions.filter((s) => s.risk_score >= 75).length;
+
+  useEffect(() => {
+    if (myRecentEvents.length === 0) return;
+    const latest = Math.max(...myRecentEvents.map((e) => new Date(e.created_at).getTime()));
+    const previous = lastSeenEventTimeRef.current;
+    lastSeenEventTimeRef.current = latest;
+    if (previous !== null && latest > previous && soundEnabled) {
+      playNotificationChime();
+    }
+  }, [myRecentEvents, soundEnabled]);
+
+  function toggleSound() {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem(SOUND_PREF_KEY, next ? "on" : "off");
+      return next;
+    });
+  }
 
   const myViolationCounts = {};
   for (const s of mySessions) {
@@ -163,8 +192,20 @@ export default function InstructorDashboard() {
 
         <div className="space-y-4">
           <Card className="p-5">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center justify-between gap-2 mb-4">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">Session Alerts</div>
+              <button
+                onClick={toggleSound}
+                title={soundEnabled ? "Mute alert sound" : "Unmute alert sound"}
+                aria-label={soundEnabled ? "Mute alert sound" : "Unmute alert sound"}
+                className={`flex-shrink-0 p-1.5 rounded-lg border transition-colors ${
+                  soundEnabled
+                    ? "border-primary/30 bg-primary/8 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {soundEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+              </button>
             </div>
             <div className="space-y-2">
               {myRecentEvents.length === 0 && (

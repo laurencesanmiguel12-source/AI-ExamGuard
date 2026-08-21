@@ -8,6 +8,16 @@ export default function PrivacyPolicy() {
         <h1 className="font-display font-black text-foreground text-4xl mb-1">Privacy Policy</h1>
         <p className="text-muted-foreground text-sm mb-8">Last updated: August 13, 2026 &middot; Covers the AI ExamGuard web application. For the Tab Monitor browser extension, see its separate policy linked from the download page.</p>
 
+        <h2 className="font-semibold text-lg mt-8 mb-2">Face enrollment</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed mb-4">
+          Before you can take a proctored exam, you capture a small set of reference photos of
+          your face. We use these only to compute a derived mathematical recognition model - the
+          raw photos are never stored; only the resulting model is kept, and it is used solely to
+          verify your identity during your own proctored exams. Enrolling requires your explicit
+          consent, given at the time of enrollment. You can ask your school admin to have your
+          enrollment removed.
+        </p>
+
         <h2 className="font-semibold text-lg mt-8 mb-2">What we collect during a proctored exam</h2>
         <p className="text-muted-foreground text-sm leading-relaxed mb-4">
           While an exam session is active, the application uses your webcam to run face

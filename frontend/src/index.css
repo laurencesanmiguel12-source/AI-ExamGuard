@@ -51,6 +51,15 @@
   --font-mono: var(--font-mono);
 }
 
+/* Fluid root font-size - every Tailwind text and spacing utility class is rem-based, so scaling
+   this one value scales the whole UI (text, padding, gaps, icon sizes given in rem)
+   proportionally between a small-phone floor and a large-desktop ceiling, without touching every
+   component className. 375px (a small phone) -> 15px, 1920px (a large desktop) -> 18px, linear
+   in between. */
+html {
+  font-size: clamp(15px, 13.5px + 0.25vw, 18px);
+}
+
 body {
   margin: 0;
   background: var(--background);
