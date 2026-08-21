@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Users } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
   getExamRoster,
   getAvailableRosterStudents,
   addExamRosterStudent,
   removeExamRosterStudent,
+  bulkAddExamRosterStudents,
 } from "../../api/examRoster";
 import SectionTag from "../../components/ui/SectionTag";
 import Card from "../../components/ui/Card";
@@ -32,6 +33,7 @@ export default function ExamRoster() {
   const [pageError, setPageError] = useState("");
   const [addError, setAddError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [bulkAdding, setBulkAdding] = useState(false);
 
   function refresh() {
     return Promise.all([getExam(examId), getExamRoster(examId), getAvailableRosterStudents(examId)])
@@ -61,6 +63,19 @@ export default function ExamRoster() {
       refresh();
     } catch (err) {
       setAddError(ownershipMessage(err) ?? err?.response?.data?.detail ?? "Couldn't add this student.");
+    }
+  }
+
+  async function handleBulkAdd() {
+    setAddError("");
+    setBulkAdding(true);
+    try {
+      await bulkAddExamRosterStudents(examId);
+      await refresh();
+    } catch (err) {
+      setAddError(ownershipMessage(err) ?? err?.response?.data?.detail ?? "Couldn't add these students.");
+    } finally {
+      setBulkAdding(false);
     }
   }
 
@@ -108,16 +123,24 @@ export default function ExamRoster() {
       )}
 
       <div
-        className={`mb-8 rounded-xl border px-4 py-3 text-sm ${
+        className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
           isRestricted
             ? "bg-orange-50 border-orange-200 text-orange-700"
-            : "bg-emerald-50 border-emerald-200 text-emerald-700"
+            : "bg-red-50 border-red-200 text-red-700"
         }`}
       >
         {isRestricted
-          ? `Restricted — visible only to the ${roster.length} assigned student${roster.length === 1 ? "" : "s"} below.`
-          : "Course-wide — visible to every student in this exam's course. Add a student below to restrict it."}
+          ? `Visible only to the ${roster.length} assigned student${roster.length === 1 ? "" : "s"} below.`
+          : "No students assigned yet — this exam isn't visible or startable for anyone in its course until you add some below."}
       </div>
+
+      {available.length > 0 && (
+        <div className="mb-8 rounded-xl border bg-blue-50 border-blue-200 text-blue-700 px-4 py-3 text-sm">
+          {available.length} student{available.length === 1 ? "" : "s"} in this course{" "}
+          {available.length === 1 ? "isn't" : "aren't"} on the roster yet, including anyone who
+          registered recently — see "Add Students" below.
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-foreground">Assigned Students</h3>
@@ -131,8 +154,19 @@ export default function ExamRoster() {
         emptyLabel="No students assigned yet — this exam is course-wide."
       />
 
-      <div className="mt-8 mb-3">
-        <h3 className="text-sm font-semibold text-foreground">Add Students</h3>
+      <div className="mt-8 mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">
+          Add Students {available.length > 0 && <span className="text-muted-foreground font-normal">({available.length} waiting)</span>}
+        </h3>
+        {available.length > 0 && (
+          <button
+            onClick={handleBulkAdd}
+            disabled={bulkAdding}
+            className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
+          >
+            <Users className="w-3.5 h-3.5" /> {bulkAdding ? "Adding…" : `Add All (${available.length})`}
+          </button>
+        )}
       </div>
 
       {addError && (

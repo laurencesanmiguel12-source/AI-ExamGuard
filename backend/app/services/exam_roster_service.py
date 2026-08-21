@@ -121,3 +121,23 @@ class ExamRosterService:
             .filter(Student.id.notin_(rostered_ids))
             .all()
         )
+
+    @staticmethod
+    def add_all_available(exam: Exam, db: Session):
+        # Since 7c21c35 (require explicit roster entry, no more course-wide default), every
+        # newly self-registered student is invisible to an exam's roster until an instructor
+        # adds them one at a time - real friction reported live: an instructor glancing at just
+        # the "Assigned Students" table has no way to tell a new student even exists without
+        # separately checking the "Add Students" list below it. This is the bulk equivalent of
+        # calling add_student for every currently-available student in one transaction, not a
+        # return to course-wide access - a student added this way still needed an explicit
+        # roster row, there are just many of them created at once.
+        available = ExamRosterService.get_available_students(exam, db)
+
+        entries = [ExamRoster(exam_id=exam.id, student_id=student.id) for student in available]
+        db.add_all(entries)
+        db.commit()
+
+        return {
+            "added_count": len(entries)
+        }

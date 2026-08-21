@@ -15,6 +15,11 @@ export async function addExamRosterStudent(examId, studentId) {
   return response.data;
 }
 
+export async function bulkAddExamRosterStudents(examId) {
+  const response = await apiClient.post(`/exams/${examId}/roster/bulk-add`);
+  return response.data;
+}
+
 export async function removeExamRosterStudent(examId, studentId) {
   await apiClient.delete(`/exams/${examId}/roster/${studentId}`);
 }

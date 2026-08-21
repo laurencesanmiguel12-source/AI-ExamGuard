@@ -45,6 +45,17 @@ def add_exam_roster_student(
     return ExamRosterService.add_student(exam, request, db)
 
 
+# Declared as a literal sub-path, not a concern for the /{student_id} param route below since
+# they're different HTTP methods (POST vs DELETE) - same defensive habit as this project's other
+# literal-before-param route ordering, just not actually at risk here.
+@router.post("/{exam_id}/roster/bulk-add")
+def bulk_add_exam_roster_students(
+    db: Session = Depends(get_db),
+    exam: Exam = Depends(require_exam_owner)
+):
+    return ExamRosterService.add_all_available(exam, db)
+
+
 @router.delete("/{exam_id}/roster/{student_id}")
 def remove_exam_roster_student(
     student_id: int,
