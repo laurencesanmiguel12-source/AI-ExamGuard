@@ -234,3 +234,116 @@ def test_audit_log_is_scoped_to_the_callers_school(client, db, make_user, make_s
     response = client.get("/admin/audit-log", headers=auth_headers(admin_a))
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_admin_cannot_fetch_another_schools_session_by_id(
+    client, db, make_exam, make_student, make_user, make_school, auth_headers
+):
+    """require_session_read_access's admin branch had zero school check - any admin could read
+    any other school's exam session by id, same leak pattern already fixed elsewhere in this
+    file for the list endpoint but missed here."""
+    from app.models.exam_session import ExamSession
+
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+
+    other_exam = make_exam()  # default_school
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    response = client.get(f"/exam-sessions/{session.id}", headers=auth_headers(admin_a))
+    assert response.status_code == 404
+
+
+def test_admin_cannot_delete_another_schools_session(
+    client, db, make_exam, make_student, make_user, make_school, auth_headers
+):
+    """require_session_manage_access's admin branch had zero school check - any admin could
+    delete (and cascade-erase the violations of) any other school's exam session."""
+    from app.models.exam_session import ExamSession
+
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+
+    other_exam = make_exam()  # default_school
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    response = client.delete(f"/exam-sessions/{session.id}", headers=auth_headers(admin_a))
+    assert response.status_code == 404
+
+
+def test_admin_cannot_view_another_schools_violation_evidence(
+    client, db, make_exam, make_student, make_user, make_school, auth_headers
+):
+    """require_violation_read_access's admin branch had zero school check - any admin could view
+    any other school's violation, including its evidence photo."""
+    from app.models.exam_session import ExamSession
+    from app.models.violation import Violation
+
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+
+    other_exam = make_exam()  # default_school
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    violation = Violation(exam_session_id=session.id, event_type="PHONE_DETECTED")
+    db.add(violation)
+    db.commit()
+    db.refresh(violation)
+
+    response = client.get(f"/violations/{violation.id}/evidence", headers=auth_headers(admin_a))
+    assert response.status_code == 404
+
+
+def test_admin_cannot_review_another_schools_violation_appeal(
+    client, db, make_exam, make_student, make_user, make_school, auth_headers
+):
+    """require_violation_manage_access's admin branch had zero school check - any admin could
+    approve or reject appeals filed by any other school's students."""
+    from app.models.exam_session import ExamSession
+    from app.models.violation import Violation
+
+    school_a = make_school()
+    admin_a = make_user("admin", school=school_a)
+
+    other_exam = make_exam()  # default_school
+    other_student = make_student(course=other_exam.subject.course)
+    session = ExamSession(
+        student_id=other_student.id, exam_id=other_exam.id,
+        started_at=datetime.now(timezone.utc), status="IN_PROGRESS",
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    violation = Violation(
+        exam_session_id=session.id, event_type="PHONE_DETECTED",
+        appeal_status="PENDING", appeal_reason="not me",
+    )
+    db.add(violation)
+    db.commit()
+    db.refresh(violation)
+
+    response = client.put(
+        f"/violations/{violation.id}/appeal-review", headers=auth_headers(admin_a),
+        json={"status": "UPHELD", "response": "denied"},
+    )
+    assert response.status_code == 404

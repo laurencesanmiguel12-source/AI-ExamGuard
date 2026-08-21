@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.auth.student_context import get_current_student
 from app.core.database import get_db
+from app.models.course import Course
 from app.models.exam import Exam
 from app.models.exam_session import ExamSession
 from app.models.instructor import Instructor
 from app.models.student import Student
+from app.models.subject import Subject
 from app.models.user import User
 from app.models.violation import Violation
 
@@ -53,6 +55,24 @@ def _owning_instructor_matches(session: ExamSession, current_user: User, db: Ses
     return exam is not None and instructor is not None and exam.instructor_id == instructor.id
 
 
+def _session_school_id(session: ExamSession, db: Session) -> int | None:
+    """Same join path as ExamSessionService.get_all's admin branch and
+    exam_content.py's list_exam_questions - the one other place in the codebase that already
+    got this right. An "admin" role check with no accompanying school comparison is exactly
+    the cross-tenant leak pattern this project has hit and fixed before (see
+    ai_examguard_multi_tenancy memory) - this was a real regression, not hypothetical: any
+    admin from any school could read/manage/delete any other school's exam sessions and
+    violations (including viewing their students' evidence photos) via the four functions
+    below, purely because they never called this."""
+    return (
+        db.query(Course.school_id)
+        .join(Subject, Subject.course_id == Course.id)
+        .join(Exam, Exam.subject_id == Subject.id)
+        .filter(Exam.id == session.exam_id)
+        .scalar()
+    )
+
+
 def require_session_read_access(
     session_id: int,
     db: Session = Depends(get_db),
@@ -66,6 +86,8 @@ def require_session_read_access(
     role = current_user.role.name.lower()
 
     if role == "admin":
+        if _session_school_id(session, db) != current_user.school_id:
+            raise HTTPException(status_code=404, detail="Exam session not found.")
         return session
 
     if role == "instructor" and _owning_instructor_matches(session, current_user, db):
@@ -95,6 +117,8 @@ def require_session_manage_access(
     role = current_user.role.name.lower()
 
     if role == "admin":
+        if _session_school_id(session, db) != current_user.school_id:
+            raise HTTPException(status_code=404, detail="Exam session not found.")
         return session
 
     if role == "instructor" and _owning_instructor_matches(session, current_user, db):
@@ -144,6 +168,8 @@ def require_violation_read_access(
     role = current_user.role.name.lower()
 
     if role == "admin":
+        if _session_school_id(session, db) != current_user.school_id:
+            raise HTTPException(status_code=404, detail="Violation not found.")
         return violation
 
     if role == "instructor" and _owning_instructor_matches(session, current_user, db):
@@ -170,6 +196,8 @@ def require_violation_manage_access(
     role = current_user.role.name.lower()
 
     if role == "admin":
+        if _session_school_id(session, db) != current_user.school_id:
+            raise HTTPException(status_code=404, detail="Violation not found.")
         return violation
 
     if role == "instructor" and _owning_instructor_matches(session, current_user, db):
