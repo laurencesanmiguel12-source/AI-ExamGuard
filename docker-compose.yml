@@ -37,6 +37,10 @@ services:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-devpassword}@db:5432/ai_examguard
     ports:
       - "8000:8000"
+    volumes:
+      # Evidence frames and face models are written under /app/storage. Keep them across
+      # container recreation; the database only stores their filesystem paths.
+      - ./backend/storage:/app/storage
     depends_on:
       db:
         condition: service_healthy
