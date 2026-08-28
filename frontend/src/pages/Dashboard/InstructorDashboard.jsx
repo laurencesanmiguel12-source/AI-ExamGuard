@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { Eye, FileText, BarChart3, Download, Bell, BellOff } from "lucide-react";
+import { Eye, FileText, BarChart3, Download, Bell, BellOff, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getInstructors } from "../../api/instructors";
+import { getStudents } from "../../api/students";
+import { getExamRoster } from "../../api/examRoster";
 import { getLiveSessions } from "../../api/violations";
 import { playNotificationChime } from "../../utils/notificationSound";
 import Card from "../../components/ui/Card";
@@ -32,6 +34,8 @@ export default function InstructorDashboard() {
   const { user } = useAuth();
   const navigate = useSchoolNav();
   const [myExams, setMyExams] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [enrolledByExam, setEnrolledByExam] = useState({});
   const [loading, setLoading] = useState(true);
   const [liveSessions, setLiveSessions] = useState([]);
   const [recentEvents, setRecentEvents] = useState([]);
@@ -52,7 +56,26 @@ export default function InstructorDashboard() {
       })
       .catch(() => setMyExams([]))
       .finally(() => setLoading(false));
+    getStudents().then(setStudents).catch(() => setStudents([]));
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (myExams.length === 0) {
+      setEnrolledByExam({});
+      return undefined;
+    }
+    Promise.all(
+      myExams.map((exam) => getExamRoster(exam.id).then((roster) => [exam.id, roster]))
+    ).then((entries) => {
+      if (!cancelled) setEnrolledByExam(Object.fromEntries(entries));
+    }).catch(() => {
+      if (!cancelled) setEnrolledByExam({});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myExams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +163,72 @@ export default function InstructorDashboard() {
             <div className={`font-display text-4xl font-black ${color}`}>{val}</div>
           </Card>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-600" />
+              <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+                Students
+              </div>
+            </div>
+            <span className="font-mono text-xs text-foreground/70">{students.length} enrolled</span>
+          </div>
+          <div className="divide-y divide-border max-h-64 overflow-y-auto">
+            {students.length === 0 && (
+              <div className="px-6 py-6 text-sm text-muted-foreground">No students registered yet.</div>
+            )}
+            {students.map((student) => (
+              <div key={student.id} className="px-6 py-2.5 flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center text-xs font-bold">
+                  {student.student_name?.[0] ?? "?"}
+                </div>
+                <span className="text-sm text-foreground/80 flex-1 truncate">
+                  {student.student_name ?? student.student_number}
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">{student.student_number}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+            <Users className="w-4 h-4 text-emerald-600" />
+            <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
+              Current Exam Enrollment
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {myExams.length === 0 && (
+              <div className="px-6 py-6 text-sm text-muted-foreground">No exams assigned yet.</div>
+            )}
+            {myExams.map((exam) => {
+              const roster = enrolledByExam[exam.id] ?? [];
+              return (
+                <div key={exam.id} className="px-6 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-foreground flex-1 truncate">{exam.title}</span>
+                    <span className="font-mono text-xs text-foreground/70">{roster.length} students</span>
+                    <button
+                      onClick={() => navigate(`/exams/${exam.id}/roster`)}
+                      className="text-[10px] font-mono uppercase tracking-wider text-primary hover:underline"
+                    >
+                      View roster
+                    </button>
+                  </div>
+                  {roster.length > 0 && (
+                    <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                      {roster.map((entry) => entry.student.student_name ?? entry.student.student_number).join(", ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
