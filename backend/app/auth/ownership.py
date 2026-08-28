@@ -19,11 +19,21 @@ def require_exam_owner(
     if exam is None:
         raise HTTPException(status_code=404, detail="Exam not found.")
 
-    instructor = (
-        db.query(Instructor)
-        .filter(Instructor.user_id == current_user.id)
-        .first()
-    )
+    if current_user.role.name.lower() in ("admin", "super_admin"):
+        exam_school_id = (
+            db.query(Course.school_id)
+            .join(Subject, Subject.course_id == Course.id)
+            .filter(Subject.id == exam.subject_id)
+            .scalar()
+        )
+        if not is_super_admin(current_user) and exam_school_id != current_user.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to manage this exam's content."
+            )
+        return exam
+
+    instructor = db.query(Instructor).filter(Instructor.user_id == current_user.id).first()
 
     if instructor is None or exam.instructor_id != instructor.id:
         raise HTTPException(

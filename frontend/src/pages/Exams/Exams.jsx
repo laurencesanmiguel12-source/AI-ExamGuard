@@ -103,7 +103,11 @@ export default function Exams() {
   ];
 
   function openCreate() {
-    setForm({ ...EMPTY_FORM, subject_id: subjects[0]?.id ?? "", instructor_id: myInstructor?.id ?? "" });
+    setForm({
+      ...EMPTY_FORM,
+      subject_id: subjects[0]?.id ?? "",
+      instructor_id: myInstructor?.id ?? instructors[0]?.id ?? "",
+    });
     setError("");
     setEditing({});
   }
@@ -167,7 +171,7 @@ export default function Exams() {
     }
   }
 
-  const canCreate = subjects.length > 0 && !!myInstructor;
+  const canCreate = subjects.length > 0 && (user.role_name === "admin" ? instructors.length > 0 : !!myInstructor);
 
   return (
     <div>
@@ -187,8 +191,10 @@ export default function Exams() {
 
       {!canCreate && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">
-          {myInstructor
+          {subjects.length === 0
             ? "Create a subject first before adding exams."
+            : user.role_name === "admin" && instructors.length === 0
+            ? "Create an instructor first before adding exams."
             : "Your account has no linked instructor profile yet — contact an admin before adding exams."}
         </div>
       )}

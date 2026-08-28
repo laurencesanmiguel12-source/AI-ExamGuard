@@ -10,8 +10,8 @@ const NAV_ITEMS = [
   { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
   { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin"] },
   { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
-  { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["instructor"] },
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["instructor"] },
+  { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
+  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },
 ];
 
 // Fixed w-56 column on md+ (unchanged behavior); below that it's an off-canvas overlay driven by

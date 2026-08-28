@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user
-from app.auth.instructor_context import get_current_instructor
+from app.auth.dependencies import get_current_user, is_super_admin, require_instructor
 from app.auth.ownership import require_exam_owner
 from app.core.database import get_db
 from app.models.exam import Exam
@@ -38,8 +37,18 @@ def get_exam(
 def create_exam(
     request: ExamCreate,
     db: Session = Depends(get_db),
-    instructor: Instructor = Depends(get_current_instructor)
+    current_user: User = Depends(require_instructor)
 ):
+    if current_user.role.name.lower() == "instructor":
+        instructor = db.query(Instructor).filter(Instructor.user_id == current_user.id).first()
+        if instructor is None:
+            raise HTTPException(status_code=404, detail="No instructor profile linked to this account.")
+    else:
+        instructor = db.query(Instructor).filter(Instructor.id == request.instructor_id).first()
+        if instructor is None:
+            raise HTTPException(status_code=404, detail="Instructor not found.")
+        if not is_super_admin(current_user) and instructor.user.school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="You do not have permission to assign this instructor.")
     return ExamService.create(instructor, request, db)
 
 

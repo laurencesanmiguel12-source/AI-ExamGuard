@@ -87,10 +87,10 @@ def require_instructor(
     current_user: User = Depends(get_current_user)
 ) -> User:
 
-    if current_user.role.name.lower() != "instructor":
+    if current_user.role.name.lower() not in ("instructor", "admin", "super_admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Instructor access required."
+            detail="Instructor or admin access required."
         )
 
     return current_user

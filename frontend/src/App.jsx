@@ -22,7 +22,7 @@ import ResultDetail from "./pages/Results/ResultDetail";
 import Reports from "./pages/Reports/Reports";
 import FaceEnrollment from "./pages/FaceEnrollment/FaceEnrollment";
 
-const EXAM_CONTENT_ROLES = ["instructor"];
+const EXAM_CONTENT_ROLES = ["admin", "instructor"];
 
 function App() {
   return (
