@@ -11,6 +11,7 @@ import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
+import { isAdmin } from "../../utils/roles";
 
 function ownershipMessage(err) {
   if (err?.response?.status === 403) {
@@ -171,7 +172,7 @@ export default function Exams() {
     }
   }
 
-  const canCreate = subjects.length > 0 && (user.role_name === "admin" ? instructors.length > 0 : !!myInstructor);
+  const canCreate = subjects.length > 0 && (isAdmin(user) ? instructors.length > 0 : !!myInstructor);
 
   return (
     <div>
@@ -193,7 +194,7 @@ export default function Exams() {
         <div className="mb-4 text-sm text-muted-foreground">
           {subjects.length === 0
             ? "Create a subject first before adding exams."
-            : user.role_name === "admin" && instructors.length === 0
+            : isAdmin(user) && instructors.length === 0
             ? "Create an instructor first before adding exams."
             : "Your account has no linked instructor profile yet — contact an admin before adding exams."}
         </div>

@@ -4,6 +4,11 @@ Full-stack exam proctoring app: FastAPI backend (`backend/`), React/Vite fronten
 Chrome extension (`extension/`) for tab-monitoring. Real trained models (OpenCV YuNet+LBPH for
 face, fine-tuned YOLOv8 for phone detection, logistic regression for risk scoring) — no mocked ML.
 
+> **If `DEPLOY_NOTES.md` exists at the repo root, read it before doing anything deploy-related.**
+> It is a temporary handoff for a specific pending release — what is being deployed, the required
+> backend-before-frontend order, how to verify it went live, and how to roll back. It is deleted
+> once that release is verified, so its absence means there is nothing pending.
+
 ## Deployment target
 
 Self-hosted on a dedicated PC via a named Cloudflare Tunnel (`cloudflared`), not a cloud host —

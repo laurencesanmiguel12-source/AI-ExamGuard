@@ -8,6 +8,7 @@ import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
+import { isAdmin } from "../../utils/roles";
 
 const EMPTY_FORM = {
   student_number: "",
@@ -49,7 +50,7 @@ export default function Students() {
 
   // Instructors can read this list but every mutation behind it is require_admin - show them the
   // roster without buttons that would only ever come back 403.
-  const canManage = user?.role_name === "admin" || user?.role_name === "super_admin";
+  const canManage = isAdmin(user);
 
   const columns = [
     { key: "student_name", label: "Name", render: (row) => row.student_name ?? `#${row.user_id}` },

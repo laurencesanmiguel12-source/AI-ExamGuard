@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
+import { hasRole } from "../utils/roles";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
@@ -25,7 +26,7 @@ export default function Sidebar({ open, onClose }) {
   const { user } = useAuth();
   const schoolSlug = useSchoolSlug();
   const school = useSchool();
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(user?.role_name));
+  const items = NAV_ITEMS.filter((item) => hasRole(user, item.roles));
 
   return (
     <>

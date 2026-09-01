@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSchoolSlug } from "../hooks/useSchoolNav";
+import { hasRole } from "../utils/roles";
 
 export default function ProtectedRoute({ allowedRoles }) {
   const { user, loading, isAuthenticated } = useAuth();
@@ -18,7 +19,7 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to={`/${schoolSlug}/login`} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role_name)) {
+  if (allowedRoles && !hasRole(user, allowedRoles)) {
     return <Navigate to={`/${schoolSlug}/dashboard`} replace />;
   }
 
