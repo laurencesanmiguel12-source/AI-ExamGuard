@@ -83,7 +83,7 @@ def auth(email):
 print("=== 1. School signup (the only way an admin account gets created) ===")
 school = client.post("/schools/register", json={
     "code": "SMOKE", "name": "Smoke Test University", "slug": "smoke-test-university",
-    "username": "smoke_admin", "email": "smoke_admin@example.com", "password": PASSWORD,
+    "email": "smoke_admin@example.com", "password": PASSWORD,
     "first_name": "Smoke", "last_name": "Admin",
 })
 check("school registered", school.status_code == 200)
@@ -101,7 +101,7 @@ check("subject created", subject.status_code == 200)
 subject_id = subject.json()["id"]
 
 instructor = client.post("/instructors/", headers=admin_headers, json={
-    "employee_number": "EMP-SMOKE-01", "username": "smoke_instructor",
+    "employee_number": "EMP-SMOKE-01", 
     "email": "smoke_instructor@example.com", "password": PASSWORD,
     "first_name": "Smoke", "last_name": "Instructor",
 })
@@ -141,7 +141,7 @@ correct_choice_id = correct.json()["id"]
 
 print("\n=== 4. Admin provisions a student (accommodated - skips face check for this smoke run) ===")
 student = client.post("/students/", headers=admin_headers, json={
-    "course_id": course_id, "username": "smoke_student", "email": "smoke_student@example.com",
+    "course_id": course_id, "email": "smoke_student@example.com",
     "password": PASSWORD, "first_name": "Smoke", "last_name": "Student",
 })
 check("student created", student.status_code == 200)
@@ -149,6 +149,22 @@ student_id = student.json()["id"]
 update = client.put(f"/students/{student_id}", headers=admin_headers, json={"skip_face_check": True})
 check("student accommodated (skip_face_check)", update.status_code == 200 and update.json()["skip_face_check"] is True)
 student_headers = auth("smoke_student@example.com")
+
+print("\n=== 4b. Instructor rosters the student for this exam ===")
+# Required since the 2026-08-20 policy flip (ExamService.is_student_eligible): an exam with zero
+# roster rows is no longer course-wide, so a student can't start it until explicitly rostered.
+# This script predated that flip and failed at "session started" with 403 "This exam is not
+# available for your course." until this step was added.
+roster_add = client.post(f"/exams/{exam_id}/roster/bulk-add", headers=instructor_headers)
+check("student rostered (bulk-add)", roster_add.status_code == 200 and roster_add.json()["added_count"] == 1)
+
+# Admin reads the same roster: require_exam_owner's admin branch used Subject without importing
+# it, so this 500'd for every admin/super_admin while the instructor path above worked fine.
+admin_roster = client.get(f"/exams/{exam_id}/roster", headers=admin_headers)
+check(
+    "admin can read the roster (not a 500)",
+    admin_roster.status_code == 200 and len(admin_roster.json()) == 1,
+)
 
 print("\n=== 5. Student takes the exam: start -> answer -> violation -> submit ===")
 session = client.post("/exam-sessions/start", headers=student_headers, json={"exam_id": exam_id})

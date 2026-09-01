@@ -67,7 +67,7 @@ class StudentService:
         # school_id is always the calling admin's own school, never client-supplied - same
         # never-trust-the-client derivation as Exam.instructor_id.
         user = AuthService.create_user_account(
-            request.username, request.email, request.password,
+            request.email, request.password,
             request.first_name, request.last_name, "student", admin.school_id, db,
         )
 

@@ -77,7 +77,7 @@ class AdminUserService:
             raise HTTPException(status_code=404, detail="School not found.")
 
         user = AuthService.create_user_account(
-            request.username, request.email, request.password,
+            request.email, request.password,
             request.first_name, request.last_name, request.role_name, request.school_id, db,
         )
 

@@ -8,7 +8,6 @@ class InstructorBase(BaseModel):
 
 class InstructorCreate(BaseModel):
     employee_number: str
-    username: str
     email: EmailStr
     password: str
     first_name: str

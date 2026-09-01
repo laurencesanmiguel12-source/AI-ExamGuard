@@ -15,7 +15,6 @@ import { TextField } from "../../components/ui/FormField";
 
 const EMPTY_FORM = {
   employee_number: "",
-  username: "",
   email: "",
   password: "",
   first_name: "",
@@ -215,12 +214,6 @@ export default function Instructors() {
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                   />
                 </div>
-                <TextField
-                  label="Username"
-                  required
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                />
                 <TextField
                   label="Email Address"
                   type="email"

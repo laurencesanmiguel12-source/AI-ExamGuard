@@ -9,7 +9,6 @@ const EMPTY_FORM = {
   code: "",
   name: "",
   slug: "",
-  username: "",
   email: "",
   password: "",
   first_name: "",
@@ -131,12 +130,6 @@ export default function SchoolSignup() {
                 />
               </div>
 
-              <TextField
-                label="Username"
-                required
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-              />
 
               <TextField
                 label="Email Address"

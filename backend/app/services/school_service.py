@@ -100,7 +100,7 @@ class SchoolService:
         # helper every other account type (student self-registration, admin-created
         # instructor/student) already goes through.
         AuthService.create_user_account(
-            request.username, request.email, request.password,
+            request.email, request.password,
             request.first_name, request.last_name, "admin", school.id, db,
         )
 

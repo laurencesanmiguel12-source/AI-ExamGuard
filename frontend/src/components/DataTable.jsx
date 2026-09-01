@@ -40,13 +40,15 @@ export default function DataTable({ columns, rows, loading, emptyLabel = "No rec
                     <Edit2 className="w-4 h-4" />
                   </button>
                 )}
-                <button
-                  onClick={() => onDelete(row)}
-                  className="text-muted-foreground hover:text-red-600 transition-colors"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(row)}
+                    className="text-muted-foreground hover:text-red-600 transition-colors"
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}

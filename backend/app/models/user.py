@@ -11,12 +11,8 @@ class User(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    username: Mapped[str] = mapped_column(
-        String(50),
-        unique=True,
-        nullable=False
-    )
-
+    # Email is the only account identifier - there is deliberately no username column. See
+    # AuthService.create_user_account for the registration failure dropping it fixed.
     email: Mapped[str] = mapped_column(
         String(100),
         unique=True,

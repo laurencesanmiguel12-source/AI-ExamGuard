@@ -242,7 +242,7 @@ export default function StudentDashboard() {
                 <div className="text-foreground font-semibold">
                   {user?.first_name} {user?.last_name}
                 </div>
-                <div className="text-[11px] font-mono text-muted-foreground">{user?.username}</div>
+                <div className="text-[11px] font-mono text-muted-foreground truncate">{user?.email}</div>
                 <div className="flex items-center gap-1.5 mt-1">
                   <div className={`w-1.5 h-1.5 rounded-full ${user?.is_active ? "bg-emerald-500" : "bg-red-500"}`} />
                   <span className={`text-[10px] font-mono ${user?.is_active ? "text-emerald-600" : "text-red-600"}`}>

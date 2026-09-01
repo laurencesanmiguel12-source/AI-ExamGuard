@@ -8,7 +8,6 @@ import Card from "../../components/ui/Card";
 import { TextField, SelectField } from "../../components/ui/FormField";
 
 const EMPTY_FORM = {
-  username: "",
   email: "",
   password: "",
   first_name: "",
@@ -97,13 +96,6 @@ export default function Register() {
                   onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                 />
               </div>
-
-              <TextField
-                label="Username"
-                required
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-              />
 
               <TextField
                 label="Email Address"

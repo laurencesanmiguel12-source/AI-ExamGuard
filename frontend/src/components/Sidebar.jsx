@@ -8,7 +8,11 @@ const NAV_ITEMS = [
   { to: "/results", label: "My Results", icon: Award, roles: ["student"] },
   { to: "/courses", label: "Courses", icon: BookOpen, roles: ["admin"] },
   { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
-  { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin"] },
+  // Instructors get read-only Students (the page hides its own admin-only add/edit/delete
+  // controls). Without this entry there was no way for an instructor to look a student up at
+  // all - the reported "can't find students on the lists" - even though GET /students/ has
+  // allowed any authenticated user in their own school for a while now.
+  { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin", "instructor"] },
   { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
   { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },

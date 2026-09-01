@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models.course import Course
 from app.models.exam import Exam
 from app.models.instructor import Instructor
+from app.models.subject import Subject
 from app.models.user import User
 
 

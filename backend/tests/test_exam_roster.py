@@ -50,6 +50,21 @@ def test_bulk_add_never_rosters_a_different_courses_student(
     assert roster == []
 
 
+def test_admin_can_list_a_roster_in_their_own_school(client, make_exam, make_student, make_user, auth_headers):
+    """require_exam_owner's admin branch referenced Subject without importing it, so EVERY route
+    behind it (roster, exam content, reports, exam update/delete) raised NameError -> 500 for any
+    admin or super admin. Live symptom: the roster page just failed to load, so an admin could not
+    see or add any student. The instructor branch never touched Subject, which is why the existing
+    instructor-only tests all passed while the admin path was completely broken."""
+    exam = make_exam()
+    student = make_student(course=exam.subject.course, exam=exam)
+
+    response = client.get(f"/exams/{exam.id}/roster", headers=auth_headers(make_user("admin")))
+
+    assert response.status_code == 200
+    assert [entry["student"]["id"] for entry in response.json()] == [student.id]
+
+
 def test_non_owner_instructor_cannot_bulk_add(client, make_exam, make_instructor, make_student, auth_headers):
     owner = make_instructor()
     attacker = make_instructor()

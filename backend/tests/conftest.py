@@ -154,7 +154,6 @@ def make_user(db, make_role, default_school):
         role = make_role(role_name)
         school = overrides.pop("school", None) or default_school
         defaults = dict(
-            username=f"user{n}",
             email=f"user{n}@example.com",
             first_name="Test",
             last_name=f"User{n}",

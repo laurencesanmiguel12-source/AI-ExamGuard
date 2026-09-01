@@ -6,7 +6,6 @@ def test_register_creates_a_real_user_and_student_profile(client, make_role, mak
     make_role("student")
     course = make_course()
     response = client.post("/auth/register", json={
-        "username": "newstudent",
         "email": "newstudent@example.com",
         "password": "TestPass123!",
         "first_name": "New",
@@ -25,7 +24,6 @@ def test_register_ignores_client_supplied_role_and_always_creates_a_student(clie
     admin_role = make_role("admin")
     course = make_course()
     response = client.post("/auth/register", json={
-        "username": "wannabeadmin",
         "email": "wannabeadmin@example.com",
         "password": "TestPass123!",
         "first_name": "Sneaky",
@@ -46,7 +44,6 @@ def test_register_ignores_client_supplied_role_and_always_creates_a_student(clie
 def test_register_rejects_unknown_course(client, make_role):
     make_role("student")
     response = client.post("/auth/register", json={
-        "username": "newstudent",
         "email": "newstudent@example.com",
         "password": "TestPass123!",
         "first_name": "New",
@@ -61,7 +58,6 @@ def test_register_rejects_duplicate_email(client, make_role, make_user, make_cou
     make_role("student")
     course = make_course()
     response = client.post("/auth/register", json={
-        "username": "someoneelse",
         "email": "dupe@example.com",
         "password": "TestPass123!",
         "first_name": "A",
@@ -71,19 +67,27 @@ def test_register_rejects_duplicate_email(client, make_role, make_user, make_cou
     assert response.status_code == 400
 
 
-def test_register_rejects_duplicate_username(client, make_role, make_user, make_course):
-    make_user("student", username="taken")
+def test_register_allows_identical_names_in_different_schools(client, make_role, make_school, make_course):
+    """Replaces test_register_rejects_duplicate_username. The users table used to carry a
+    globally-unique username nothing ever read - login and every lookup key on email - so two
+    schools could not both have a "jsmith", and the second one's registration failed with
+    "Username already exists." Live symptom: instructors reporting students missing from their
+    rosters, because those students had never gotten an account at all. Email stays the one
+    unique identifier, and it is unique per person, not per school."""
     make_role("student")
-    course = make_course()
-    response = client.post("/auth/register", json={
-        "username": "taken",
-        "email": "different@example.com",
-        "password": "TestPass123!",
-        "first_name": "A",
-        "last_name": "B",
-        "course_id": course.id,
+    payload = {"password": "TestPass123!", "first_name": "John", "last_name": "Smith"}
+
+    first = client.post("/auth/register", json={
+        **payload, "email": "jsmith@school-a.example.com",
+        "course_id": make_course(school=make_school()).id,
     })
-    assert response.status_code == 400
+    second = client.post("/auth/register", json={
+        **payload, "email": "jsmith@school-b.example.com",
+        "course_id": make_course(school=make_school()).id,
+    })
+
+    assert first.status_code == 200
+    assert second.status_code == 200
 
 
 def test_login_with_correct_credentials_returns_a_token(client, make_user):
@@ -152,13 +156,13 @@ def test_register_rejects_an_email_that_differs_only_in_case(client, make_role, 
     make_role("student")
     course = make_course()
     first = client.post("/auth/register", json={
-        "username": "caseuser1", "email": "case.test@example.com", "password": "TestPass123!",
+        "email": "case.test@example.com", "password": "TestPass123!",
         "first_name": "Case", "last_name": "Test", "course_id": course.id,
     })
     assert first.status_code == 200
 
     duplicate = client.post("/auth/register", json={
-        "username": "caseuser2", "email": "CASE.TEST@EXAMPLE.COM", "password": "TestPass123!",
+        "email": "CASE.TEST@EXAMPLE.COM", "password": "TestPass123!",
         "first_name": "Case", "last_name": "Duplicate", "course_id": course.id,
     })
     assert duplicate.status_code == 400

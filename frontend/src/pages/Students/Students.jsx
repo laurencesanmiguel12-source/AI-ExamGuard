@@ -12,7 +12,6 @@ import { TextField, SelectField, CheckboxField } from "../../components/ui/FormF
 const EMPTY_FORM = {
   student_number: "",
   course_id: "",
-  username: "",
   email: "",
   password: "",
   first_name: "",
@@ -47,6 +46,10 @@ export default function Students() {
   useEffect(refresh, []);
 
   const courseName = (id) => courses.find((c) => c.id === id)?.code ?? `#${id}`;
+
+  // Instructors can read this list but every mutation behind it is require_admin - show them the
+  // roster without buttons that would only ever come back 403.
+  const canManage = user?.role_name === "admin" || user?.role_name === "super_admin";
 
   const columns = [
     { key: "student_name", label: "Name", render: (row) => row.student_name ?? `#${row.user_id}` },
@@ -105,7 +108,6 @@ export default function Students() {
       } else {
         const payload = {
           course_id: Number(form.course_id),
-          username: form.username,
           email: form.email,
           password: form.password,
           first_name: form.first_name,
@@ -135,20 +137,29 @@ export default function Students() {
           <SectionTag text="Academic Management" />
           <h2 className="font-display font-black text-foreground text-4xl">Students</h2>
         </div>
-        <button
-          onClick={openCreate}
-          disabled={courses.length === 0}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Student
-        </button>
+        {canManage && (
+          <button
+            onClick={openCreate}
+            disabled={courses.length === 0}
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Student
+          </button>
+        )}
       </div>
 
-      {courses.length === 0 && !loading && (
+      {canManage && courses.length === 0 && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">Create a course first before adding students.</div>
       )}
 
-      <DataTable columns={columns} rows={students} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No students yet." />
+      <DataTable
+        columns={columns}
+        rows={students}
+        loading={loading}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? setDeleting : undefined}
+        emptyLabel="No students yet."
+      />
 
       {editing && (
         <Modal title={editing.id ? "Edit Student" : "Add Student"} onClose={() => setEditing(null)}>
@@ -177,12 +188,6 @@ export default function Students() {
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
                   />
                 </div>
-                <TextField
-                  label="Username"
-                  required
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                />
                 <TextField
                   label="Email Address"
                   type="email"

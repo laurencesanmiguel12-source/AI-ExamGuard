@@ -31,7 +31,6 @@ class SchoolRegisterRequest(BaseModel):
     # Pre-filled client-side from `name` (editable) - the school's login URL, e.g.
     # "arellano-university" for /arellano-university/login.
     slug: str
-    username: str
     email: EmailStr
     password: str
     first_name: str

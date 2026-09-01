@@ -30,7 +30,7 @@ def test_login_rate_limit_blocks_after_threshold(client, rate_limiting_enabled):
 def test_school_register_rate_limit_blocks_after_threshold(client, rate_limiting_enabled):
     payload = {
         "code": "RLT", "name": "Rate Limit Test School", "slug": "rate-limit-test-school",
-        "username": "ratelimittestadmin", "email": "ratelimittest@example.com",
+        "email": "ratelimittest@example.com",
         "password": "TestPass123!", "first_name": "A", "last_name": "B",
     }
 

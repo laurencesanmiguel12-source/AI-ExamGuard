@@ -57,12 +57,15 @@ function App() {
                   <Route path="exams/:examId/content" element={<ExamContent />} />
                   <Route path="exams/:examId/roster" element={<ExamRoster />} />
                   <Route path="reports" element={<Reports />} />
+                  {/* Read-only for instructors - the page itself hides the admin-only
+                      add/edit/delete controls. Previously admin-only, which left an instructor
+                      with no way to look a student up anywhere in the app. */}
+                  <Route path="students" element={<Students />} />
                 </Route>
 
                 <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                   <Route path="courses" element={<Courses />} />
                   <Route path="subjects" element={<Subjects />} />
-                  <Route path="students" element={<Students />} />
                   <Route path="instructors" element={<Instructors />} />
                 </Route>
               </Route>

@@ -9,7 +9,6 @@ class StudentBase(BaseModel):
 
 class StudentCreate(BaseModel):
     course_id: int
-    username: str
     email: EmailStr
     password: str
     first_name: str

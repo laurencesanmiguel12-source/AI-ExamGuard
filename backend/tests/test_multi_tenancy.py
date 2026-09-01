@@ -14,7 +14,6 @@ def test_school_signup_creates_a_working_admin_account(client, make_role):
         "code": "NEWU",
         "name": "New University",
         "slug": "new-university",
-        "username": "newu_admin",
         "email": "admin@newu.example.com",
         "password": "TestPass123!",
         "first_name": "New",
@@ -478,7 +477,7 @@ def test_super_admin_can_create_an_admin_for_any_school(client, make_user, make_
     response = client.post(
         "/admin/users/", headers=auth_headers(super_admin),
         json={
-            "username": "new_admin_b", "email": "new_admin_b@example.com", "password": "TestPass123!",
+            "email": "new_admin_b@example.com", "password": "TestPass123!",
             "first_name": "New", "last_name": "Admin", "role_name": "admin", "school_id": school_b.id,
         },
     )

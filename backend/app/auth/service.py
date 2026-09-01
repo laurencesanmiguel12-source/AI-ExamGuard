@@ -17,7 +17,6 @@ class AuthService:
 
     @staticmethod
     def create_user_account(
-        username: str,
         email: str,
         password: str,
         first_name: str,
@@ -47,18 +46,12 @@ class AuthService:
         # comparison.
         email = email.strip().lower()
 
-        existing_username = (
-            db.query(User)
-            .filter(User.username == username)
-            .first()
-        )
-
-        if existing_username:
-            raise HTTPException(
-                status_code=400,
-                detail="Username already exists."
-            )
-
+        # There is deliberately no username here. The column was globally unique across every
+        # school while nothing ever read it - login(), get_current_user() and every lookup in this
+        # codebase key on email - so its only live effect was rejecting a registration with
+        # "Username already exists." when some unrelated school's user had already taken the name.
+        # Reported symptom was instructors finding students missing from their rosters: those
+        # students had never successfully registered at all.
         existing_email = (
             db.query(User)
             .filter(func.lower(User.email) == email)
@@ -79,7 +72,6 @@ class AuthService:
             )
 
         user = User(
-            username=username,
             email=email,
             first_name=first_name,
             last_name=last_name,
@@ -109,7 +101,7 @@ class AuthService:
         # you're in" is enforced simply by which course you can pick (see routes/course.py's
         # ?school_id filter on the registration form's dropdown).
         user = AuthService.create_user_account(
-            request.username, request.email, request.password,
+            request.email, request.password,
             request.first_name, request.last_name, "student", course.school_id, db,
         )
 
