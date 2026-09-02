@@ -458,6 +458,57 @@ def test_super_admin_cannot_change_their_own_role(client, make_user, auth_header
     assert response.status_code == 400
 
 
+def test_cannot_demote_a_schools_only_admin(client, make_user, make_role, make_school, auth_headers):
+    """EARIST (school 11) reached zero admins in production, which is unrecoverable through the
+    UI - every management route is require_admin and the only admin-creating endpoint is
+    super-admin-only. The school keeps its admin unless another one exists first."""
+    make_role("instructor")  # roles are lazily created on demand - the demote target must exist
+    super_admin = make_user("super_admin")
+    school_b = make_school()
+    only_admin = make_user("admin", school=school_b)
+
+    response = client.put(
+        f"/admin/users/{only_admin.id}/role", headers=auth_headers(super_admin),
+        json={"role_name": "instructor"},
+    )
+    assert response.status_code == 400
+    assert "only admin" in response.json()["detail"]
+
+
+def test_promoting_a_schools_only_admin_to_super_admin_is_also_blocked(
+    client, make_user, make_school, auth_headers
+):
+    """A super admin isn't school-scoped, so moving the last admin up still leaves the school
+    with nobody who can administer it - the guard is about the school's admin slot, not about
+    demotion specifically."""
+    super_admin = make_user("super_admin")
+    school_b = make_school()
+    only_admin = make_user("admin", school=school_b)
+
+    response = client.put(
+        f"/admin/users/{only_admin.id}/role", headers=auth_headers(super_admin),
+        json={"role_name": "super_admin"},
+    )
+    assert response.status_code == 400
+
+
+def test_can_demote_an_admin_when_the_school_has_another_one(
+    client, make_user, make_role, make_school, auth_headers
+):
+    make_role("instructor")  # roles are lazily created on demand - the demote target must exist
+    super_admin = make_user("super_admin")
+    school_b = make_school()
+    make_user("admin", school=school_b, email="kept_admin@example.com")
+    spare_admin = make_user("admin", school=school_b, email="spare_admin@example.com")
+
+    response = client.put(
+        f"/admin/users/{spare_admin.id}/role", headers=auth_headers(super_admin),
+        json={"role_name": "instructor"},
+    )
+    assert response.status_code == 200
+    assert response.json()["role_name"] == "instructor"
+
+
 def test_regular_admin_cannot_change_a_users_role(client, make_user, auth_headers):
     admin = make_user("admin")
     target = make_user("instructor")
