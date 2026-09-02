@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
 from app.auth.service import AuthService
@@ -12,6 +12,7 @@ from app.models.school import (
 )
 from app.models.user import User
 from app.schemas.school import SchoolRegisterRequest, SchoolReviewRequest, SchoolUpdate
+from app.services.notification_service import NotificationService
 from app.utils.slugify import slugify
 
 
@@ -44,7 +45,8 @@ class SchoolService:
         return school
 
     @staticmethod
-    def review(school_id: int, request: SchoolReviewRequest, reviewer: User, db: Session):
+    def review(school_id: int, request: SchoolReviewRequest, reviewer: User, db: Session,
+               background_tasks: BackgroundTasks | None = None):
         school = SchoolService.get_by_id(school_id, db)
 
         if request.status not in (SCHOOL_APPROVED, SCHOOL_REJECTED):
@@ -66,6 +68,21 @@ class SchoolService:
 
         db.commit()
         db.refresh(school)
+
+        # Queued after the commit, never before: the decision is what matters and it is already
+        # durable by this point. A mail failure is logged inside NotificationService and cannot
+        # roll the review back or fail the request.
+        if background_tasks is not None:
+            if school.status == SCHOOL_APPROVED:
+                background_tasks.add_task(
+                    NotificationService.notify_school_approved,
+                    school.name, school.slug, school.id, school.review_note, db,
+                )
+            else:
+                background_tasks.add_task(
+                    NotificationService.notify_school_rejected,
+                    school.name, school.id, school.review_note, db,
+                )
 
         return school
 
@@ -115,7 +132,8 @@ class SchoolService:
         return school
 
     @staticmethod
-    def register(request: SchoolRegisterRequest, db: Session):
+    def register(request: SchoolRegisterRequest, db: Session,
+                 background_tasks: BackgroundTasks | None = None):
 
         existing = (
             db.query(School)
@@ -167,5 +185,14 @@ class SchoolService:
 
         db.commit()
         db.refresh(school)
+
+        # Queued only after the commit succeeds, so we never announce a signup that then rolled
+        # back. Best-effort by design: this endpoint is public and unauthenticated, and an SMTP
+        # outage must not turn a valid registration into an error for the applicant.
+        if background_tasks is not None:
+            background_tasks.add_task(
+                NotificationService.notify_school_pending_review,
+                school.name, school.code, request.email, db,
+            )
 
         return school

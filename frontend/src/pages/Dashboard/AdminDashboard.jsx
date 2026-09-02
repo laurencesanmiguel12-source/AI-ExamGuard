@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw, Trash2 } from "lucide-react";
+import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw, Trash2, Building2 } from "lucide-react";
 import { getStudents } from "../../api/students";
 import { getInstructors } from "../../api/instructors";
 import { getCourses } from "../../api/courses";
@@ -7,10 +7,13 @@ import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
 import { getSchoolAnalytics } from "../../api/analytics";
+import { getSchoolsForReview } from "../../api/schools";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
 import { getPendingTrainingCandidates, reviewTrainingCandidate } from "../../api/trainingReview";
 import { getEvidenceBlobUrl } from "../../api/violations";
 import { useAuth } from "../../context/AuthContext";
+import { Link } from "react-router-dom";
+import { useSchoolSlug } from "../../hooks/useSchoolNav";
 import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 import RiskPill from "../../components/ui/RiskPill";
@@ -30,6 +33,22 @@ const AUDIT_ACTION_LABELS = {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const schoolSlug = useSchoolSlug();
+  const [pendingSchools, setPendingSchools] = useState(0);
+
+  // Super-admin-only: GET /schools/review 403s for a regular school admin, and this dashboard is
+  // shared by both (isAdmin() covers admin and super_admin alike).
+  const isSuperAdmin = user?.role_name === "super_admin";
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    let active = true;
+    getSchoolsForReview("pending")
+      .then((rows) => active && setPendingSchools(rows.length))
+      .catch(() => active && setPendingSchools(0));
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin]);
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({ students: [], instructors: [], courses: [], exams: [] });
   const [loading, setLoading] = useState(true);
@@ -172,6 +191,31 @@ export default function AdminDashboard() {
           <p className="text-muted-foreground text-sm mt-1">System management · AI ExamGuard</p>
         </div>
       </div>
+
+      {/* Super admin only. Email notification is optional (SMTP may not be configured at all), so
+          the platform operator must be able to discover a waiting signup just by logging in. */}
+      {pendingSchools > 0 && (
+        <Card className="p-5 mb-6 border-amber-200 bg-amber-50">
+          <div className="flex items-center gap-3">
+            <Building2 className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {pendingSchools} school registration{pendingSchools === 1 ? "" : "s"} awaiting review
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Nobody at {pendingSchools === 1 ? "that school" : "those schools"} can sign in until
+                you approve {pendingSchools === 1 ? "it" : "them"}.
+              </p>
+            </div>
+            <Link
+              to={`/${schoolSlug}/school-approvals`}
+              className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
+            >
+              Review
+            </Link>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[

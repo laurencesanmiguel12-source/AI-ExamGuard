@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
+import { getSchoolsForReview } from "../api/schools";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
@@ -31,6 +33,25 @@ export default function Sidebar({ open, onClose }) {
   const schoolSlug = useSchoolSlug();
   const school = useSchool();
   const items = NAV_ITEMS.filter((item) => hasRole(user, item.roles));
+  const [pendingSchools, setPendingSchools] = useState(0);
+
+  // There is no email guarantee (SMTP is optional - see NotificationService), so the badge is the
+  // one notification a super admin always gets. Fetched only for them: GET /schools/review is
+  // super-admin-only and would 403 for everyone else.
+  const isSuperAdmin = user?.role_name === "super_admin";
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setPendingSchools(0);
+      return;
+    }
+    let active = true;
+    getSchoolsForReview("pending")
+      .then((rows) => active && setPendingSchools(rows.length))
+      .catch(() => active && setPendingSchools(0));
+    return () => {
+      active = false;
+    };
+  }, [isSuperAdmin]);
 
   return (
     <>
@@ -65,23 +86,34 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-4 overflow-y-auto">
-          {items.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={`/${schoolSlug}${to}`}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-mono uppercase tracking-wider transition-all ${
-                  isActive
-                    ? "bg-primary text-white"
-                    : "text-muted-foreground hover:text-foreground hover:bg-black/5"
-                }`
-              }
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </NavLink>
-          ))}
+          {items.map(({ to, label, icon: Icon }) => {
+            const badge = to === "/school-approvals" ? pendingSchools : 0;
+            return (
+              <NavLink
+                key={to}
+                to={`/${schoolSlug}${to}`}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-mono uppercase tracking-wider transition-all ${
+                    isActive
+                      ? "bg-primary text-white"
+                      : "text-muted-foreground hover:text-foreground hover:bg-black/5"
+                  }`
+                }
+              >
+                <Icon className="w-4 h-4" />
+                <span className="flex-1">{label}</span>
+                {badge > 0 && (
+                  <span
+                    className="rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 leading-none"
+                    aria-label={`${badge} awaiting review`}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
       </aside>
     </>

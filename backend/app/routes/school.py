@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_super_admin
@@ -44,9 +44,10 @@ def get_schools(
 def register_school(
     request: Request,
     body: SchoolRegisterRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    return SchoolService.register(body, db)
+    return SchoolService.register(body, db, background_tasks)
 
 
 # Super admin only - the review queue. Declared before /{school_id} below: a literal path
@@ -88,10 +89,11 @@ def get_school_by_slug(
 def review_school(
     school_id: int,
     body: SchoolReviewRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin)
 ):
-    return SchoolService.review(school_id, body, current_user, db)
+    return SchoolService.review(school_id, body, current_user, db, background_tasks)
 
 
 # Super admin only - edit a school's identity, or deactivate/reactivate it (blocks login for

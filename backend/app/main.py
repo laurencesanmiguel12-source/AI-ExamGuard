@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -29,6 +31,16 @@ from app.routes.audit_log import router as audit_log_router
 from app.routes.retention import router as retention_router
 from app.routes.training_review import router as training_review_router
 from app.routes.admin_user import router as admin_user_router
+
+# Uvicorn configures its own loggers but leaves the root logger at WARNING, so application
+# logger.info/exception calls never reached the container log. That mattered the moment
+# notifications became fail-quiet: NotificationService deliberately swallows its errors and only
+# logs them, so without this an unconfigured or broken mail setup was completely invisible - the
+# one signal that something needs attention was being discarded.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
+)
 
 app = FastAPI(
     title="AI ExamGuard API",
