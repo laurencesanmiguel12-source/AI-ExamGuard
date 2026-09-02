@@ -174,7 +174,11 @@ export default function InstructorDashboard() {
                 Students
               </div>
             </div>
-            <span className="font-mono text-xs text-foreground/70">{students.length} enrolled</span>
+            {/* Every student registered at this school (GET /students/ is school-scoped), not a
+                count of exam enrollments - most of these are on no roster at all. Said "enrolled"
+                until 2026-09-02, which read as an enrollment count next to the per-exam roster
+                counts in the card beside it. */}
+            <span className="font-mono text-xs text-foreground/70">{students.length} registered</span>
           </div>
           <div className="divide-y divide-border max-h-64 overflow-y-auto">
             {students.length === 0 && (
