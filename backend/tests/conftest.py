@@ -54,7 +54,7 @@ from app.models.exam_roster import ExamRoster  # noqa: E402
 from app.models.instructor import Instructor  # noqa: E402
 from app.models.instructor_subject import InstructorSubject  # noqa: E402
 from app.models.role import Role  # noqa: E402
-from app.models.school import School  # noqa: E402
+from app.models.school import SCHOOL_APPROVED, School  # noqa: E402
 from app.models.student import Student  # noqa: E402
 from app.models.subject import Subject  # noqa: E402
 from app.models.user import User  # noqa: E402
@@ -125,7 +125,16 @@ def make_school(db):
     def _make(**overrides) -> School:
         counter["n"] += 1
         n = counter["n"]
-        defaults = dict(code=f"SCH{n}", name=f"Test School {n}", slug=f"test-school-{n}")
+        # Approved by default: this fixture stands for an ordinary, operating school, and the
+        # model's own default is "pending" (only self-service signup should land there). Without
+        # this, every fixture school is unapproved and every login in the suite 403s. Tests that
+        # care about the review flow pass status="pending"/"rejected" explicitly.
+        defaults = dict(
+            code=f"SCH{n}",
+            name=f"Test School {n}",
+            slug=f"test-school-{n}",
+            status=SCHOOL_APPROVED,
+        )
         defaults.update(overrides)
         school = School(**defaults)
         db.add(school)

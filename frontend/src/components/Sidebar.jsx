@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, X } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
@@ -17,6 +17,10 @@ const NAV_ITEMS = [
   { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
   { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },
+  // super_admin ONLY, deliberately not "admin": hasRole treats an "admin" entry as satisfied
+  // by a super admin too, so naming "admin" here would put the platform-wide approval queue
+  // in every school admin's sidebar.
+  { to: "/school-approvals", label: "School Approvals", icon: Building2, roles: ["super_admin"] },
 ];
 
 // Fixed w-56 column on md+ (unchanged behavior); below that it's an off-canvas overlay driven by

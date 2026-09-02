@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Users, Lock, ArrowRight, Eye } from "lucide-react";
+import { Shield, Users, Lock, ArrowRight, Eye, Clock, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSchool, useSchoolNav, useSchoolSlug } from "../../hooks/useSchoolNav";
 import Card from "../../components/ui/Card";
@@ -54,6 +54,40 @@ export default function Login() {
           <h1 className="font-display font-black text-foreground text-4xl">Secure Login</h1>
           <p className="text-muted-foreground text-sm mt-1">AI ExamGuard — {school?.name ?? "…"}</p>
         </div>
+
+        {/* Shown before the form rather than only after a failed attempt: someone returning to
+            their own school's login link should learn it is still under review without having to
+            type credentials that are guaranteed to be refused. */}
+        {school?.status === "pending" && (
+          <Card className="p-5 mb-4 border-amber-200 bg-amber-50">
+            <div className="flex gap-3">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Registration pending review</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This school is waiting to be approved by the platform administrator. Your admin
+                  account already exists — sign-in starts working as soon as it's approved.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {school?.status === "rejected" && (
+          <Card className="p-5 mb-4 border-red-200 bg-red-50">
+            <div className="flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Registration not approved</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {school.review_note
+                    ? `Reason: ${school.review_note}`
+                    : "Contact the platform administrator for details."}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">

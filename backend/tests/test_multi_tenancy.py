@@ -7,7 +7,7 @@ monitor, audit log, retention)."""
 from datetime import datetime, timedelta, timezone
 
 
-def test_school_signup_creates_a_working_admin_account(client, make_role):
+def test_school_signup_creates_a_working_admin_account(client, make_role, make_user, auth_headers):
     make_role("admin")  # school signup is the first-ever admin-creating flow - no other fixture
     # in this test seeds the "admin" Role row first, unlike make_user("admin", ...) elsewhere.
     response = client.post("/schools/register", json={
@@ -20,6 +20,23 @@ def test_school_signup_creates_a_working_admin_account(client, make_role):
         "last_name": "Admin",
     })
     assert response.status_code == 200
+    assert response.json()["status"] == "pending"
+
+    # Signup alone no longer grants access - a super admin reviews it first.
+    blocked = client.post("/auth/login", json={
+        "email": "admin@newu.example.com",
+        "password": "TestPass123!",
+    })
+    assert blocked.status_code == 403
+    assert "pending review" in blocked.json()["detail"]
+
+    super_admin = make_user("super_admin")
+    approved = client.put(
+        f"/schools/{response.json()['id']}/review",
+        headers=auth_headers(super_admin),
+        json={"status": "approved"},
+    )
+    assert approved.status_code == 200
 
     login = client.post("/auth/login", json={
         "email": "admin@newu.example.com",

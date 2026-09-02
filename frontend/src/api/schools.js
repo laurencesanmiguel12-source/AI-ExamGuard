@@ -10,7 +10,23 @@ export async function registerSchool(payload) {
   return response.data;
 }
 
+// Dedicated endpoint rather than filtering getSchools(): that list only contains APPROVED
+// schools (it feeds the student-registration picker), so a pending school would look like a 404
+// to the very person who just registered it. This resolves any status and returns name/status
+// only. Also avoids refetching every school on each login-page load.
 export async function getSchoolBySlug(slug) {
-  const schools = await getSchools();
-  return schools.find((s) => s.slug === slug);
+  const response = await apiClient.get(`/schools/slug/${slug}`);
+  return response.data;
+}
+
+export async function getSchoolsForReview(status) {
+  const response = await apiClient.get("/schools/review", {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+}
+
+export async function reviewSchool(schoolId, payload) {
+  const response = await apiClient.put(`/schools/${schoolId}/review`, payload);
+  return response.data;
 }

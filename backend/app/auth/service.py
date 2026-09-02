@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth.security import hash_password
 from app.models.course import Course
 from app.models.role import Role
+from app.models.school import SCHOOL_APPROVED, SCHOOL_PENDING, SCHOOL_REJECTED, School
 from app.models.student import Student
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
@@ -94,6 +95,18 @@ class AuthService:
                 detail="Course not found."
             )
 
+        # GET /schools/ already hides unapproved schools from the picker, but that only shapes the
+        # form - this endpoint is public, so a course_id belonging to a pending school can still
+        # be posted directly. Without this a student could enrol into a school whose own admin
+        # cannot log in yet, and would be left with an account that fails at the login screen for
+        # reasons that have nothing to do with them.
+        school = db.query(School).filter(School.id == course.school_id).first()
+        if school is None or school.status != SCHOOL_APPROVED:
+            raise HTTPException(
+                status_code=403,
+                detail="This school is not accepting registrations yet."
+            )
+
         # Public self-registration always creates a student account - anyone hitting this
         # endpoint directly can't grant themselves instructor/admin access. Those roles are
         # created via school signup (admin) or the /instructors admin-only create endpoint.
@@ -147,12 +160,38 @@ class AuthService:
 
         # A super admin's own school_id is just wherever their account happens to live (see
         # effective_school_id's docstring) - deactivating that school shouldn't lock them out of
-        # the platform, since deactivating schools is itself a super-admin-only action.
-        if user.role.name.lower() != "super_admin" and not user.school.is_active:
-            raise HTTPException(
-                status_code=403,
-                detail="This school's account has been deactivated. Contact your platform administrator."
-            )
+        # the platform, since deactivating schools is itself a super-admin-only action. The same
+        # reasoning covers approval status: a super admin is who reviews it.
+        if user.role.name.lower() != "super_admin":
+
+            # Checked before is_active so a school awaiting review is told it is awaiting review,
+            # rather than getting the "deactivated" message meant for one a super admin
+            # deliberately shut off. Credentials are verified above either way, so this never
+            # reveals whether an email exists at an unapproved school.
+            if user.school.status == SCHOOL_PENDING:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Your school's registration is still pending review by the platform "
+                           "administrator. You'll be able to sign in once it's approved."
+                )
+
+            if user.school.status == SCHOOL_REJECTED:
+                note = user.school.review_note
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        f"This school's registration was not approved. Reason: {note}"
+                        if note else
+                        "This school's registration was not approved. Contact the platform "
+                        "administrator."
+                    )
+                )
+
+            if not user.school.is_active:
+                raise HTTPException(
+                    status_code=403,
+                    detail="This school's account has been deactivated. Contact your platform administrator."
+                )
 
         token = create_access_token(
             {

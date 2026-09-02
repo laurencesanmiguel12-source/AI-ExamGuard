@@ -13,6 +13,7 @@ import Courses from "./pages/Courses/Courses";
 import Subjects from "./pages/Subjects/Subjects";
 import Students from "./pages/Students/Students";
 import Instructors from "./pages/Instructors/Instructors";
+import SchoolApprovals from "./pages/SchoolApprovals/SchoolApprovals";
 import Exams from "./pages/Exams/Exams";
 import ExamContent from "./pages/ExamContent/ExamContent";
 import ExamRoster from "./pages/ExamRoster/ExamRoster";
@@ -67,6 +68,13 @@ function App() {
                   <Route path="courses" element={<Courses />} />
                   <Route path="subjects" element={<Subjects />} />
                   <Route path="instructors" element={<Instructors />} />
+                </Route>
+
+                {/* super_admin ONLY - allowedRoles={["admin"]} would also admit every school
+                    admin (see utils/roles.js hasRole), and this is the platform-wide queue that
+                    decides which schools exist at all. */}
+                <Route element={<ProtectedRoute allowedRoles={["super_admin"]} />}>
+                  <Route path="school-approvals" element={<SchoolApprovals />} />
                 </Route>
               </Route>
             </Route>

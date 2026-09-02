@@ -26,6 +26,9 @@ export function useSchool() {
     getSchoolBySlug(schoolSlug)
       .then((found) => {
         if (!active) return;
+        // A pending or rejected school still resolves here on purpose - the login page reads
+        // school.status to explain what happened rather than bouncing whoever registered it.
+        // Only a genuinely unknown slug (404) sends them home.
         if (!found) navigate("/", { replace: true });
         else setSchool(found);
       })

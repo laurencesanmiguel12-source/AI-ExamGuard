@@ -60,9 +60,12 @@ class User(Base, TimestampMixin):
         back_populates="users"
     )
 
+    # foreign_keys is required, not stylistic: schools.reviewed_by_user_id is a second FK path
+    # between these two tables, so without it SQLAlchemy cannot tell which one this join means.
     school = relationship(
         "School",
-        back_populates="users"
+        back_populates="users",
+        foreign_keys=[school_id]
     )
 
     student = relationship(

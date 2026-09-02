@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Building2, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Building2, ArrowRight, Clock } from "lucide-react";
 import { registerSchool } from "../../api/schools";
 import Card from "../../components/ui/Card";
 import { TextField } from "../../components/ui/FormField";
@@ -25,7 +25,6 @@ export default function SchoolSignup() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
-  const navigate = useNavigate();
 
   function handleNameChange(name) {
     setForm((f) => ({ ...f, name, slug: slugEdited ? f.slug : slugify(name) }));
@@ -41,9 +40,11 @@ export default function SchoolSignup() {
     setError("");
     setSubmitting(true);
     try {
-      const school = await registerSchool(form);
+      // No redirect to login any more: the school is created "pending" and its admin cannot sign
+      // in until a platform administrator approves it (backend returns 403 with that reason).
+      // Sending them to a login screen that is guaranteed to reject them would read as a bug.
+      await registerSchool(form);
       setDone(true);
-      setTimeout(() => navigate(`/${school.slug}/login`), 1500);
     } catch (err) {
       setError(err.response?.data?.detail ?? "Couldn't register your school. Check your details and try again.");
     } finally {
@@ -73,8 +74,28 @@ export default function SchoolSignup() {
 
         <Card className="p-6">
           {done ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-foreground">School registered. Redirecting to login…</p>
+            <div className="py-4 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 mb-4">
+                <Clock className="w-6 h-6 text-amber-600" />
+              </div>
+              <h2 className="font-display font-bold text-foreground text-xl mb-2">
+                Registration pending review
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Thanks — <span className="text-foreground font-medium">{form.name}</span> has been
+                submitted to the platform administrator for review.
+              </p>
+              <p className="text-sm text-muted-foreground mt-3">
+                Your admin account (<span className="text-foreground">{form.email}</span>) is
+                already created. You'll be able to sign in with it as soon as the school is
+                approved — there's nothing else to fill in.
+              </p>
+              <Link
+                to="/"
+                className="inline-block mt-6 text-sm text-primary hover:underline"
+              >
+                Back to home
+              </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>

@@ -33,6 +33,14 @@ assert.equal(hasRole(admin, ["student"]), false);
 assert.equal(hasRole(superAdmin, ["instructor"]), false);
 assert.equal(hasRole(admin, ["instructor"]), false);
 
+// A ["super_admin"] list is the one way to gate something to the platform operator alone - the
+// School Approvals queue decides which schools exist, so a school admin must NOT reach it even
+// though every other "admin" gate admits a super admin.
+assert.equal(hasRole(superAdmin, ["super_admin"]), true);
+assert.equal(hasRole(admin, ["super_admin"]), false, "school admin must not reach super-admin-only pages");
+assert.equal(hasRole(instructor, ["super_admin"]), false);
+assert.equal(hasRole(student, ["super_admin"]), false);
+
 // Roles still gate normally.
 assert.equal(hasRole(student, ["admin"]), false);
 assert.equal(hasRole(instructor, ["admin"]), false);
