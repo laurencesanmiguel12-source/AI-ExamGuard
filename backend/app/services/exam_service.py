@@ -65,6 +65,24 @@ class ExamService:
             )
             if not is_super_admin(current_user):
                 query = query.filter(Course.school_id == current_user.school_id)
+
+            # Instructors get only their own exams. Every exam *action* is owner-gated by
+            # require_exam_owner, so listing the whole school's exams to an instructor promised
+            # access the detail routes then refused: Exams.jsx renders a "View roster" link on
+            # every row, and a newly created instructor (who owns nothing yet) saw a full list
+            # where every single roster link 403'd. Reported live as "new instructor cannot see
+            # student roster". Admins still get the whole school - they legitimately manage all
+            # of it - and the instructor dashboard already filtered to instructor_id == me.
+            if current_user.role.name.lower() == "instructor":
+                instructor = (
+                    db.query(Instructor)
+                    .filter(Instructor.user_id == current_user.id)
+                    .first()
+                )
+                if instructor is None:
+                    return []
+                query = query.filter(Exam.instructor_id == instructor.id)
+
             return query.all()
 
         student = db.query(Student).filter(Student.user_id == current_user.id).first()

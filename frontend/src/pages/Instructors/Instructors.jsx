@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen, AlertTriangle } from "lucide-react";
 import { getInstructors, createInstructor, updateInstructor, deleteInstructor } from "../../api/instructors";
 import { getSubjects } from "../../api/subjects";
 import {
@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   password: "",
   first_name: "",
   last_name: "",
+  subject_ids: [],
 };
 
 function SubjectsModal({ instructor, allSubjects, onClose }) {
@@ -84,21 +85,38 @@ function SubjectsModal({ instructor, allSubjects, onClose }) {
   );
 }
 
-function buildColumns(onManageSubjects) {
+function buildColumns(onManageSubjects, subjectCounts) {
   return [
     { key: "employee_number", label: "Employee No." },
     { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
     {
       key: "subjects",
       label: "Subjects",
-      render: (row) => (
-        <button
-          onClick={() => onManageSubjects(row)}
-          className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:underline"
-        >
-          <BookOpen className="w-3.5 h-3.5" /> Manage
-        </button>
-      ),
+      render: (row) => {
+        const count = subjectCounts[row.id];
+        return (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onManageSubjects(row)}
+              className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:underline"
+            >
+              <BookOpen className="w-3.5 h-3.5" /> Manage
+            </button>
+            {/* An instructor with no subject cannot create an exam, and with no exam of their own
+                every roster stays closed to them - the account looks fine until they try to use
+                it. Called out here because assigning a subject is a separate step an admin can
+                easily miss. */}
+            {count === 0 && (
+              <span
+                className="flex items-center gap-1 text-[11px] text-amber-700"
+                title="Assign a subject before this instructor can create exams"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" /> No subjects
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 }
@@ -113,6 +131,7 @@ export default function Instructors() {
   const [deleting, setDeleting] = useState(null);
   const [managingSubjects, setManagingSubjects] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [subjectCounts, setSubjectCounts] = useState({});
 
   function refresh() {
     setLoading(true);
@@ -120,7 +139,18 @@ export default function Instructors() {
       .then(([i, s]) => {
         setInstructors(i);
         setAllSubjects(s);
+        // One request per instructor - the same shape the instructor dashboard already uses for
+        // per-exam rosters, and this list is short. A failure here only costs the warning badge,
+        // so it must not blank out the table.
+        return Promise.all(
+          i.map((row) =>
+            getInstructorSubjects(row.id)
+              .then((assigned) => [row.id, assigned.length])
+              .catch(() => [row.id, null])
+          )
+        ).then((entries) => setSubjectCounts(Object.fromEntries(entries)));
       })
+      .catch(() => setSubjectCounts({}))
       .finally(() => setLoading(false));
   }
 
@@ -179,7 +209,7 @@ export default function Instructors() {
       </div>
 
       <DataTable
-        columns={buildColumns(setManagingSubjects)}
+        columns={buildColumns(setManagingSubjects, subjectCounts)}
         rows={instructors}
         loading={loading}
         onEdit={openEdit}
@@ -229,6 +259,48 @@ export default function Instructors() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                 />
+                {/* Assigned here rather than only through the separate Manage dialog: without at
+                    least one subject the new account cannot create an exam, so it arrives unable
+                    to do the main thing an instructor does. */}
+                <div className="mb-4">
+                  <label className="block text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+                    Subjects
+                  </label>
+                  {allSubjects.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No subjects exist yet — create one first, or assign later from the list.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {allSubjects.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-primary"
+                            checked={form.subject_ids.includes(s.id)}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                subject_ids: e.target.checked
+                                  ? [...form.subject_ids, s.id]
+                                  : form.subject_ids.filter((id) => id !== s.id),
+                              })
+                            }
+                          />
+                          <span className="text-sm text-foreground">
+                            {s.code} — {s.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {allSubjects.length > 0 && form.subject_ids.length === 0 && (
+                    <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-700">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Without a subject this instructor won't be able to create exams.
+                    </p>
+                  )}
+                </div>
               </>
             )}
             <button
