@@ -1,4 +1,4 @@
-name: Backend tests
+name: Tests
 
 on:
   push:
@@ -70,3 +70,40 @@ jobs:
           printf 'DATABASE_URL=%s\nSECRET_KEY=%s\nALGORITHM=%s\nACCESS_TOKEN_EXPIRE_MINUTES=%s\n' \
             "$DATABASE_URL" "$SECRET_KEY" "$ALGORITHM" "$ACCESS_TOKEN_EXPIRE_MINUTES" > .env
           pytest --cov=app --cov-report=term-missing
+
+  # Separate job, not another step on pytest: the frontend needs none of the Python/ML stack
+  # above (several minutes of installs), and keeping them independent means a UI regression is
+  # reported even while the backend job is still installing torch.
+  vitest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: frontend
+        run: pnpm lint
+
+      - name: Run vitest
+        working-directory: frontend
+        run: pnpm test
+
+      # roles.js gates every page in the UI and mirrors the backend's own role rules, so its
+      # assertions run in CI rather than only when someone remembers to invoke the script.
+      - name: Role-helper self-check
+        working-directory: frontend
+        run: node src/utils/roles.selfcheck.mjs
