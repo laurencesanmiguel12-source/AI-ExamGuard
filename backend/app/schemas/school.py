@@ -16,9 +16,17 @@ class SchoolResponse(SchoolBase):
 
 
 class SchoolPublicStatusResponse(BaseModel):
-    """Unauthenticated - what the login page may show about a school it resolved by slug. Name
-    and status only: enough to say "pending review" or "not approved" to whoever registered it,
-    with the reviewer's note when there is one, and nothing about the school's users or data."""
+    """Unauthenticated - what the login/registration pages may see about a school resolved by
+    slug. Identity and status only: enough to say "pending review" or "not approved" to whoever
+    registered it, and nothing about the school's users or data.
+
+    `id` is required, not incidental: this response backs the frontend's useSchool() hook, and the
+    student registration form passes school.id to GET /courses/?school_id= to populate its course
+    picker. Omitting it shipped a live bug where registration showed "Loading courses…" forever
+    with the submit button stuck disabled. It exposes nothing new - the public GET /schools/ list
+    already returns ids.
+    """
+    id: int
     name: str
     slug: str
     status: str

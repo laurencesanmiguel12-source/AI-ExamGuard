@@ -53,6 +53,18 @@ def test_pending_school_is_still_resolvable_by_slug_so_its_login_page_can_explai
     assert response.json()["name"] == "Approval University"
 
 
+def test_by_slug_lookup_exposes_the_school_id(client, make_school):
+    """Regression guard. useSchool() is backed by this endpoint and the student registration form
+    passes school.id to GET /courses/?school_id= - shipping this response without an id left
+    registration stuck on "Loading courses…" with submit disabled, on an approved live school."""
+    school = make_school(slug="id-check-university")
+
+    response = client.get("/schools/slug/id-check-university")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == school.id
+
+
 def test_rejected_school_login_surfaces_the_reviewers_reason(client, make_role, make_user, auth_headers):
     make_role("admin")
     school_id = _register(client).json()["id"]

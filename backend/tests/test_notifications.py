@@ -15,6 +15,19 @@ from app.core.config import settings
 from app.services.notification_service import NotificationService
 
 
+@pytest.fixture(autouse=True)
+def unconfigured_email(monkeypatch):
+    """Pin the email settings for every test in this module.
+
+    These originally just read whatever was in backend/.env, which meant the suite's result
+    depended on whether the developer had configured SMTP yet: green on CI and on a fresh clone,
+    red the moment real Gmail credentials were added. Tests must not care about ambient config -
+    anything that needs a specific setting overrides it explicitly below.
+    """
+    monkeypatch.setattr(settings, "SMTP_HOST", "")
+    monkeypatch.setattr(settings, "PLATFORM_NOTIFY_EMAILS", "")
+
+
 @pytest.fixture
 def sent(monkeypatch):
     """Captures (recipients, subject, body) instead of sending."""
@@ -41,6 +54,15 @@ def test_send_is_a_noop_when_smtp_is_not_configured(db):
     assert settings.email_enabled is False
 
     assert NotificationService.send(["someone@example.com"], "Subject", "Body") is False
+
+
+def test_configured_recipients_win_over_the_super_admin_fallback(db, make_user, monkeypatch):
+    """The deployed config sets PLATFORM_NOTIFY_EMAILS because the super admin's own address is
+    on a domain with no MX records - the fallback would post alerts into a void."""
+    make_user("super_admin", email="platform.one@example.com")
+    monkeypatch.setattr(settings, "PLATFORM_NOTIFY_EMAILS", "ops@example.com, second@example.com")
+
+    assert NotificationService._recipients(db) == ["ops@example.com", "second@example.com"]
 
 
 def test_send_with_no_recipients_does_not_raise(db):
