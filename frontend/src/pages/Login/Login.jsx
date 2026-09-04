@@ -46,7 +46,9 @@ export default function Login() {
         style={{ background: "radial-gradient(circle,#1a4fa8,transparent)" }}
       />
 
-      <div className="relative w-full max-w-md px-6">
+      {/* <main>, not a div: these pages render outside Layout, which owns the app's main
+          landmark, so without this the public pages have none at all. */}
+      <main className="relative w-full max-w-md px-6">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
             <Shield className="w-7 h-7 text-primary" />
@@ -170,7 +172,7 @@ export default function Login() {
           <span>·</span>
           <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> JWT Auth</span>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -11,7 +11,12 @@
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  /* Darkened from #64748b, which measured 4.34:1 against --secondary (#f1f5f9) and so failed
+     WCAG 1.4.3 Contrast (Minimum) at 4.5:1 - flagged by Lighthouse on the live login page. It
+     passed on white and on --background and failed only on the secondary surface, which is
+     exactly where the app puts muted label text. This value clears 5.03:1 on the worst of the
+     three surfaces while staying as close as possible to the original tone. */
+  --muted-foreground: #5c6a7d;
   --accent: #e2e8f0;
   --accent-foreground: #0f172a;
   --destructive: #dc2626;
