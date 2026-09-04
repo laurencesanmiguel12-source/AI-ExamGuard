@@ -29,8 +29,15 @@ export default function Navbar({ onMenuClick }) {
           </span>
         </div>
       </div>
+      {/* aria-label, even though the button has visible text: that text is `hidden sm:inline`, so
+          below 640px it collapses to a bare icon with no accessible name at all - the button
+          simply announces as "button". Caught by Lighthouse, which audits at a mobile viewport by
+          default and so sees the state a desktop check never does. The label is duplicated by the
+          visible text at wider widths, which is harmless - it wins over the text content either
+          way and says the same thing. */}
       <button
         onClick={handleLogout}
+        aria-label="Log out"
         className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors flex-shrink-0"
       >
         <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Log out</span>

@@ -8,6 +8,12 @@
   --card-foreground: #0f172a;
   --primary: #c8192e;
   --primary-foreground: #ffffff;
+  /* Brand red for TEXT sitting on a light primary tint (bg-primary/10 and its /20 hover).
+     --primary itself measures 4.18:1 on the 20% tint - below WCAG 1.4.3's 4.5:1 for the 11px
+     labels that use it, flagged by Lighthouse on the Exams page. This is the smallest
+     darkening that clears it (4.78:1), kept as its own token so the brand colour used for
+     solid buttons and fills stays exactly as designed. */
+  --primary-ink: #b81528;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #f1f5f9;
@@ -37,6 +43,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-ink: var(--primary-ink);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

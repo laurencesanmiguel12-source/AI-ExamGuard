@@ -34,7 +34,7 @@ export default function DataTable({ columns, rows, loading, emptyLabel = "No rec
                 {onEdit && (
                   <button
                     onClick={() => onEdit(row)}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg"
                     aria-label="Edit"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -43,7 +43,7 @@ export default function DataTable({ columns, rows, loading, emptyLabel = "No rec
                 {onDelete && (
                   <button
                     onClick={() => onDelete(row)}
-                    className="text-muted-foreground hover:text-red-600 transition-colors"
+                    className="text-muted-foreground hover:text-red-700 transition-colors p-1.5 rounded-lg"
                     aria-label="Delete"
                   >
                     <Trash2 className="w-4 h-4" />

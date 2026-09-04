@@ -404,7 +404,7 @@ export default function ExamRoom() {
               <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Percentage</div>
             </div>
             <div className="bg-secondary border border-border rounded-xl p-3">
-              <div className={`font-display text-2xl font-black ${result.passed ? "text-emerald-600" : "text-red-600"}`}>
+              <div className={`font-display text-2xl font-black ${result.passed ? "text-emerald-700" : "text-red-600"}`}>
                 {result.passed ? "PASS" : "FAIL"}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Result</div>
@@ -683,7 +683,7 @@ export default function ExamRoom() {
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5">{label}</span>
                   <span
                     className={`text-[10px] font-mono font-bold ${
-                      accommodation ? "text-muted-foreground" : ok ? "text-emerald-600" : "text-red-600"
+                      accommodation ? "text-muted-foreground" : ok ? "text-emerald-700" : "text-red-600"
                     }`}
                   >
                     {accommodation ? "N/A" : ok ? "OK" : alertLabel}

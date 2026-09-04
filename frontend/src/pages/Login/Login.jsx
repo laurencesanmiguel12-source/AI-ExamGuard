@@ -63,7 +63,7 @@ export default function Login() {
         {school?.status === "pending" && (
           <Card className="p-5 mb-4 border-amber-200 bg-amber-50">
             <div className="flex gap-3">
-              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-foreground">Registration pending review</p>
                 <p className="text-sm text-muted-foreground mt-1">

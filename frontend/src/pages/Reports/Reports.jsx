@@ -269,7 +269,7 @@ export default function Reports() {
             </Card>
             <Card className="p-5">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">In Progress</div>
-              <div className="font-display text-4xl font-black text-orange-600">{report.in_progress_count}</div>
+              <div className="font-display text-4xl font-black text-orange-700">{report.in_progress_count}</div>
             </Card>
             <Card className="p-5">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Avg Score</div>
@@ -279,7 +279,7 @@ export default function Reports() {
             </Card>
             <Card className="p-5">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Pass Rate</div>
-              <div className="font-display text-4xl font-black text-emerald-600">{report.pass_rate.toFixed(1)}%</div>
+              <div className="font-display text-4xl font-black text-emerald-700">{report.pass_rate.toFixed(1)}%</div>
             </Card>
           </div>
 
@@ -451,7 +451,7 @@ export default function Reports() {
                         </span>
                         <span className="font-mono text-xs font-bold w-16 text-right">{a.percentage.toFixed(1)}%</span>
                         {a.passed ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <CheckCircle className="w-4 h-4 text-emerald-700 flex-shrink-0" />
                         ) : (
                           <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                         )}

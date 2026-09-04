@@ -83,7 +83,7 @@ export default function Exams() {
       render: (row) => (
         <Link
           to={`/${schoolSlug}/exams/${row.id}/content`}
-          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
+          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary-ink px-2.5 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
         >
           <ListChecks className="w-3.5 h-3.5" /> Manage Content
         </Link>
@@ -95,7 +95,7 @@ export default function Exams() {
       render: (row) => (
         <Link
           to={`/${schoolSlug}/exams/${row.id}/roster`}
-          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary px-2.5 py-1 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
+          className="inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary-ink px-2.5 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
         >
           <Users className="w-3.5 h-3.5" /> Manage Roster
         </Link>

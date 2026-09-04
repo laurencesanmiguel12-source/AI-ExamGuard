@@ -85,7 +85,7 @@ export default function SchoolApprovals() {
       <Card className="mb-6">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-600" />
+            <Clock className="w-4 h-4 text-amber-700" />
             <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
               Awaiting review
             </div>

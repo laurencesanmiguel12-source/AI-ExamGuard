@@ -101,7 +101,7 @@ export default function Results() {
                 }`}
               >
                 {row.passed ? (
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle className="w-5 h-5 text-emerald-700" />
                 ) : (
                   <XCircle className="w-5 h-5 text-red-600" />
                 )}
@@ -119,7 +119,7 @@ export default function Results() {
                 </div>
               </div>
               <div className="text-right">
-                <div className={`font-display text-xl font-black ${row.passed ? "text-emerald-600" : "text-red-600"}`}>
+                <div className={`font-display text-xl font-black ${row.passed ? "text-emerald-700" : "text-red-600"}`}>
                   {row.percentage.toFixed(1)}%
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground">

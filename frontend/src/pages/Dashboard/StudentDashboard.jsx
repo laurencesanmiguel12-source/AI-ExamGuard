@@ -183,7 +183,7 @@ export default function StudentDashboard() {
                       <span>{e.total_points} pts</span>
                     </div>
                     {needsEnrollment && (
-                      <div className="text-[10px] font-mono text-amber-600 mt-1">
+                      <div className="text-[10px] font-mono text-amber-700 mt-1">
                         Face enrollment required before starting
                       </div>
                     )}
@@ -248,7 +248,7 @@ export default function StudentDashboard() {
                 <div className="text-[11px] font-mono text-muted-foreground truncate">{user?.email}</div>
                 <div className="flex items-center gap-1.5 mt-1">
                   <div className={`w-1.5 h-1.5 rounded-full ${user?.is_active ? "bg-emerald-500" : "bg-red-500"}`} />
-                  <span className={`text-[10px] font-mono ${user?.is_active ? "text-emerald-600" : "text-red-600"}`}>
+                  <span className={`text-[10px] font-mono ${user?.is_active ? "text-emerald-700" : "text-red-600"}`}>
                     {user?.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
@@ -278,7 +278,7 @@ export default function StudentDashboard() {
                   me?.face_model_path ? "bg-emerald-50 border-emerald-200" : "bg-secondary border-border"
                 }`}
               >
-                <UserCheck className={`w-5 h-5 ${me?.face_model_path ? "text-emerald-600" : "text-muted-foreground"}`} />
+                <UserCheck className={`w-5 h-5 ${me?.face_model_path ? "text-emerald-700" : "text-muted-foreground"}`} />
               </div>
               <div>
                 <div className="text-foreground text-sm font-medium">
@@ -313,17 +313,17 @@ export default function StudentDashboard() {
                 {
                   val: stats?.avgScore != null ? `${stats.avgScore.toFixed(0)}%` : "—",
                   label: "Avg Score",
-                  color: "text-emerald-600",
+                  color: "text-emerald-700",
                 },
                 {
                   val: stats?.avgRisk != null ? stats.avgRisk.toFixed(0) : "—",
                   label: "Avg Risk",
-                  color: "text-emerald-600",
+                  color: "text-emerald-700",
                 },
                 {
                   val: stats?.violationsCount != null ? String(stats.violationsCount) : "—",
                   label: "Violations",
-                  color: "text-orange-600",
+                  color: "text-orange-700",
                 },
               ].map(({ val, label, color }) => (
                 <div key={label} className="bg-secondary border border-border rounded-xl p-3 text-center">

@@ -197,7 +197,7 @@ export default function AdminDashboard() {
       {pendingSchools > 0 && (
         <Card className="p-5 mb-6 border-amber-200 bg-amber-50">
           <div className="flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-amber-600 shrink-0" />
+            <Building2 className="w-5 h-5 text-amber-700 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
                 {pendingSchools} school registration{pendingSchools === 1 ? "" : "s"} awaiting review
@@ -220,8 +220,8 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { val: data.students.length, label: "Total Students", icon: GraduationCap, color: "text-blue-600" },
-          { val: data.instructors.length, label: "Instructors", icon: Users, color: "text-emerald-600" },
-          { val: activeExams, label: "Active Exams", icon: ClipboardList, color: "text-orange-600" },
+          { val: data.instructors.length, label: "Instructors", icon: Users, color: "text-emerald-700" },
+          { val: activeExams, label: "Active Exams", icon: ClipboardList, color: "text-orange-700" },
           { val: data.courses.length, label: "Courses", icon: BookOpen, color: "text-primary" },
         ].map(({ val, label, icon: Icon, color }) => (
           <Card key={label} className="p-5 flex items-center gap-4">
@@ -272,7 +272,7 @@ export default function AdminDashboard() {
               </p>
             </div>
             <div className="px-6 py-6">
-              <div className="text-[10px] font-mono text-emerald-600 uppercase tracking-widest mb-1">Instructors</div>
+              <div className="text-[10px] font-mono text-emerald-700 uppercase tracking-widest mb-1">Instructors</div>
               <div className="font-display text-3xl font-black text-foreground">{data.instructors.length}</div>
               <p className="text-xs text-muted-foreground mt-2">Provisioned instructor profiles.</p>
             </div>
@@ -359,7 +359,7 @@ export default function AdminDashboard() {
                 </Card>
                 <Card className="p-5">
                   <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Aggregate Pass Rate</div>
-                  <div className="font-display text-3xl font-black text-emerald-600">
+                  <div className="font-display text-3xl font-black text-emerald-700">
                     {schoolAnalytics.aggregate_pass_rate.toFixed(1)}%
                   </div>
                 </Card>
@@ -371,7 +371,7 @@ export default function AdminDashboard() {
                 </Card>
                 <Card className="p-5">
                   <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Total Violations</div>
-                  <div className="font-display text-3xl font-black text-orange-600">{schoolAnalytics.total_violations}</div>
+                  <div className="font-display text-3xl font-black text-orange-700">{schoolAnalytics.total_violations}</div>
                 </Card>
               </div>
 
@@ -627,7 +627,7 @@ export default function AdminDashboard() {
                 </Card>
                 <Card className="p-5">
                   <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Eligible for Purge</div>
-                  <div className="font-display text-3xl font-black text-orange-600">{retentionPreview.eligible_count}</div>
+                  <div className="font-display text-3xl font-black text-orange-700">{retentionPreview.eligible_count}</div>
                 </Card>
               </div>
 

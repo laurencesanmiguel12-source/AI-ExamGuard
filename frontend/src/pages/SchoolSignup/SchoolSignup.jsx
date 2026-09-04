@@ -78,7 +78,7 @@ export default function SchoolSignup() {
           {done ? (
             <div className="py-4 text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 mb-4">
-                <Clock className="w-6 h-6 text-amber-600" />
+                <Clock className="w-6 h-6 text-amber-700" />
               </div>
               <h2 className="font-display font-bold text-foreground text-xl mb-2">
                 Registration pending review

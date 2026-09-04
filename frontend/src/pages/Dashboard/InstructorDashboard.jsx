@@ -152,8 +152,8 @@ export default function InstructorDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { val: myExams.length, label: "My Exams", color: "text-blue-600" },
-          { val: activeCount, label: "Active", color: "text-emerald-600" },
-          { val: mySessions.length, label: "Live Sessions", color: "text-orange-600" },
+          { val: activeCount, label: "Active", color: "text-emerald-700" },
+          { val: mySessions.length, label: "Live Sessions", color: "text-orange-700" },
           { val: criticalCount, label: "Critical", color: "text-red-600" },
         ].map(({ val, label, color }) => (
           <Card key={label} className="p-5">
@@ -205,7 +205,7 @@ export default function InstructorDashboard() {
 
         <Card>
           <div className="px-6 py-4 border-b border-border flex items-center gap-2">
-            <Users className="w-4 h-4 text-emerald-600" />
+            <Users className="w-4 h-4 text-emerald-700" />
             <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
               Current Exam Enrollment
             </div>
@@ -276,7 +276,7 @@ export default function InstructorDashboard() {
                       {Object.entries(VIOLATION_META).map(([type, meta]) => {
                         const count = s.violation_counts[type] ?? 0;
                         return (
-                          <span key={type} className={count > 0 ? "text-orange-600" : "text-muted-foreground"}>
+                          <span key={type} className={count > 0 ? "text-orange-700" : "text-muted-foreground"}>
                             {meta.label}:{count > 0 ? count : "–"}
                           </span>
                         );
@@ -365,7 +365,7 @@ export default function InstructorDashboard() {
               rel="noopener noreferrer"
               className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"
             >
-              <Download className="w-5 h-5 text-emerald-600" />
+              <Download className="w-5 h-5 text-emerald-700" />
               <span className="text-[11px] font-mono text-muted-foreground">Extension</span>
             </a>
           </div>

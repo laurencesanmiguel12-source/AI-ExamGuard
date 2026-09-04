@@ -111,7 +111,7 @@ export default function ResultDetail() {
           <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Percentage</div>
         </Card>
         <Card className={`p-4 text-center ${session.passed ? "bg-emerald-50" : "bg-red-50"}`}>
-          <div className={`font-display text-2xl font-black ${session.passed ? "text-emerald-600" : "text-red-600"}`}>
+          <div className={`font-display text-2xl font-black ${session.passed ? "text-emerald-700" : "text-red-600"}`}>
             {session.passed ? "PASS" : "FAIL"}
           </div>
           <div className="text-[10px] font-mono text-muted-foreground mt-0.5">Result</div>
@@ -158,7 +158,7 @@ export default function ResultDetail() {
                 {ungraded ? (
                   <MinusCircle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                 ) : answer?.is_correct ? (
-                  <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                  <CheckCircle className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                 ) : (
                   <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
                 )}

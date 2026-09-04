@@ -1,0 +1,21 @@
+question_text,question_type,points,order_number,choice_1,choice_1_correct,choice_2,choice_2_correct,choice_3,choice_3_correct,choice_4,choice_4_correct
+What is a variable in programming?,Multiple Choice,5,1,A named location used to store a value,true,A fixed number that never changes,false,A type of loop,false,An error in the code,false
+Which of these is a valid variable name in most languages?,Multiple Choice,5,2,2ndPlace,false,total_score,true,my-value,false,for,false
+"A data type defines what kind of value a variable can hold, such as a number or text.",True/False,5,3,True,true,False,false,,,,
+Which data type would best store the value 3.14?,Multiple Choice,5,4,Integer,false,Float,true,Boolean,false,Character,false
+What are the only two values a Boolean can hold?,Multiple Choice,5,5,0 and 1,false,True and False,true,Yes and No,false,On and Off,false
+Which operator is used to compare two values for equality in most C-style languages?,Multiple Choice,5,6,=,false,==,true,=>,false,:=,false
+"In the expression total = price + tax, what is the = symbol doing?",Multiple Choice,5,7,Comparing two values,false,Assigning a value to a variable,true,Adding two numbers,false,Declaring a data type,false
+Which structure repeats a block of code while a condition remains true?,Multiple Choice,5,8,If statement,false,While loop,true,Function,false,Array,false
+"A loop whose condition never becomes false is called an infinite loop.",True/False,5,9,True,true,False,false,,,,
+Which statement chooses between two different paths in a program?,Multiple Choice,5,10,if-else,true,for,false,return,false,import,false
+What is the index of the first element in a zero-indexed array?,Multiple Choice,5,11,0,true,1,false,-1,false,It depends on the language,false
+What is a function?,Multiple Choice,5,12,A reusable block of code that performs a task,true,A kind of variable,false,A syntax error,false,A comment,false
+"A value passed into a function when it is called is known as what?",Multiple Choice,5,13,Argument,true,Return value,false,Loop counter,false,Constant,false
+What does a return statement do inside a function?,Multiple Choice,5,14,Sends a value back to the caller,true,Stops the entire program,false,Prints text to the screen,false,Declares a new variable,false
+"Comments are ignored when the program runs, so they do not change its output.",True/False,5,15,True,true,False,false,,,,
+What is the difference between a compiler and an interpreter?,Multiple Choice,5,16,A compiler translates the whole program before running it; an interpreter translates line by line as it runs,true,A compiler is faster to write code in,false,An interpreter only works with numbers,false,There is no difference,false
+What kind of error is a missing semicolon or bracket?,Multiple Choice,5,17,Syntax error,true,Logic error,false,Runtime error,false,Hardware error,false
+"A program that runs without crashing but produces the wrong answer contains what kind of error?",Multiple Choice,5,18,Logic error,true,Syntax error,false,Compiler error,false,Typing error,false
+Name the process of finding and fixing errors in a program.,Identification,5,19,,,,,,,,
+Name the step-by-step set of instructions used to solve a problem before it is written as code.,Identification,5,20,,,,,,,,
