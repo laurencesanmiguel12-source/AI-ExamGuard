@@ -128,6 +128,7 @@ export default function SchoolSignup() {
               )}
               <TextField
                 label="School Code"
+                hint="A short abbreviation for your school, e.g. AU."
                 required
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value })}

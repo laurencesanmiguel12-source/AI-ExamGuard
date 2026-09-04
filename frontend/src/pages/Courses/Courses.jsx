@@ -87,7 +87,9 @@ export default function Courses() {
         }
       />
 
-      <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No courses yet." />
+      <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No courses yet"
+        emptyHint="A course is a degree programme like BS Computer Science. Add one first — students choose a course when they register, and every subject belongs to one."
+      />
 
       {editing && (
         <Modal title={editing.id ? "Edit Course" : "Add Course"} onClose={() => setEditing(null)}>
@@ -95,6 +97,7 @@ export default function Courses() {
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
             <TextField
               label="Code"
+              hint="A short identifier students will recognise, e.g. BSCS."
               required
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -102,6 +105,7 @@ export default function Courses() {
             />
             <TextField
               label="Name"
+              hint="The full programme name, e.g. BS Computer Science."
               required
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}

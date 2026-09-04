@@ -32,6 +32,7 @@ const { default: ConfirmDialog } = await import("../components/ConfirmDialog");
 const { default: DataTable } = await import("../components/DataTable");
 const { default: Sidebar } = await import("../components/Sidebar");
 const { default: Layout } = await import("../components/Layout");
+const { default: SetupChecklist } = await import("../components/SetupChecklist");
 
 function atRoute(path, element) {
   return render(
@@ -136,6 +137,15 @@ describe("accessibility (axe, WCAG 2 A/AA)", () => {
     expect(skip.getAttribute("href")).toBe("#main-content");
     // The target has to be focusable, or following the link moves the viewport but not focus.
     expect(document.getElementById("main-content").getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("first-run setup checklist", async () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/arellano-university/dashboard"]}>
+        <SetupChecklist counts={{ courses: 1, subjects: 0, instructors: 0, exams: 0 }} />
+      </MemoryRouter>
+    );
+    await expectClean(container);
   });
 
   // Present on every authenticated screen.

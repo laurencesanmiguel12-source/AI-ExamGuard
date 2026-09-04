@@ -207,7 +207,9 @@ export default function Exams() {
         </div>
       )}
 
-      <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet." />
+      <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet"
+        emptyHint="An exam belongs to a subject and is owned by one instructor. Once created, open it to write questions and choose which students sit it."
+      />
 
       {editing && (
         <Modal title={editing.id ? "Edit Exam" : "Add Exam"} onClose={() => setEditing(null)}>
@@ -229,6 +231,7 @@ export default function Exams() {
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 label="Duration (min)"
+                hint="How long a student gets once they start, in minutes."
                 type="number"
                 required
                 value={form.duration_minutes}
@@ -236,6 +239,7 @@ export default function Exams() {
               />
               <TextField
                 label="Total Points"
+                hint="The exam total. Keep it equal to the sum of your question points."
                 type="number"
                 required
                 value={form.total_points}
@@ -244,13 +248,15 @@ export default function Exams() {
             </div>
             <TextField
               label="Passing Score"
+              hint="Points needed to pass, out of the total above — not a percentage."
               type="number"
               required
               value={form.passing_score}
               onChange={(e) => setForm({ ...form, passing_score: e.target.value })}
             />
             <TextField
-              label="Max Risk Score (retake threshold, optional)"
+              label="Max Risk Score"
+              hint="Optional. If proctoring flags a student above this score (0–100), their attempt is marked for review and they may be offered a retake. Leave blank to never auto-flag."
               type="number"
               min="0"
               max="100"
@@ -261,6 +267,7 @@ export default function Exams() {
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 label="Start Time"
+                hint="The exam cannot be opened before this."
                 type="datetime-local"
                 required
                 value={form.start_time}
@@ -268,6 +275,7 @@ export default function Exams() {
               />
               <TextField
                 label="End Time"
+                hint="The exam closes at this time."
                 type="datetime-local"
                 required
                 value={form.end_time}

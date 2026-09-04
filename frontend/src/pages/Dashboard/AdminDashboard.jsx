@@ -3,11 +3,13 @@ import { GraduationCap, Users, ClipboardList, BookOpen, RefreshCw, Trash2, Build
 import { getStudents } from "../../api/students";
 import { getInstructors } from "../../api/instructors";
 import { getCourses } from "../../api/courses";
+import { getSubjects } from "../../api/subjects";
 import { getExams } from "../../api/exams";
 import { getSystemStatus } from "../../api/system";
 import { getAuditLog } from "../../api/auditLog";
 import { getSchoolAnalytics } from "../../api/analytics";
 import { getSchoolsForReview } from "../../api/schools";
+import SetupChecklist from "../../components/SetupChecklist";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
 import { getPendingTrainingCandidates, reviewTrainingCandidate } from "../../api/trainingReview";
 import { getEvidenceBlobUrl } from "../../api/violations";
@@ -50,7 +52,7 @@ export default function AdminDashboard() {
     };
   }, [isSuperAdmin]);
   const [tab, setTab] = useState("overview");
-  const [data, setData] = useState({ students: [], instructors: [], courses: [], exams: [] });
+  const [data, setData] = useState({ students: [], instructors: [], courses: [], exams: [], subjects: [] });
   const [loading, setLoading] = useState(true);
   const [systemStatus, setSystemStatus] = useState(null);
   const [systemLoading, setSystemLoading] = useState(false);
@@ -72,8 +74,9 @@ export default function AdminDashboard() {
   const [trainingPreviewUrls, setTrainingPreviewUrls] = useState({});
 
   useEffect(() => {
-    Promise.all([getStudents(), getInstructors(), getCourses(user.school_id), getExams()])
-      .then(([students, instructors, courses, exams]) => setData({ students, instructors, courses, exams }))
+    Promise.all([getStudents(), getInstructors(), getCourses(user.school_id), getExams(), getSubjects()])
+      .then(([students, instructors, courses, exams, subjects]) =>
+        setData({ students, instructors, courses, exams, subjects }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -219,6 +222,15 @@ export default function AdminDashboard() {
           </div>
         </Card>
       )}
+
+      <SetupChecklist
+        counts={{
+          courses: data.courses.length,
+          subjects: data.subjects.length,
+          instructors: data.instructors.length,
+          exams: data.exams.length,
+        }}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[

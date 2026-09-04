@@ -166,7 +166,12 @@ export default function Students() {
         loading={loading}
         onEdit={canManage ? openEdit : undefined}
         onDelete={canManage ? setDeleting : undefined}
-        emptyLabel="No students yet."
+        emptyLabel="No students yet"
+        emptyHint={
+          canManage
+            ? "Add students here, or share your school's sign-up link and let them register themselves — either way they appear in this list."
+            : "No students have registered at your school yet. Once they do, they will appear here."
+        }
       />
 
       {editing && (

@@ -480,6 +480,7 @@ export default function ExamContent() {
             <div className="grid grid-cols-2 gap-3">
               <TextField
                 label="Points"
+                hint="What this single question is worth towards the exam total."
                 type="number"
                 required
                 value={questionForm.points}
@@ -487,6 +488,7 @@ export default function ExamContent() {
               />
               <TextField
                 label="Order Number"
+                hint="Where this question appears in the exam. Lower numbers come first."
                 type="number"
                 required
                 value={questionForm.order_number}

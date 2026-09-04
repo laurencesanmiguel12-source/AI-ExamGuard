@@ -215,7 +215,8 @@ export default function Instructors() {
         loading={loading}
         onEdit={openEdit}
         onDelete={setDeleting}
-        emptyLabel="No instructors yet."
+        emptyLabel="No instructors yet"
+        emptyHint="Add your teaching staff here. Give each one at least one subject when you create them, or they will not be able to set any exam."
       />
 
       {editing && (
@@ -224,6 +225,7 @@ export default function Instructors() {
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
             <TextField
               label="Employee Number"
+              hint="Your school's own staff ID. It must be unique within your school."
               required
               value={form.employee_number}
               onChange={(e) => setForm({ ...form, employee_number: e.target.value })}

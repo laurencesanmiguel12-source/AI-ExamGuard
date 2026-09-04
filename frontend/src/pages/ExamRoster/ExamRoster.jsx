@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { ArrowLeft, Plus, Users } from "lucide-react";
+import { ArrowLeft, Plus, Users, AlertTriangle } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
   getExamRoster,
@@ -147,12 +147,26 @@ export default function ExamRoster() {
         <h3 className="text-sm font-semibold text-foreground">Assigned Students</h3>
       </div>
 
+      {exam.is_active && roster.length === 0 && (
+        <div
+          role="status"
+          className="mb-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p className="text-sm text-foreground">
+            This exam is active but has nobody on its roster, so no student can open it. Add
+            students below before it is due to start.
+          </p>
+        </div>
+      )}
+
       <DataTable
         columns={rosterColumns}
         rows={roster}
         loading={false}
         onDelete={setDeleting}
-        emptyLabel="No students assigned yet — this exam is course-wide."
+        emptyLabel="Nobody can sit this exam yet"
+        emptyHint="An exam is only visible to students you add here. Being enrolled in the course is not enough on its own — pick students from the list below."
       />
 
       <div className="mt-8 mb-3 flex items-center justify-between">

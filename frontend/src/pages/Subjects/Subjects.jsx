@@ -101,7 +101,9 @@ export default function Subjects() {
         <div className="mb-4 text-sm text-muted-foreground">Create a course first before adding subjects.</div>
       )}
 
-      <DataTable columns={columns} rows={subjects} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No subjects yet." />
+      <DataTable columns={columns} rows={subjects} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No subjects yet"
+        emptyHint="Subjects are the individual classes inside a course, like CS-101. Exams are created against a subject, so you need at least one before any exam can exist."
+      />
 
       {editing && (
         <Modal title={editing.id ? "Edit Subject" : "Add Subject"} onClose={() => setEditing(null)}>
@@ -109,6 +111,7 @@ export default function Subjects() {
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
             <TextField
               label="Code"
+              hint="The subject code as it appears on a schedule, e.g. CS-101."
               required
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
