@@ -217,7 +217,7 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { val: data.students.length, label: "Total Students", icon: GraduationCap, color: "text-blue-600" },
           { val: data.instructors.length, label: "Instructors", icon: Users, color: "text-emerald-600" },
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
 
           {schoolAnalytics && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <Card className="p-5">
                   <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Total Exams</div>
                   <div className="font-display text-3xl font-black text-foreground">{schoolAnalytics.total_exams}</div>
@@ -375,7 +375,10 @@ export default function AdminDashboard() {
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Three columns only at 2xl: with the 224px sidebar and 48px padding, an xl window (1280)
+          leaves ~1008px here, which is ~320px per column - too tight for these cards. 2xl
+          (1536) leaves ~1264px, so ~405px each. Two columns cover everything in between. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
                 <Card className="xl:col-span-2">
                   <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
                     Instructors

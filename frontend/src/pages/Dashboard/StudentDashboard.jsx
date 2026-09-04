@@ -132,7 +132,10 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Three columns only at 2xl: with the 224px sidebar and 48px padding, an xl window (1280)
+          leaves ~1008px here, which is ~320px per column - too tight for these cards. 2xl
+          (1536) leaves ~1264px, so ~405px each. Two columns cover everything in between. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">

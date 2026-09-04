@@ -149,7 +149,7 @@ export default function InstructorDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { val: myExams.length, label: "My Exams", color: "text-blue-600" },
           { val: activeCount, label: "Active", color: "text-emerald-600" },
@@ -165,7 +165,12 @@ export default function InstructorDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+      {/* Breakpoints here are chosen against the CONTENT width, not the viewport. Tailwind's
+          `lg`/`xl` match the window, but this grid sits beside a fixed 224px sidebar inside 48px
+          of padding, so it always has ~272px less to work with than the breakpoint name suggests.
+          Splitting at lg (1024 window ≈ 750px of content) rather than xl is what stops a laptop
+          sitting in the 1024-1279 band from rendering one full-width stretched column. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <div className="px-6 py-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -235,7 +240,10 @@ export default function InstructorDashboard() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Three columns only at 2xl: with the 224px sidebar and 48px padding, an xl window (1280)
+          leaves ~1008px here, which is ~320px per column - too tight for these cards. 2xl
+          (1536) leaves ~1264px, so ~405px each. Two columns cover everything in between. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
           <Card>
             <div className="px-6 py-4 border-b border-border flex items-center gap-2">

@@ -262,7 +262,7 @@ export default function Reports() {
 
       {report && !loadingReport && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="p-5">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-2">Submitted</div>
               <div className="font-display text-4xl font-black text-blue-600">{report.submitted_count}</div>
@@ -283,7 +283,7 @@ export default function Reports() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 mb-6">
             <Card className="xl:col-span-2">
               <div className="px-6 py-4 border-b border-border text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
                 Score Distribution
