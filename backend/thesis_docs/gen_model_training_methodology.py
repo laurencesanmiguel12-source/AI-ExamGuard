@@ -7,14 +7,21 @@ runs/*/args.yaml, dataset directories, app/resources/risk_model.joblib) or out o
 recorded experiment log - none are illustrative or invented. Where a number is in-sample,
 proxy-derived, or otherwise weaker evidence than it looks, the text says so in place.
 
-The embedded figures are Ultralytics' own plots from the production training run. That run's
-directory (backend/training/runs/) is GITIGNORED, so on a fresh clone the figures are absent -
-missing ones are skipped with a warning rather than crashing the build, and the PDF still
-generates. Re-run the training to regenerate them.
+The figures are Ultralytics' own plots from the production training run. They are NOT embedded in
+the PDF: results.png is a ten-panel grid, and at page width its axis labels are too small to read
+in print. They are instead exported as standalone files in thesis_docs/figures/ and referenced by
+name from the captions, so each can be viewed at full resolution or placed individually in the
+thesis at whatever size it needs.
+
+This script exports them as part of the build, copying from the training run when it is present.
+That run's directory (backend/training/runs/) is GITIGNORED, so on a fresh clone the source is
+absent - the already-exported copies in figures/ are tracked, so the reference still resolves and
+the build still succeeds. Re-run the training to regenerate the sources.
 
 Usage: ../../.venv/Scripts/python.exe gen_model_training_methodology.py
 """
 import os
+import shutil
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
@@ -22,14 +29,15 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, PageBreak,
-                                Table, TableStyle, Image, KeepTogether)
+                                Table, TableStyle, KeepTogether)
 
 OUT_FILE = "AI_ExamGuard_Model_Training_Methodology.pdf"
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 # The production detector run - verified by MD5 to be the source of the deployed
 # app/resources/phone_specialist.pt. Gitignored; see module docstring.
-RUN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                       "..", "training", "runs", "phone_face_specialist-7")
+RUN_DIR = os.path.join(HERE, "..", "training", "runs", "phone_face_specialist-7")
+FIGURES_DIR = os.path.join(HERE, "figures")
 
 styles = getSampleStyleSheet()
 title_style = ParagraphStyle("TitleX", parent=styles["Title"], fontSize=20, leading=25, spaceAfter=6)
@@ -50,6 +58,9 @@ code_style = ParagraphStyle("CodeX", parent=styles["Normal"], fontName="Courier"
                             textColor="#0f172a", backColor="#f1f5f9", borderPadding=6)
 caption_style = ParagraphStyle("CapX", parent=styles["Normal"], fontSize=8.8, leading=12,
                                textColor="#64748b", spaceAfter=12)
+figref_style = ParagraphStyle("FigRefX", parent=styles["Normal"], fontSize=9, leading=12.5,
+                              textColor="#0f172a", backColor="#f1f5f9", borderPadding=5,
+                              spaceBefore=6, spaceAfter=4)
 
 TABLE_STYLE = TableStyle([
     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
@@ -90,20 +101,32 @@ def code(text):
     story.append(Paragraph(text.replace("\n", "<br/>").replace(" ", "&nbsp;"), code_style))
 
 
-def figure(filename, caption, width=6.1 * inch):
-    """Embed one of the training run's plots, scaled to `width` with aspect ratio preserved.
-    A missing file is skipped with a warning (runs/ is gitignored - see module docstring), so a
-    fresh clone still builds a complete document minus the figures."""
-    path = os.path.join(RUN_DIR, filename)
-    if not os.path.isfile(path):
-        print(f"  SKIPPING figure {filename} - not found at {path}")
-        return
-    img = Image(path)
-    img.drawWidth = width
-    img.drawHeight = width * img.imageHeight / img.imageWidth
-    img.hAlign = "CENTER"
-    story.append(KeepTogether([Spacer(1, 4), img, Spacer(1, 5),
-                               Paragraph(caption, caption_style)]))
+def figure(source_name, export_name, caption):
+    """Export one of the training run's plots to figures/ and reference it from the text.
+
+    The plots are NOT embedded. At page width a ten-panel grid like results.png renders with
+    unreadable axis labels, so each is shipped as a full-resolution file the reader opens (or
+    places in the thesis) at whatever size it needs, and the caption - which carries the actual
+    analysis - stays inline here.
+
+    Copies from the training run when it is present; falls back to the already-exported copy when
+    it is not (runs/ is gitignored, figures/ is tracked). Warns and still builds if neither exists.
+    """
+    src = os.path.join(RUN_DIR, source_name)
+    dst = os.path.join(FIGURES_DIR, export_name)
+    if os.path.isfile(src):
+        os.makedirs(FIGURES_DIR, exist_ok=True)
+        shutil.copyfile(src, dst)
+    elif not os.path.isfile(dst):
+        print(f"  WARNING: {source_name} missing from the training run and not yet exported to "
+              f"figures/{export_name} - the reference will point at a file that isn't there.")
+
+    story.append(KeepTogether([
+        Spacer(1, 2),
+        Paragraph(f"<b>Figure reference:</b> "
+                  f"<font face='Courier'>thesis_docs/figures/{export_name}</font>", figref_style),
+        Paragraph(caption, caption_style),
+    ]))
 
 
 def table(rows, widths, caption=None):
@@ -428,7 +451,7 @@ table([
     "deployment. That decision was made on the frozen holdout, at the app's real threshold, "
     "through the full production pipeline (section 7).")
 
-figure("results.png",
+figure("results.png", "fig1_training_curves.png",
        "Figure 1. Per-epoch training curves for the production run (Ultralytics "
        "<font face='Courier'>results.png</font>). Top row: training box, classification, and "
        "distribution-focal losses, plus validation precision and recall. Bottom row: the same "
@@ -454,7 +477,7 @@ h2("4.5 Per-class performance and error modes")
 p("The aggregate mAP in Table 5 averages over two classes that behave quite differently, and the "
   "per-class curves matter because production consumes only one of them:")
 
-figure("BoxPR_curve.png",
+figure("BoxPR_curve.png", "fig2_precision_recall.png",
        "Figure 2. Precision-recall curves per class on the validation split. <b>The phone class "
        "reaches AP@0.5 = 0.914, the face class only 0.743</b>, averaging to the mAP@0.5 of 0.828 "
        "reported in Table 5. The stronger class is the one that matters: phone detection is what "
@@ -466,15 +489,14 @@ figure("BoxPR_curve.png",
        "relies on this model's own face-class box, that is, on the less accurate of its two "
        "outputs.")
 
-figure("confusion_matrix_normalized.png",
+figure("confusion_matrix_normalized.png", "fig3_confusion_matrix.png",
        "Figure 3. Column-normalized confusion matrix (columns are ground truth, rows are "
        "predictions). <b>Class confusion is essentially absent</b> - 0.98 of true phones are "
        "predicted phone and 0.96 of true faces predicted face, with only 0.01 leaking either way "
        "between the two. The real error mode is the <i>background</i> column: among detections "
        "that matched no ground-truth box at all, 43% were phone-class and 57% face-class. The "
        "background row is the mirror case, showing objects missed entirely - 1% of true phones "
-       "and 2% of true faces.",
-       width=5.3 * inch)
+       "and 2% of true faces.")
 
 p("Figure 3 also resolves an apparent contradiction with the face-shaped false-positive bug "
   "described in the next section. This matrix says the model almost never mistakes a phone for a "
@@ -810,7 +832,7 @@ h2("7.6 The training-time F1 curve, and why it is not the headline number")
 p("The training run produces its own F1 curve, and it is included here specifically because it is "
   "easy to mistake for the number in 7.4. It is not the same measurement:")
 
-figure("BoxF1_curve.png",
+figure("BoxF1_curve.png", "fig4_f1_confidence.png",
        "Figure 4. F1 against confidence threshold on the validation split. All classes peak at "
        "<b>F1 = 0.80 at confidence 0.433</b>; the phone class alone peaks near 0.88. <b>This is "
        "not the 0.854 reported in section 7.4</b> - this curve is box-level and IoU-matched, "
