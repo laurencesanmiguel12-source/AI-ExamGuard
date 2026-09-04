@@ -92,18 +92,21 @@ export default function Login() {
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
+              <div role="alert" className="rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest block mb-1.5">
+              <label htmlFor="login-email" className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest block mb-1.5">
                 Email Address
               </label>
               <div className="flex items-center gap-2 bg-secondary border border-border rounded-xl px-4 py-3 focus-within:border-primary/40 transition-colors">
                 <Users className="w-4 h-4 text-muted-foreground" />
                 <input
+                  id="login-email"
+                  name="email"
+                  autoComplete="username"
                   type="email"
                   required
                   value={email}
@@ -115,12 +118,15 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest block mb-1.5">
+              <label htmlFor="login-password" className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest block mb-1.5">
                 Password
               </label>
               <div className="flex items-center gap-2 bg-secondary border border-border rounded-xl px-4 py-3 focus-within:border-primary/40 transition-colors">
                 <Lock className="w-4 h-4 text-muted-foreground" />
                 <input
+                  id="login-password"
+                  name="password"
+                  autoComplete="current-password"
                   type="password"
                   required
                   value={password}

@@ -66,3 +66,25 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Keyboard focus. Inputs across the app set `outline-none` and rely on a focus border, which
+   leaves buttons, links and custom controls with no visible focus at all - keyboard users lose
+   their place entirely. :focus-visible only paints for keyboard/AT interaction, so this restores
+   a clear indicator without putting a ring around every mouse click. Uses the ring token rather
+   than a hard-coded colour so it stays legible in both themes. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring, currentColor);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect a reduced-motion preference: the app uses transition-colors widely and has a polling
+   live monitor, neither of which needs animation to be understood. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

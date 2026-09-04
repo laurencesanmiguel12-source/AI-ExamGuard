@@ -19,4 +19,12 @@ export default defineConfig({
     port: 5173,
     allowedHosts: true,
   },
+  test: {
+    // jsdom, not the default node environment - these are component tests that need a DOM.
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    // Only our own specs. Without this, vitest also walks node_modules and the built dist/.
+    include: ['src/**/*.test.{js,jsx}'],
+  },
 })
