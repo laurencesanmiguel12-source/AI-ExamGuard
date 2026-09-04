@@ -21,21 +21,21 @@ const NAV_GROUPS = [
   {
     group: "Academic Management",
     items: [
-      { to: "/courses", label: "Courses", icon: BookOpen, roles: ["admin"] },
-      { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
-      { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
+      { to: "/courses", label: "Course Management", icon: BookOpen, roles: ["admin"] },
+      { to: "/subjects", label: "Subject Management", icon: Layers, roles: ["admin"] },
+      { to: "/instructors", label: "Instructor Management", icon: Users, roles: ["admin"] },
       // Instructors get read-only Students (the page hides its own admin-only add/edit/delete
       // controls). Without this entry there was no way for an instructor to look a student up at
       // all - the reported "can't find students on the lists" - even though GET /students/ has
       // allowed any authenticated user in their own school for a while now.
-      { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin", "instructor"] },
+      { to: "/students", label: "Student Management", icon: GraduationCap, roles: ["admin", "instructor"] },
     ],
   },
   {
     group: "Assessment",
     items: [
-      { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
-      { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },
+      { to: "/exams", label: "Exam Management", icon: ClipboardList, roles: ["admin", "instructor"] },
+      { to: "/reports", label: "Exam Reports", icon: BarChart3, roles: ["admin", "instructor"] },
     ],
   },
   {
@@ -128,7 +128,7 @@ export default function Sidebar({ open, onClose }) {
                 to={`/${schoolSlug}${to}`}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 rounded-xl px-3 py-2 text-[12px] font-mono uppercase tracking-wider transition-all ${
+                  `flex items-center gap-2.5 rounded-xl px-3 py-2 text-[11px] font-mono uppercase tracking-wide leading-tight transition-all ${
                     isActive
                       ? "bg-primary text-white"
                       : "text-muted-foreground hover:text-foreground hover:bg-black/5"

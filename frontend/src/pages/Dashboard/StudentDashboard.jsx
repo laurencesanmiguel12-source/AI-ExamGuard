@@ -109,6 +109,16 @@ export default function StudentDashboard() {
     setShowEnrollPrompt(false);
   }
 
+  // Every exam is proctored by default (no per-exam opt-out) - the only way to skip face
+  // enrollment is the student-level accommodation flag. The backend enforces this too in
+  // exam_session_service.start_exam; this is UX, not the real gate.
+  //
+  // Component-level rather than per exam row: the banner below needs it even when the student
+  // has no exams yet, which is exactly when they have time to get it done. The modal above is
+  // the one-off interruption and can be dismissed for the session; the banner is the standing
+  // reminder that does not go away until they actually enrol.
+  const needsEnrollment = !!me && !me.skip_face_check && !me.face_model_path;
+
   return (
     <div>
       {showEnrollPrompt && (
@@ -139,12 +149,36 @@ export default function StudentDashboard() {
       {/* Three columns only at 2xl: with the 224px sidebar and 48px padding, an xl window (1280)
           leaves ~1008px here, which is ~320px per column - too tight for these cards. 2xl
           (1536) leaves ~1264px, so ~405px each. Two columns cover everything in between. */}
+      {/* A prerequisite, not a statistic. It used to live in a side card and as small print
+          inside each exam row, so a student with no exam yet never discovered it - and one with
+          an exam met it only at the moment they tried to start. */}
+      {needsEnrollment && (
+        <Card className="mb-6 border-amber-200 bg-amber-50 p-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <UserCheck className="h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">Set up face verification first</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Your exams are proctored, so we need to recognise you before you can start one. It
+                takes a minute and only has to be done once.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/face-enrollment")}
+              className="shrink-0 rounded-xl bg-primary px-4 py-2 text-[11px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90"
+            >
+              Set up now
+            </button>
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest">
-                Available Exams
+                Your Exams
               </div>
               <span className="text-[10px] font-mono text-primary bg-primary/8 border border-primary/20 px-2 py-0.5 rounded-full">
                 {exams.length} total
@@ -154,13 +188,15 @@ export default function StudentDashboard() {
               {loading && <div className="px-6 py-6 text-sm text-muted-foreground">Loading…</div>}
               {errored && <div className="px-6 py-6 text-sm text-red-600">Couldn't load exams.</div>}
               {!loading && !errored && exams.length === 0 && (
-                <div className="px-6 py-6 text-sm text-muted-foreground">No exams available yet.</div>
+                <div className="px-6 py-10 text-center">
+                  <p className="text-sm font-medium text-foreground">No exams yet</p>
+                  <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">
+                    Your instructor adds you to an exam when it is ready. It will appear here, and
+                    you can start it once it opens.
+                  </p>
+                </div>
               )}
               {exams.map((e) => {
-                // Every exam is proctored by default (no per-exam opt-out) - the only way to
-                // skip face enrollment is the student-level accommodation flag. Backend enforces
-                // this too (exam_session_service.start_exam) - this is UX, not the real gate.
-                const needsEnrollment = !!me && !me.skip_face_check && !me.face_model_path;
                 return (
                 <div key={e.id} className="px-6 py-4 flex items-center gap-4 hover:bg-secondary/50 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
@@ -318,16 +354,6 @@ export default function StudentDashboard() {
                   val: stats?.avgScore != null ? `${stats.avgScore.toFixed(0)}%` : "—",
                   label: "Avg Score",
                   color: "text-emerald-700",
-                },
-                {
-                  val: stats?.avgRisk != null ? stats.avgRisk.toFixed(0) : "—",
-                  label: "Avg Risk",
-                  color: "text-emerald-700",
-                },
-                {
-                  val: stats?.violationsCount != null ? String(stats.violationsCount) : "—",
-                  label: "Violations",
-                  color: "text-orange-700",
                 },
               ].map(({ val, label, color }) => (
                 <div key={label} className="bg-secondary border border-border rounded-xl p-3 text-center">
