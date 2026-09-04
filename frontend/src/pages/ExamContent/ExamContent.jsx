@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
-import { ArrowLeft, Plus, Upload, Download } from "lucide-react";
+import { ArrowLeft, Plus, Upload, Download, ChevronDown, ChevronRight } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
   getExamQuestions,
@@ -62,6 +62,7 @@ export default function ExamContent() {
   const [csvPreview, setCsvPreview] = useState([]);
   const [csvResult, setCsvResult] = useState(null);
   const [csvError, setCsvError] = useState("");
+  const [showCsvGuide, setShowCsvGuide] = useState(false);
   const [importing, setImporting] = useState(false);
 
   function refresh() {
@@ -202,7 +203,22 @@ export default function ExamContent() {
     "question_text,question_type,points,order_number,choice_1,choice_1_correct,choice_2,choice_2_correct,choice_3,choice_3_correct,choice_4,choice_4_correct\n" +
     "What is the capital of France?,Multiple Choice,5,1,Paris,true,London,false,Berlin,false,Madrid,false\n" +
     "The Earth revolves around the Sun.,True/False,5,2,True,true,False,false,,,,\n" +
-    "Name the process by which plants convert sunlight into energy.,Identification,10,3,,,,,,,,\n";
+    // Third row deliberately contains a comma inside the question, wrapped in quotes. This is the
+    // single most common way an import goes wrong: an unquoted comma shifts every later value one
+    // column left, so the row fails with a confusing "question_type must be one of ..." naming a
+    // fragment of the question. Shipping a correct example is cheaper than explaining the symptom.
+    "\"In programming, what is a variable used for?\",Multiple Choice,5,3,Storing a value,true," +
+    "Printing output,false,Ending a loop,false,Declaring a class,false\n" +
+    "Name the process by which plants convert sunlight into energy.,Identification,10,4,,,,,,,,\n";
+
+  const CSV_RULES = [
+    ["question_text", "Required. If it contains a comma, wrap the whole cell in \"double quotes\" — otherwise the row shifts and fails."],
+    ["question_type", "Required, spelled exactly: Multiple Choice, True/False, or Identification."],
+    ["points", "Required. A whole number greater than 0."],
+    ["order_number", "Optional. Leave blank and questions keep the order of the rows."],
+    ["choice_1 … choice_6", "Up to 6 choices. Multiple Choice and True/False need at least 2 filled in; Identification takes none — leave them blank."],
+    ["choice_N_correct", "true / yes / 1 to mark the answer, false / no / 0 otherwise. At least one choice must be correct."],
+  ];
 
   function handleDownloadTemplate() {
     const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8;" });
@@ -336,17 +352,50 @@ export default function ExamContent() {
       <div className="mt-8">
         <h3 className="text-sm font-semibold text-foreground mb-3">Bulk Import via CSV</h3>
         <Card className="p-6">
-          <p className="text-xs text-muted-foreground mb-3">
-            One row per question. Columns: question_text, question_type, points, order_number,
-            choice_1, choice_1_correct, choice_2, choice_2_correct, … up to choice_6.
-            question_type must be exactly "Multiple Choice", "True/False", or "Identification".
+          <p className="text-sm text-muted-foreground mb-1">
+            Add many questions at once from a spreadsheet. One row per question.
           </p>
-          <button
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 transition-colors mb-4"
-          >
-            <Download className="w-3.5 h-3.5" /> Download CSV Template
-          </button>
+          <p className="text-sm text-muted-foreground mb-4">
+            The quickest route: download the template, open it in Excel or Google Sheets, replace
+            the example rows with your own, then save as CSV and upload it below. Nothing is saved
+            until you press Confirm Import, and you'll see a preview first.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary hover:text-primary/80 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download CSV Template
+            </button>
+            <button
+              onClick={() => setShowCsvGuide((v) => !v)}
+              aria-expanded={showCsvGuide}
+              className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showCsvGuide ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              Column guide
+            </button>
+          </div>
+
+          {showCsvGuide && (
+            <div className="mb-4 rounded-xl border border-border bg-secondary/40 p-4">
+              <dl className="space-y-2.5">
+                {CSV_RULES.map(([column, rule]) => (
+                  <div key={column} className="grid grid-cols-1 sm:grid-cols-[170px_1fr] gap-1 sm:gap-3">
+                    <dt className="font-mono text-[11px] text-foreground/80 pt-0.5">{column}</dt>
+                    <dd className="text-sm text-muted-foreground">{rule}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-sm text-muted-foreground mt-4 pt-3 border-t border-border">
+                Save the file as <span className="font-mono text-foreground/80">CSV UTF-8</span> so
+                accents and special characters survive. Rows with problems are skipped and listed
+                individually after import — the rest still import, so you can fix just those and
+                upload again.
+              </p>
+            </div>
+          )}
           <input
             type="file"
             accept=".csv"
