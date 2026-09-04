@@ -6,7 +6,7 @@ import { getExamSessions } from "../../api/examSessions";
 import { getExams } from "../../api/exams";
 import { getStudents } from "../../api/students";
 import Card from "../../components/ui/Card";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 
 // Any status submit_exam can leave a session in - not just "SUBMITTED" literally (see the
 // backend's GRADED_STATUSES). FLAGGED_RETAKE/RETAKE_GRANTED/RETAKE_DENIED are still a real,
@@ -62,10 +62,11 @@ export default function Results() {
 
   return (
     <div>
-      <div className="mb-8">
-        <SectionTag text="Exam History" />
-        <h2 className="font-display font-black text-foreground text-4xl">My Results</h2>
-      </div>
+      <PageHeader
+        eyebrow="Exam History"
+        title="My Results"
+        description="Every exam you have submitted, with your score and whether you passed. Open one to review your answers against the correct ones."
+      />
 
       <Card>
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">

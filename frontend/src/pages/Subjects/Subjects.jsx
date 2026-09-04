@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { getSubjects, createSubject, updateSubject, deleteSubject } from "../../api/subjects";
 import { getCourses } from "../../api/courses";
 import { useAuth } from "../../context/AuthContext";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -82,11 +82,11 @@ export default function Subjects() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <SectionTag text="Academic Management" />
-          <h2 className="font-display font-black text-foreground text-4xl">Subjects</h2>
-        </div>
+      <PageHeader
+        eyebrow="Academic Management"
+        title="Subject Management"
+        description="The individual subjects taught within each course. Exams are created against a subject, and instructors must be assigned to one before they can set an exam for it."
+        actions={
         <button
           onClick={openCreate}
           disabled={courses.length === 0}
@@ -94,7 +94,8 @@ export default function Subjects() {
         >
           <Plus className="w-4 h-4" /> Add Subject
         </button>
-      </div>
+        }
+      />
 
       {courses.length === 0 && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">Create a course first before adding subjects.</div>

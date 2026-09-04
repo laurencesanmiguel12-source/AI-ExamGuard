@@ -9,6 +9,7 @@ import { getExamRoster } from "../../api/examRoster";
 import { getLiveSessions } from "../../api/violations";
 import { playNotificationChime } from "../../utils/notificationSound";
 import Card from "../../components/ui/Card";
+import SectionTag from "../../components/ui/SectionTag";
 import RiskPill from "../../components/ui/RiskPill";
 import RiskBar from "../../components/ui/RiskBar";
 import ViolationBreakdownChart, { VIOLATION_META } from "../../components/ViolationBreakdownChart";
@@ -132,18 +133,20 @@ export default function InstructorDashboard() {
   return (
     <div>
       <div className="flex items-start justify-between mb-8">
+        {/* Names the screen first, then the person. The old order made "Welcome, name" the
+            headline and left the role as small print above it. */}
         <div>
-          <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-1">
-            Instructor Dashboard
-          </div>
-          <h2 className="font-display font-black text-foreground text-4xl">
-            Welcome, {user?.first_name}
-          </h2>
+          <SectionTag text="Instructor" />
+          <h2 className="font-display font-black text-foreground text-4xl">Instructor Dashboard</h2>
+          <p className="text-muted-foreground text-sm mt-2 max-w-2xl">
+            Welcome, {user?.first_name}. Your own exams and their live proctoring sessions are
+            shown here — anyone currently sitting one appears under Live Monitoring as they go.
+          </p>
           <p className="text-muted-foreground text-sm mt-1">
             {loading
               ? "Loading your exams…"
               : myExams.length === 0
-              ? "No exams assigned to your instructor profile yet."
+              ? "You have no exams yet — create one from Exam Management to get started."
               : `${myExams.length} exam${myExams.length === 1 ? "" : "s"} · ${activeCount} active`}
           </p>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getCourses, createCourse, updateCourse, deleteCourse } from "../../api/courses";
 import { useAuth } from "../../context/AuthContext";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -73,18 +73,19 @@ export default function Courses() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <SectionTag text="Academic Management" />
-          <h2 className="font-display font-black text-foreground text-4xl">Courses</h2>
-        </div>
+      <PageHeader
+        eyebrow="Academic Management"
+        title="Course Management"
+        description="The degree programmes your school offers. A student picks one when registering, and every subject belongs to a course — so add these first."
+        actions={
         <button
           onClick={openCreate}
           className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Course
         </button>
-      </div>
+        }
+      />
 
       <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No courses yet." />
 

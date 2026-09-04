@@ -6,23 +6,47 @@ import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
 import { getSchoolsForReview } from "../api/schools";
 
-const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
-  { to: "/results", label: "My Results", icon: Award, roles: ["student"] },
-  { to: "/courses", label: "Courses", icon: BookOpen, roles: ["admin"] },
-  { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
-  // Instructors get read-only Students (the page hides its own admin-only add/edit/delete
-  // controls). Without this entry there was no way for an instructor to look a student up at
-  // all - the reported "can't find students on the lists" - even though GET /students/ has
-  // allowed any authenticated user in their own school for a while now.
-  { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin", "instructor"] },
-  { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
-  { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },
-  // super_admin ONLY, deliberately not "admin": hasRole treats an "admin" entry as satisfied
-  // by a super admin too, so naming "admin" here would put the platform-wide approval queue
-  // in every school admin's sidebar.
-  { to: "/school-approvals", label: "School Approvals", icon: Building2, roles: ["super_admin"] },
+// Grouped rather than one flat list of nouns. The groups are the same words the page headers
+// use as their eyebrow, so the sidebar, the heading you land on, and the area you are in all
+// agree - which is what tells someone where they are. A group renders only if the current role
+// can see at least one item in it.
+const NAV_GROUPS = [
+  {
+    group: null, // no heading - these sit at the top as the everyday landing points
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
+      { to: "/results", label: "My Results", icon: Award, roles: ["student"] },
+    ],
+  },
+  {
+    group: "Academic Management",
+    items: [
+      { to: "/courses", label: "Courses", icon: BookOpen, roles: ["admin"] },
+      { to: "/subjects", label: "Subjects", icon: Layers, roles: ["admin"] },
+      { to: "/instructors", label: "Instructors", icon: Users, roles: ["admin"] },
+      // Instructors get read-only Students (the page hides its own admin-only add/edit/delete
+      // controls). Without this entry there was no way for an instructor to look a student up at
+      // all - the reported "can't find students on the lists" - even though GET /students/ has
+      // allowed any authenticated user in their own school for a while now.
+      { to: "/students", label: "Students", icon: GraduationCap, roles: ["admin", "instructor"] },
+    ],
+  },
+  {
+    group: "Assessment",
+    items: [
+      { to: "/exams", label: "Exams", icon: ClipboardList, roles: ["admin", "instructor"] },
+      { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "instructor"] },
+    ],
+  },
+  {
+    group: "Platform",
+    items: [
+      // super_admin ONLY, deliberately not "admin": hasRole treats an "admin" entry as satisfied
+      // by a super admin too, so naming "admin" here would put the platform-wide approval queue
+      // in every school admin's sidebar.
+      { to: "/school-approvals", label: "School Approvals", icon: Building2, roles: ["super_admin"] },
+    ],
+  },
 ];
 
 // Fixed w-56 column on md+ (unchanged behavior); below that it's an off-canvas overlay driven by
@@ -32,7 +56,9 @@ export default function Sidebar({ open, onClose }) {
   const { user } = useAuth();
   const schoolSlug = useSchoolSlug();
   const school = useSchool();
-  const items = NAV_ITEMS.filter((item) => hasRole(user, item.roles));
+  const groups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((item) => hasRole(user, item.roles)) }))
+    .filter((g) => g.items.length > 0);
   const [pendingSchools, setPendingSchools] = useState(0);
 
   // There is no email guarantee (SMTP is optional - see NotificationService), so the badge is the
@@ -86,6 +112,14 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-4 overflow-y-auto">
+          {groups.map(({ group, items }) => (
+            <div key={group ?? "top"} className={group ? "mt-4" : ""}>
+              {group && (
+                <div className="px-3 pb-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/70">
+                  {group}
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
           {items.map(({ to, label, icon: Icon }) => {
             const badge = to === "/school-approvals" ? pendingSchools : 0;
             return (
@@ -114,6 +148,9 @@ export default function Sidebar({ open, onClose }) {
               </NavLink>
             );
           })}
+              </div>
+            </div>
+          ))}
         </nav>
       </aside>
     </>

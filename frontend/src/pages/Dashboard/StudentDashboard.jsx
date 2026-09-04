@@ -8,6 +8,7 @@ import { getExamSessions } from "../../api/examSessions";
 import { getStudents } from "../../api/students";
 import { getSessionRiskSummary, getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
+import SectionTag from "../../components/ui/SectionTag";
 import StatusDot from "../../components/ui/StatusDot";
 import EnrollmentPromptModal from "../../components/EnrollmentPromptModal";
 
@@ -120,15 +121,18 @@ export default function StudentDashboard() {
         />
       )}
 
+      {/* The role used to be the small print above a big "Welcome, name", which told you who you
+          were but not where you were. Reversed: the screen names itself first, and the greeting
+          becomes context underneath it. */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-widest mb-1">
-            Student Dashboard
-          </div>
-          <h2 className="font-display font-black text-foreground text-4xl">
-            Welcome, {user?.first_name}
-          </h2>
-          <p className="text-muted-foreground text-sm mt-1">{user?.email}</p>
+          <SectionTag text="Student" />
+          <h2 className="font-display font-black text-foreground text-4xl">Student Dashboard</h2>
+          <p className="text-muted-foreground text-sm mt-2 max-w-2xl">
+            Welcome, {user?.first_name}. Exams you have been added to appear here — start one when
+            it opens, and check your results once it is marked. Set up face enrolment before your
+            first exam.
+          </p>
         </div>
       </div>
 

@@ -10,7 +10,7 @@ import {
   removeExamRosterStudent,
   bulkAddExamRosterStudents,
 } from "../../api/examRoster";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import Card from "../../components/ui/Card";
 import DataTable from "../../components/DataTable";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -111,10 +111,11 @@ export default function ExamRoster() {
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Exams
       </button>
 
-      <div className="mb-8">
-        <SectionTag text="Exam Roster" />
-        <h2 className="font-display font-black text-foreground text-4xl">{exam.title}</h2>
-      </div>
+      <PageHeader
+        eyebrow="Exam Roster"
+        title={exam.title}
+        description="Choose which students sit this exam. Only students on this roster can open it — being enrolled in the course is not enough on its own."
+      />
 
       {pageError && (
         <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">

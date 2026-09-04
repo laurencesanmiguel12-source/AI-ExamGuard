@@ -188,7 +188,10 @@ export default function AdminDashboard() {
         <div>
           <SectionTag text="Administrator" />
           <h2 className="font-display font-black text-foreground text-4xl">Admin Dashboard</h2>
-          <p className="text-muted-foreground text-sm mt-1">System management · AI ExamGuard</p>
+          <p className="text-muted-foreground text-sm mt-2 max-w-2xl">
+            An overview of your school. Use the sidebar to set up Course, Subject, Instructor and
+            Student Management — courses first, since everything else is built on them.
+          </p>
         </div>
       </div>
 

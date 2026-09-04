@@ -7,7 +7,7 @@ import {
   assignInstructorSubject,
   unassignInstructorSubject,
 } from "../../api/instructorSubjects";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -195,18 +195,19 @@ export default function Instructors() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <SectionTag text="Academic Management" />
-          <h2 className="font-display font-black text-foreground text-4xl">Instructors</h2>
-        </div>
+      <PageHeader
+        eyebrow="Academic Management"
+        title="Instructor Management"
+        description="Teaching staff accounts for your school. Assign each instructor at least one subject — without one they cannot create any exam."
+        actions={
         <button
           onClick={openCreate}
           className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Instructor
         </button>
-      </div>
+        }
+      />
 
       <DataTable
         columns={buildColumns(setManagingSubjects, subjectCounts)}

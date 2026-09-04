@@ -8,7 +8,7 @@ import { getExam } from "../../api/exams";
 import { getExamQuestions } from "../../api/questions";
 import { getSessionViolations } from "../../api/violations";
 import Card from "../../components/ui/Card";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import ViolationsPanel from "../../components/ViolationsPanel";
 
 export default function ResultDetail() {
@@ -89,13 +89,11 @@ export default function ResultDetail() {
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Results
       </button>
 
-      <div className="mb-8">
-        <SectionTag text="Exam Review" />
-        <h2 className="font-display font-black text-foreground text-4xl">{exam.title}</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Submitted {new Date(session.submitted_at).toLocaleString()}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Exam Review"
+        title={exam.title}
+        description={`Your submitted answers with the correct ones shown alongside. Submitted ${new Date(session.submitted_at).toLocaleString()}.`}
+      />
 
       <div className="grid grid-cols-3 gap-4 mb-8">
         <Card className="p-4 text-center">

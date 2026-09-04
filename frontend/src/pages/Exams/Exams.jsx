@@ -6,7 +6,7 @@ import { useSchoolSlug } from "../../hooks/useSchoolNav";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -176,11 +176,11 @@ export default function Exams() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <SectionTag text="Academic Management" />
-          <h2 className="font-display font-black text-foreground text-4xl">Exams</h2>
-        </div>
+      <PageHeader
+        eyebrow="Assessment"
+        title="Exam Management"
+        description="Every exam at your school. Open one to write its questions, choose who sits it, and set the window it stays open for."
+        actions={
         <button
           onClick={openCreate}
           disabled={!canCreate}
@@ -188,7 +188,8 @@ export default function Exams() {
         >
           <Plus className="w-4 h-4" /> Add Exam
         </button>
-      </div>
+        }
+      />
 
       {!canCreate && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">

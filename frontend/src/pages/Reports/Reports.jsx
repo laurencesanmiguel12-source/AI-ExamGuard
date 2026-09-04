@@ -194,6 +194,10 @@ export default function Reports() {
         <div>
           <SectionTag text="Reports & Analytics" />
           <h2 className="font-display font-black text-foreground text-4xl">Exam Reports</h2>
+          <p className="text-muted-foreground text-sm mt-2 max-w-2xl">
+            Results and proctoring findings for one exam at a time. Pick an exam on the right to
+            see who sat it, how they scored, and any violations flagged during the session.
+          </p>
         </div>
         {exams.length > 0 && (
           <div className="w-72">

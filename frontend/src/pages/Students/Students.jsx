@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { getStudents, createStudent, updateStudent, deleteStudent } from "../../api/students";
 import { getCourses } from "../../api/courses";
 import { useAuth } from "../../context/AuthContext";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -133,21 +133,28 @@ export default function Students() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <SectionTag text="Academic Management" />
-          <h2 className="font-display font-black text-foreground text-4xl">Students</h2>
-        </div>
-        {canManage && (
-          <button
-            onClick={openCreate}
-            disabled={courses.length === 0}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add Student
-          </button>
-        )}
-      </div>
+      {/* Two audiences on one page: an admin manages these records, an instructor can only look
+          them up. Saying which of those you are is the whole point of the description here. */}
+      <PageHeader
+        eyebrow="Academic Management"
+        title="Student Management"
+        description={
+          canManage
+            ? "Every student enrolled at your school. Students can also create their own account from the sign-up page — those appear here automatically."
+            : "Every student enrolled at your school, read-only. To put a student into one of your exams, use Manage Roster on the exam itself."
+        }
+        actions={
+          canManage && (
+            <button
+              onClick={openCreate}
+              disabled={courses.length === 0}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Student
+            </button>
+          )
+        }
+      />
 
       {canManage && courses.length === 0 && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">Create a course first before adding students.</div>

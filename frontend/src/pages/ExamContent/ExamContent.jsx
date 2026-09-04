@@ -15,7 +15,7 @@ import {
   updateExamChoice,
   deleteExamChoice,
 } from "../../api/choices";
-import SectionTag from "../../components/ui/SectionTag";
+import PageHeader from "../../components/PageHeader";
 import Card from "../../components/ui/Card";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
@@ -293,10 +293,11 @@ export default function ExamContent() {
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Exams
       </button>
 
-      <div className="mb-8">
-        <SectionTag text="Exam Content" />
-        <h2 className="font-display font-black text-foreground text-4xl">{exam.title}</h2>
-      </div>
+      <PageHeader
+        eyebrow="Exam Content"
+        title={exam.title}
+        description="Write the questions for this exam and mark the correct answers. Add them one at a time, or import many at once from a spreadsheet using the CSV panel below."
+      />
 
       {pageError && (
         <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
