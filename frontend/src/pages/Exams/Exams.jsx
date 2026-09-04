@@ -247,8 +247,8 @@ export default function Exams() {
               />
             </div>
             <TextField
-              label="Passing Score"
-              hint="Points needed to pass, out of the total above — not a percentage."
+              label="Passing Score (%)"
+              hint="The percentage needed to pass, 0–100 — not a number of points. A student passes when their score as a percentage of Total Points reaches this."
               type="number"
               required
               value={form.passing_score}
