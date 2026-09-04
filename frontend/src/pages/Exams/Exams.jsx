@@ -250,6 +250,8 @@ export default function Exams() {
               label="Passing Score (%)"
               hint="The percentage needed to pass, 0–100 — not a number of points. A student passes when their score as a percentage of Total Points reaches this."
               type="number"
+              min="0"
+              max="100"
               required
               value={form.passing_score}
               onChange={(e) => setForm({ ...form, passing_score: e.target.value })}
