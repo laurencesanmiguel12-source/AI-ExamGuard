@@ -11,7 +11,13 @@ import { getSchoolAnalytics } from "../../api/analytics";
 import { getSchoolsForReview } from "../../api/schools";
 import SetupChecklist from "../../components/SetupChecklist";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
-import { getPendingTrainingCandidates, reviewTrainingCandidate } from "../../api/trainingReview";
+import {
+  getPendingTrainingCandidates,
+  reviewTrainingCandidate,
+  getPendingNearMisses,
+  reviewNearMiss,
+  getNearMissEvidenceBlobUrl,
+} from "../../api/trainingReview";
 import { getEvidenceBlobUrl } from "../../api/violations";
 import { useAuth } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
@@ -72,6 +78,8 @@ export default function AdminDashboard() {
   const [trainingLoading, setTrainingLoading] = useState(false);
   const [trainingError, setTrainingError] = useState(false);
   const [trainingPreviewUrls, setTrainingPreviewUrls] = useState({});
+  const [nearMisses, setNearMisses] = useState(null);
+  const [nearMissPreviewUrls, setNearMissPreviewUrls] = useState({});
 
   useEffect(() => {
     Promise.all([getStudents(), getInstructors(), getCourses(user.school_id), getExams(), getSubjects()])
@@ -153,9 +161,27 @@ export default function AdminDashboard() {
       .finally(() => setTrainingLoading(false));
   }
 
+  function loadNearMisses() {
+    getPendingNearMisses().then(setNearMisses).catch(() => setNearMisses([]));
+  }
+
+  function loadNearMissPreview(captureId) {
+    if (nearMissPreviewUrls[captureId]) return;
+    getNearMissEvidenceBlobUrl(captureId).then((url) =>
+      setNearMissPreviewUrls((prev) => ({ ...prev, [captureId]: url }))
+    );
+  }
+
+  function handleNearMissDecision(captureId, decision) {
+    reviewNearMiss(captureId, decision).then(() => {
+      setNearMisses((prev) => prev.filter((c) => c.id !== captureId));
+    });
+  }
+
   useEffect(() => {
     if (tab === "training" && trainingCandidates === null && !trainingLoading) {
       loadTrainingCandidates();
+      loadNearMisses();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -764,6 +790,79 @@ export default function AdminDashboard() {
               </div>
             </Card>
           )}
+
+          {/* The detector's near misses. The queue above can only ever show frames it got RIGHT -
+              measured on the 2026-09-04 batch, every approved phone frame was already detected at
+              0.80-0.88 confidence, so approving them taught the model nothing. These are the
+              frames it nearly missed, which is where the training value actually is. */}
+          <div className="mt-8">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-foreground">Near misses</h3>
+              <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+                Frames where the detector saw something phone-like but wasn't confident enough to
+                flag it — no violation was recorded and nothing appears on the student's record.
+                Approve the ones that really do show a phone: those are the examples the model got
+                wrong, and the most useful thing you can give it. The percentage is how close it
+                came to flagging.
+              </p>
+            </div>
+
+            {nearMisses === null && (
+              <Card className="p-5 text-sm text-muted-foreground">Loading near misses…</Card>
+            )}
+
+            {nearMisses && nearMisses.length === 0 && (
+              <Card className="p-5 text-sm text-muted-foreground">
+                None captured yet. These appear as students sit proctored exams.
+              </Card>
+            )}
+
+            {nearMisses && nearMisses.length > 0 && (
+              <Card>
+                <div className="divide-y divide-border">
+                  {nearMisses.map((c) => (
+                    <div key={c.id} className="px-6 py-4 flex items-center gap-4">
+                      {nearMissPreviewUrls[c.id] ? (
+                        <img
+                          src={nearMissPreviewUrls[c.id]}
+                          alt=""
+                          className="w-16 h-16 rounded-lg object-cover border border-border flex-shrink-0"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => loadNearMissPreview(c.id)}
+                          className="w-16 h-16 rounded-lg border border-border bg-secondary text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                        >
+                          View
+                        </button>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-foreground font-medium">
+                          {c.detector === "PHONE" ? "Possible phone" : c.detector}
+                        </div>
+                        <div className="text-[11px] font-mono text-muted-foreground">
+                          {(c.confidence * 100).toFixed(0)}% confident ·{" "}
+                          {new Date(c.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleNearMissDecision(c.id, "REJECTED")}
+                        className="px-3 py-1.5 rounded-lg border border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors"
+                      >
+                        No phone
+                      </button>
+                      <button
+                        onClick={() => handleNearMissDecision(c.id, "APPROVED")}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-[11px] font-mono uppercase tracking-wider hover:bg-primary/90 transition-colors"
+                      >
+                        Phone present
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )}
     </div>

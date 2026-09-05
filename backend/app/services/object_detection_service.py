@@ -9,6 +9,7 @@ from ultralytics import YOLO
 from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.violation import ViolationCreate
+from app.services.near_miss_capture_service import NearMissCaptureService
 from app.services.violation_service import ViolationService
 
 MODEL_PATH = os.path.join(
@@ -113,11 +114,32 @@ CANDIDATE_CORROBORATION_COUNT = 3
 # ever taken, forever, for the life of the process.
 _recent_candidates: dict[int, deque] = {}
 
+# --- Near-miss capture -------------------------------------------------------------------------
+# The review queue can only show frames that produced a violation, so an admin only ever reviews
+# cases the model already got right - measured on the 2026-09-04 batch, where all three approved
+# phone frames were already detected at 0.80-0.88. The informative frames are the ones that fell
+# short, and their confidence was being computed and thrown away.
+#
+# Floor is PHONE_CANDIDATE_THRESHOLD deliberately: below that the model saw essentially nothing,
+# and keeping those would just be retaining webcam frames of students doing nothing wrong. The
+# captured band is "plausible but not acted on" - the decision boundary, which is exactly where
+# extra training data is worth having.
+NEAR_MISS_CONFIDENCE_FLOOR = PHONE_CANDIDATE_THRESHOLD
+
+# A hard per-session cap, not a rate limit. An exam polling every ~15s for two hours is ~480
+# frames; without a cap, one student sitting near the boundary the whole time could have hundreds
+# of frames retained. Ten is enough to be useful for training and small enough to stay
+# proportionate for someone who was never actually flagged.
+NEAR_MISS_MAX_PER_SESSION = 10
+
+_near_miss_counts: dict[int, int] = {}
+
 
 def discard_session(session_id: int) -> None:
     """Evicts a finished session's corroboration window. Safe to call even if the session never
     polled object-check at all (no-op)."""
     _recent_candidates.pop(session_id, None)
+    _near_miss_counts.pop(session_id, None)
 
 
 def _record_candidate(session_id: int, is_candidate: bool) -> bool:
@@ -292,6 +314,16 @@ class ObjectDetectionService:
                 ViolationCreate(event_type="PHONE_DETECTED"),
                 db,
                 evidence_bytes=image_bytes
+            )
+        else:
+            # Nothing happens to the student here - this only keeps the frame so the detector's
+            # own misses can be reviewed and trained on. See NearMissCaptureService.
+            NearMissCaptureService.capture(
+                session_id=session_id,
+                detector="PHONE",
+                confidence=max_phone_conf,
+                image_bytes=image_bytes,
+                db=db,
             )
 
         if person_count > 1:

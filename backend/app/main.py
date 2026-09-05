@@ -30,6 +30,7 @@ from app.routes.system import router as system_router
 from app.routes.audit_log import router as audit_log_router
 from app.routes.retention import router as retention_router
 from app.routes.training_review import router as training_review_router
+from app.routes.near_miss_review import router as near_miss_review_router
 from app.routes.admin_user import router as admin_user_router
 
 # Uvicorn configures its own loggers but leaves the root logger at WARNING, so application
@@ -82,6 +83,7 @@ app.include_router(system_router)
 app.include_router(audit_log_router)
 app.include_router(retention_router)
 app.include_router(training_review_router)
+app.include_router(near_miss_review_router)
 app.include_router(admin_user_router)
 
 
