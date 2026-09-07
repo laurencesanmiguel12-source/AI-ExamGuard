@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { CheckCircle, Eye } from "lucide-react";
@@ -11,6 +11,8 @@ import { saveAnswer, getAnswers } from "../../api/studentAnswers";
 import { getSessionRisk } from "../../api/violations";
 import { checkFace } from "../../api/faceEnrollment";
 import { checkObjects } from "../../api/objectDetection";
+import ViolationAlertModal from "./ViolationAlertModal";
+import { shouldRaiseAlert } from "../../utils/violationAlerts";
 import useProctoring from "../../hooks/useProctoring";
 import useExtensionMonitor from "../../hooks/useExtensionMonitor";
 import useCamera from "../../hooks/useCamera";
@@ -63,6 +65,31 @@ export default function ExamRoom() {
   // silently keeps the useState(true) default forever, showing a false "OK".
   const [faceCheckUnavailable, setFaceCheckUnavailable] = useState(false);
   const [phoneDetected, setPhoneDetected] = useState(false);
+
+  // Student-facing violation alerts.
+  //
+  // Raised once per incident, not once per detection poll. The object check runs every few
+  // seconds, so a phone left in view would otherwise reopen this modal continuously and make the
+  // exam unusable - the very thing the student is being asked to fix. Server-side flags are
+  // therefore raised on the rising edge only (see the poll below), and every type additionally
+  // sits behind a cooldown so a repeated event cannot interrupt again immediately.
+  const [violationAlert, setViolationAlert] = useState(null);
+  const violationAlertLastShown = useRef({});
+  const violationCounts = useRef({});
+
+  const raiseViolationAlert = useCallback((eventType) => {
+    // Counted even when it does not interrupt, so the modal can say "this has now happened N
+    // times" the next time it is allowed to appear.
+    violationCounts.current[eventType] = (violationCounts.current[eventType] ?? 0) + 1;
+
+    if (!shouldRaiseAlert(violationAlertLastShown.current, eventType, Date.now())) return;
+
+    // Never replace an alert the student is still reading - the first one is the one they were
+    // interrupted for, and swapping the text under them would be worse than showing nothing.
+    setViolationAlert((current) =>
+      current ?? { eventType, count: violationCounts.current[eventType] }
+    );
+  }, []);
   const [multiplePeople, setMultiplePeople] = useState(false);
   const [extensionAlert, setExtensionAlert] = useState(null);
 
@@ -165,6 +192,7 @@ export default function ExamRoom() {
 
   useProctoring(session?.id, phase === "in-progress", (eventType) => {
     if (eventType === "TAB_SWITCH") setLastTabSwitchAt(Date.now());
+    raiseViolationAlert(eventType);
   });
 
   const extensionActive = phase === "extension-check" || phase === "in-progress";
@@ -264,8 +292,17 @@ export default function ExamRoom() {
         if (needsObjectCheck) {
           const objectResult = await checkObjects(session.id, blob).catch(() => null);
           if (!cancelled && objectResult) {
-            setPhoneDetected(objectResult.phone_detected);
-            setMultiplePeople(objectResult.person_count > 1);
+            const nowPhone = objectResult.phone_detected;
+            const nowCrowd = objectResult.person_count > 1;
+            // Rising edge: alert when a flag first appears, not on every poll it stays true for.
+            setPhoneDetected((was) => {
+              if (nowPhone && !was) raiseViolationAlert("PHONE_DETECTED");
+              return nowPhone;
+            });
+            setMultiplePeople((was) => {
+              if (nowCrowd && !was) raiseViolationAlert("MULTIPLE_PEOPLE");
+              return nowCrowd;
+            });
           }
         }
       } catch {
@@ -497,6 +534,16 @@ export default function ExamRoom() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Mounted here rather than inside the question area so it is not unmounted when the
+          student navigates between questions mid-alert. */}
+      {violationAlert && (
+        <ViolationAlertModal
+          eventType={violationAlert.eventType}
+          count={violationAlert.count}
+          onDismiss={() => setViolationAlert(null)}
+        />
+      )}
+
       <div className="border-b border-border bg-card px-6 py-3 flex items-center gap-4 flex-shrink-0 shadow-sm">
         <div className="flex-1">
           <div className="text-foreground text-sm font-semibold">{exam.title}</div>
