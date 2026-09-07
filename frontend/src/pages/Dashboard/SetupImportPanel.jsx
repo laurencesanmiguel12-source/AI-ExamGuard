@@ -1,0 +1,181 @@
+import { useState } from "react";
+import { Upload, Download, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import Card from "../../components/ui/Card";
+import { importSetupCsv } from "../../api/setupImport";
+
+// A real, importable example rather than placeholder text - one row of each type, in an order
+// that demonstrates the dependency (the subject names the course above it, the instructor names
+// the subject). Someone can replace the values and upload it without reading anything else.
+const TEMPLATE =
+  "type,code,name,course_code,employee_number,email,password,first_name,last_name,subject_codes\n" +
+  "course,BSCS,BS Computer Science,,,,,,,\n" +
+  "course,BSIT,BS Information Technology,,,,,,,\n" +
+  "subject,CS-101,Introduction to Programming,BSCS,,,,,,\n" +
+  "subject,CS-201,Data Structures,BSCS,,,,,,\n" +
+  "subject,IT-101,Web Systems,BSIT,,,,,,\n" +
+  "instructor,,,,EMP-001,ana.cruz@school.edu,ChangeMe123!,Ana,Cruz,CS-101;CS-201\n" +
+  "instructor,,,,EMP-002,ben.reyes@school.edu,ChangeMe123!,Ben,Reyes,IT-101\n";
+
+const COLUMNS = [
+  ["type", "Which kind of row this is: course, subject or instructor. Required on every row."],
+  ["code", "The course or subject code, e.g. BSCS or CS-101. Leave blank on instructor rows."],
+  ["name", "The full name. Leave blank on instructor rows."],
+  ["course_code", "Subject rows only — which course the subject belongs to, by its code."],
+  ["employee_number", "Instructor rows only — your school's own staff ID. Must be unique."],
+  ["email", "Instructor rows only — becomes their sign-in address."],
+  ["password", "Instructor rows only — a starting password. Tell them to change it after first sign-in."],
+  ["first_name / last_name", "Instructor rows only."],
+  ["subject_codes", "Instructor rows only — which subjects they teach, separated by semicolons. Without at least one, they cannot create exams."],
+];
+
+export default function SetupImportPanel() {
+  const [file, setFile] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+
+  function downloadTemplate() {
+    const url = URL.createObjectURL(new Blob([TEMPLATE], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "examguard_setup_template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImport() {
+    if (!file) return;
+    setImporting(true);
+    setError("");
+    setResult(null);
+    try {
+      setResult(await importSetupCsv(file));
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Couldn't import that file.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const total = result
+    ? result.created_courses + result.created_subjects + result.created_instructors
+    : 0;
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-foreground">Bulk setup import</h3>
+        <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
+          Already have your courses, subjects and staff in a spreadsheet? Load them all at once
+          instead of adding them one by one. One file covers all three — rows say which they are,
+          and refer to each other by code, so a subject can name a course listed above it.
+        </p>
+      </div>
+
+      <Card className="p-6">
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-primary transition-colors hover:text-primary/80"
+          >
+            <Download className="h-3.5 w-3.5" /> Download template
+          </button>
+          <button
+            onClick={() => setShowGuide((v) => !v)}
+            aria-expanded={showGuide}
+            className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {showGuide ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Column guide
+          </button>
+        </div>
+
+        {showGuide && (
+          <div className="mb-4 rounded-xl border border-border bg-secondary/40 p-4">
+            <dl className="space-y-2.5">
+              {COLUMNS.map(([column, rule]) => (
+                <div key={column} className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:gap-3">
+                  <dt className="pt-0.5 font-mono text-[11px] text-foreground/80">{column}</dt>
+                  <dd className="text-sm text-muted-foreground">{rule}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+              <p>
+                Leave unused columns empty — every row keeps all the columns, most of them blank.
+                Save as <span className="font-mono text-foreground/80">CSV UTF-8</span>.
+              </p>
+              <p className="mt-2">
+                Uploading the same file twice is safe: anything that already exists is skipped
+                rather than duplicated, so you can add rows to your sheet and re-upload it.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <input
+          type="file"
+          accept=".csv"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setResult(null);
+            setError("");
+          }}
+          aria-label="Choose a setup CSV file"
+          className="mb-4 block text-sm text-foreground"
+        />
+
+        {error && (
+          <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleImport}
+          disabled={!file || importing}
+          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[12px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+        >
+          <Upload className="h-4 w-4" /> {importing ? "Importing…" : "Import"}
+        </button>
+
+        {result && (
+          <div className="mt-5">
+            <div className="mb-2 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="font-medium">
+                  {total === 0 ? "Nothing new to add" : `Added ${total} record${total === 1 ? "" : "s"}`}
+                </div>
+                <div className="text-emerald-800/80">
+                  {result.created_courses} course{result.created_courses === 1 ? "" : "s"} ·{" "}
+                  {result.created_subjects} subject{result.created_subjects === 1 ? "" : "s"} ·{" "}
+                  {result.created_instructors} instructor
+                  {result.created_instructors === 1 ? "" : "s"}
+                  {result.skipped_existing > 0 && ` · ${result.skipped_existing} already existed`}
+                </div>
+              </div>
+            </div>
+
+            {result.errors.length > 0 && (
+              <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                <div className="mb-1 font-semibold">
+                  {result.errors.length} row{result.errors.length === 1 ? "" : "s"} skipped —
+                  everything else was imported
+                </div>
+                <ul className="list-inside list-disc space-y-0.5">
+                  {result.errors.map((e, i) => (
+                    <li key={i}>
+                      Row {e.row}: {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
