@@ -70,20 +70,22 @@ const EXAM_RULES = [
   },
 ];
 
-const CHECKLIST_ITEMS = [
-  "I have installed the AI ExamGuard browser extension.",
-  "My webcam is active and my face is clearly visible.",
-  "I am in a well-lit, quiet environment.",
-  "My phone is turned off or placed out of camera range.",
-  "I will not switch tabs or use any AI / search tools.",
-  "I understand that holding a photo or image up to my camera instead of my actual face may be flagged for review.",
-  "I understand that keeping my head angled down for an extended period may be flagged for review.",
-  "I understand that violations raise my risk score and will be reviewed by my instructor.",
+// One statement rather than a checklist.
+//
+// The eight items this replaces were rendered as checkboxes with no checked/onChange binding at
+// all - a student could tick none of them and still enter, and ticking every one changed nothing.
+// In a consent screen that is worse than clutter: it looks like a gate, so it reads as though the
+// student affirmed each point individually, when nothing was ever recorded. A single statement
+// the student actually agrees to is both simpler to read and honest about what is being agreed.
+const AGREEMENT = [
+  "I have installed the AI ExamGuard browser extension, my webcam is on with my face clearly visible, and I am alone in a well-lit, quiet room with my phone switched off and out of camera range.",
+  "I will stay on the exam tab for the whole exam, and will not use AI assistants, search engines, notes, or any other help.",
+  "I understand my session is monitored by periodic camera and behaviour checks, and that leaving the tab, another person appearing, a phone coming into view, holding a photo up to the camera, or looking away for long stretches are all recorded, raise my risk score, and are reviewed by my instructor afterwards.",
 ];
+
 
 export default function PreExamModal({ examTitle, onConfirm, onCancel }) {
   const [step, setStep] = useState("guide");
-  const [checked, setChecked] = useState(false);
 
   return (
     <div className="flex h-screen items-center justify-center px-6 py-8">
@@ -179,44 +181,24 @@ export default function PreExamModal({ examTitle, onConfirm, onCancel }) {
           {step === "ready" && (
             <div>
               <div className="mb-5">
-                <SectionTag text="Pre-Exam Checklist" />
+                <SectionTag text="Before You Start" />
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Complete the checklist below and confirm that you have read and understood all
-                  proctoring rules before entering the exam room. Your browser extension and camera
-                  will be checked for real right after this.
+                  Read this through. Choosing to enter the exam room is your agreement to it. Your
+                  browser extension and camera are checked for real straight afterwards, so make
+                  sure you are set up before you continue.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2.5 mb-5">
-                {CHECKLIST_ITEMS.map((item, i) => (
-                  <label
+              <div className="mb-5 rounded-xl border border-primary/25 bg-primary/5 p-4">
+                {AGREEMENT.map((line, i) => (
+                  <p
                     key={i}
-                    className="flex items-start gap-3 p-3.5 rounded-xl border border-border bg-secondary/30 cursor-pointer hover:bg-secondary/60 transition-colors group"
+                    className={`text-[12px] leading-relaxed text-foreground ${i > 0 ? "mt-3" : ""}`}
                   >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 accent-[#c8192e] w-4 h-4 flex-shrink-0 cursor-pointer"
-                    />
-                    <span className="text-[12px] text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                      {item}
-                    </span>
-                  </label>
+                    {line}
+                  </p>
                 ))}
               </div>
-
-              <label className="flex items-start gap-3 p-4 rounded-xl border border-primary/25 bg-primary/5 cursor-pointer mb-5">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => setChecked(e.target.checked)}
-                  className="mt-0.5 accent-[#c8192e] w-4 h-4 flex-shrink-0 cursor-pointer"
-                />
-                <span className="text-[12px] text-foreground leading-relaxed font-medium">
-                  I have read and understood all AI ExamGuard proctoring rules. I agree that any
-                  violation will be recorded and my instructor can review my session on the live
-                  risk dashboard.
-                </span>
-              </label>
 
               <div className="flex gap-3">
                 <button
@@ -227,14 +209,9 @@ export default function PreExamModal({ examTitle, onConfirm, onCancel }) {
                 </button>
                 <button
                   onClick={onConfirm}
-                  disabled={!checked}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-mono text-[12px] uppercase tracking-widest transition-all ${
-                    checked
-                      ? "bg-primary hover:bg-primary/90 text-white shadow-sm"
-                      : "bg-secondary text-muted-foreground cursor-not-allowed"
-                  }`}
+                  className="flex-[1.6] flex items-center justify-center gap-2 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-sm font-mono text-[12px] uppercase tracking-widest transition-all"
                 >
-                  <CheckCircle className="w-3.5 h-3.5" /> Enter Exam Room
+                  <CheckCircle className="w-3.5 h-3.5" /> I agree — enter exam room
                 </button>
               </div>
             </div>
