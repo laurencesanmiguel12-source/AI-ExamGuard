@@ -42,6 +42,9 @@ if __name__ == "__main__":
     parser.add_argument("--patience", type=int, default=8, help="early-stop patience")
     parser.add_argument("--device", type=str, default=None,
                          help="override auto-detected device, e.g. 'cpu' or '0' for first GPU")
+    parser.add_argument("--workers", type=int, default=8,
+                         help="dataloader workers - drop to 2 on a low-RAM host (the 8-worker "
+                              "default OOM-killed a run on this dev machine 2026-09-08)")
     args = parser.parse_args()
 
     if not os.path.isfile(DATA_YAML):
@@ -73,6 +76,7 @@ if __name__ == "__main__":
         imgsz=args.imgsz,
         patience=args.patience,
         device=device,
+        workers=args.workers,
         project=RUNS_DIR,
         name="phone_face_specialist",
     )

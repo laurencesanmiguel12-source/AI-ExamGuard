@@ -103,16 +103,24 @@ def _hand_crop(image, x, y):
     return image[y1:y2, x1:x2], (x1, y1)
 
 
-def analyze_frame(image, gt_boxes, phone_model, pose_model, conf_floor, iou_thresh, device="cpu"):
+def analyze_frame(image, gt_boxes, phone_model, pose_model, conf_floor, iou_thresh, device="cpu",
+                  imgsz=None):
     """gt_boxes: a list of ground-truth phone boxes (usually 0 or 1, but can be more - see
     load_gt_phone_boxes' docstring for why more than one is real and matching against only the
     first one silently breaks localization scoring on those frames).
 
     Returns dict: max_conf_any, best_match_conf (or None), fallback_hit (bool),
-    fallback_matched_gt (bool or None - only meaningful if fallback_hit and gt_boxes is non-empty)."""
-    h, w = image.shape[:2]
+    fallback_matched_gt (bool or None - only meaningful if fallback_hit and gt_boxes is non-empty).
 
-    result = phone_model.predict(image, verbose=False, conf=conf_floor, device=device)[0]
+    imgsz: None (default) reproduces production exactly - the checkpoint's own stored imgsz (416
+    for phone_specialist.pt, inherited from training) is used, because neither this module nor
+    object_detection_service.py passes an override. Pass an int only to measure what a different
+    whole-frame inference resolution would do; the hand-crop fallback is left at its native crop
+    size either way, since that crop is already a fixed 320px region."""
+    h, w = image.shape[:2]
+    extra = {} if imgsz is None else {"imgsz": imgsz}
+
+    result = phone_model.predict(image, verbose=False, conf=conf_floor, device=device, **extra)[0]
     face_boxes = [
         tuple(float(v) for v in box.xyxy[0])
         for box in result.boxes if int(box.cls[0]) == FACE_SPECIALIST_CLASS
