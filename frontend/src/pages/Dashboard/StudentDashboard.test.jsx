@@ -100,14 +100,19 @@ describe("StudentDashboard", () => {
     expect(await screen.findByText(/^Opens /)).toBeInTheDocument();
   });
 
-  it("warns that a past-due exam left active can still be started", async () => {
-    // end_time is not enforced server-side, so this is the honest wording. If start_exam ever
-    // starts rejecting past-due exams, this assertion should fail and be rewritten.
+  it("closes a past-due exam instead of offering a start the server will refuse", async () => {
+    // start_exam rejects a start past end_time, so the row must not invite the attempt.
     mocks.getExams.mockResolvedValue([exam({ end_time: at(-2 * HOUR), is_active: true })]);
     show();
 
-    expect(await screen.findByText(/Past due/)).toBeInTheDocument();
-    expect(screen.getByText(/still open, but check with your instructor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Closed 2h ago/)).toBeInTheDocument();
+    expect(screen.getByText(/ask your instructor if you still need to sit it/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /closed/i })).toBeDisabled();
+  });
+
+  it("still offers to start an exam inside its window", async () => {
+    show();
+    expect(await screen.findByRole("button", { name: /^start/i })).not.toBeDisabled();
   });
 
   it("prompts a student with no extension to install it", async () => {
@@ -132,7 +137,7 @@ describe("StudentDashboard", () => {
     await screen.findByText("CS-101 Mock Exam");
     expect(screen.queryByText(/Invalid Date/)).toBe(null);
     expect(screen.queryByText(/^Due /)).toBe(null);
-    expect(screen.queryByText(/Past due/)).toBe(null);
+    expect(screen.queryByText(/Closed/)).toBe(null);
   });
 
   it("keeps showing exams when the risk lookups fail", async () => {

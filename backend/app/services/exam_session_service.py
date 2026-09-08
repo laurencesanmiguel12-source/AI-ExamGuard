@@ -20,6 +20,18 @@ from app.services.object_detection_service import ObjectDetectionService
 from app.services.risk_service import RiskService
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Timestamps from Postgres' `timestamptz` arrive tz-aware, but a naive one must not blow up
+    the comparison below - a TypeError here would 500 a student at the moment they try to start
+    their exam, which is a far worse failure than a deadline briefly read in the wrong zone."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
+def _has_passed(deadline: datetime | None) -> bool:
+    # A null end_time means no deadline was set rather than a deadline of the epoch.
+    return deadline is not None and datetime.now(timezone.utc) > _as_utc(deadline)
+
+
 class ExamSessionService:
 
     @staticmethod
@@ -73,6 +85,25 @@ class ExamSessionService:
             raise HTTPException(
                 status_code=400,
                 detail="Student already has an active session."
+            )
+
+        # The due date is a real gate, not a label. Until now start_exam checked is_active,
+        # eligibility and face enrolment and never looked at end_time at all, so an exam whose
+        # deadline had passed stayed startable for as long as nobody remembered to deactivate it
+        # by hand - and the student dashboard could only ever describe the deadline, never rely
+        # on it.
+        #
+        # Deliberately NOT applied to submitting: a student who legitimately started ten minutes
+        # before the deadline runs past it by design, and rejecting their submission would
+        # destroy finished work over a boundary they were on the right side of when they began.
+        # The deadline governs when you may *begin*.
+        if _has_passed(exam.end_time):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"This exam closed on {_as_utc(exam.end_time):%d %b %Y at %H:%M} UTC. "
+                    f"Ask your instructor if you need to sit it."
+                )
             )
 
         # A prior submitted session doesn't block a new attempt today (that's normal - a student

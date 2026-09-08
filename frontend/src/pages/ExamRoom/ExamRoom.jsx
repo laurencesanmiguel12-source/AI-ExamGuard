@@ -24,7 +24,7 @@ import PreExamModal from "./PreExamModal";
 import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 // How often a webcam frame is grabbed and sent for face/object checks. Was 5000 (0.2 fps).
-// ponytail: per-student poll rate; at 1 fps this is 2 backend ML requests/sec/student, so a 50-
+// This is a per-student poll rate; at 1 fps this is 2 backend ML requests/sec/student, so a 50-
 // student exam is ~100 req/s - the load test that found DB pool exhaustion ran at 0.2 fps. Raise
 // back toward 2000-5000 if p95 latency or face-check accuracy degrades under real concurrency.
 const CAPTURE_INTERVAL_MS = 1000;

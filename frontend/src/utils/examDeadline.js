@@ -4,19 +4,18 @@
 // ever shown it to a student - the dashboard only ever printed `start_time`. So the one date a
 // student needs to plan around was the one date they could not see.
 //
-// One caveat this module is deliberately honest about: **the backend does not enforce
-// end_time.** ExamSessionService.start_exam gates on is_active, eligibility and face enrolment
-// only, and never looks at either end_time or start_time. So a passed deadline does not actually
-// stop anyone, and the UI must not imply it does - see DEADLINE_IS_ADVISORY below and the way
-// `overdue` is worded where it is rendered.
+// The deadline is enforced server-side: ExamSessionService.start_exam rejects a start once
+// end_time has passed, so "closed" here means genuinely closed and the UI may say so. It gates
+// *starting* only - a session already in progress runs to completion and can still be submitted,
+// which is why an in-progress exam is never described using this module.
+//
+// (Until 2026-09-08 start_exam checked is_active, eligibility and face enrolment and never read
+// end_time, so this wording had to hedge. If that enforcement is ever removed, the "Closed"
+// label becomes a claim of a gate that does not exist and must be softened again.)
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
-
-// Exposed so the calling component and its tests state the same thing rather than each deciding
-// independently how much of a gate the deadline is.
-export const DEADLINE_IS_ADVISORY = true;
 
 export const URGENT_MS = HOUR;
 export const SOON_MS = DAY;

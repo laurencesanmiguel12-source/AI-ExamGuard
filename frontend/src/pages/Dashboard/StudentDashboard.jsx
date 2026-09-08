@@ -264,24 +264,34 @@ export default function StudentDashboard() {
                         Face enrollment required before starting
                       </div>
                     )}
-                    {/* end_time is advisory: start_exam never checks it, so an overdue exam left
-                        active can still be started. Say that plainly instead of implying a
-                        deadline the server does not keep. */}
-                    {deadline.status === "overdue" && e.is_active && (
+                    {/* start_exam rejects a start past end_time, so this is the real reason the
+                        button below is disabled - said here rather than leaving the student to
+                        infer it from a greyed-out control. */}
+                    {deadline.status === "overdue" && (
                       <div className="mt-1 text-[10px] font-mono text-red-700">
-                        Past the due date — still open, but check with your instructor
+                        The due date has passed — ask your instructor if you still need to sit it
                       </div>
                     )}
                   </div>
+                  {/* Mirrors start_exam's own gates so the button never offers something the
+                      server will refuse. The server stays the real gate; this only avoids
+                      walking the student into an error. */}
                   <button
                     onClick={() =>
                       needsEnrollment ? navigate("/face-enrollment") : navigate(`/take-exam/${e.id}`)
                     }
-                    disabled={!e.is_active}
-                    title={needsEnrollment ? "Enroll your face before starting a proctored exam" : undefined}
+                    disabled={!e.is_active || deadline.status === "overdue"}
+                    title={
+                      deadline.status === "overdue"
+                        ? "This exam's due date has passed"
+                        : needsEnrollment
+                          ? "Enroll your face before starting a proctored exam"
+                          : undefined
+                    }
                     className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-[11px] font-mono uppercase tracking-wider px-3 py-2 rounded-lg transition-colors"
                   >
-                    {needsEnrollment ? "Enroll First" : "Start"} <ArrowRight className="w-3 h-3" />
+                    {deadline.status === "overdue" ? "Closed" : needsEnrollment ? "Enroll First" : "Start"}{" "}
+                    <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
                 );

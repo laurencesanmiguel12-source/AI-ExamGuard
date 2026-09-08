@@ -16,10 +16,9 @@ const ICONS = { upcoming: CalendarClock, soon: Clock, urgent: AlarmClock, overdu
 /**
  * The live "time remaining" pill next to an exam's due date.
  *
- * Deliberately says "Past due" and not "Closed": the backend does not enforce end_time
- * (start_exam checks is_active, eligibility and face enrolment only), so an overdue exam whose
- * instructor left it active can still be started. Claiming it is closed would be the same
- * failure as the pre-exam checklist that looked like a gate and gated nothing.
+ * Says "Closed" because the exam really is: start_exam rejects a start past end_time. This
+ * wording is only correct while that enforcement exists - it deliberately claims a gate, and a
+ * claimed gate that does not exist is the pre-exam-checklist failure all over again.
  */
 export default function DeadlineBadge({ endTime, startTime = null, className = "" }) {
   const [now, setNow] = useState(() => Date.now());
@@ -35,7 +34,7 @@ export default function DeadlineBadge({ endTime, startTime = null, className = "
   if (state.status === "none") return null;
 
   const Icon = ICONS[state.status];
-  const text = state.status === "overdue" ? `Past due — ${state.label}` : `Due in ${state.label}`;
+  const text = state.status === "overdue" ? `Closed ${state.label}` : `Due in ${state.label}`;
 
   return (
     <span

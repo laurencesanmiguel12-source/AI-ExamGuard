@@ -21,16 +21,14 @@ describe("DeadlineBadge", () => {
     expect(screen.getByText(/Due in 3h 12m/)).toBeInTheDocument();
   });
 
-  it("says past due rather than closed, because the server does not close it", () => {
-    // start_exam gates on is_active only and never reads end_time, so an overdue-but-active exam
-    // can still be started. "Closed" would be the checklist mistake again: a stated gate that
-    // does not exist.
+  it("says closed once the deadline passes, and how long ago", () => {
+    // Only truthful because start_exam now rejects a start past end_time. If that enforcement
+    // goes away this wording claims a gate that does not exist.
     render(<DeadlineBadge endTime={inMs(-2 * HOUR)} />);
 
-    const badge = screen.getByText(/Past due/);
+    const badge = screen.getByText(/Closed/);
     expect(badge).toBeInTheDocument();
     expect(badge.textContent).toMatch(/2h ago/);
-    expect(screen.queryByText(/closed/i)).toBe(null);
   });
 
   it("updates itself as time passes without a re-render from the parent", () => {
@@ -52,7 +50,7 @@ describe("DeadlineBadge", () => {
       vi.advanceTimersByTime(45 * 1000);
     });
 
-    expect(screen.getByText(/Past due/)).toBeInTheDocument();
+    expect(screen.getByText(/Closed/)).toBeInTheDocument();
   });
 
   it("does not announce itself over whatever the student is reading", () => {
