@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.auth.session_access import require_own_student, require_session_owner_student
@@ -47,7 +48,10 @@ async def check_face(
     session: ExamSession = Depends(require_session_owner_student)
 ):
     image_bytes = await file.read()
-    return FaceService.verify(
+    # Off the event loop - see the same call in routes/object_detection.py for why, and
+    # face_service.py's _thread_detector for the per-thread YuNet instance that makes it safe.
+    return await run_in_threadpool(
+        FaceService.verify,
         session_id,
         image_bytes,
         db,

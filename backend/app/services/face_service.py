@@ -1,5 +1,6 @@
 import math
 import os
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.violation import ViolationCreate
-from app.services.object_detection_service import _POSE_MODEL
+from app.services.object_detection_service import pose_model
 from app.services.violation_service import ViolationService
 
 FACE_SIZE = (200, 200)
@@ -153,9 +154,24 @@ _YUNET_PATH = os.path.join(
 # benchmarked specifically for pose/rotation/lighting robustness, fixing detection dropping out on
 # quick head turns. Score/NMS thresholds are OpenCV's own sample defaults - a starting point, not
 # yet tuned against real hardware.
-_DETECTOR = cv2.FaceDetectorYN_create(
-    _YUNET_PATH, "", (320, 320), score_threshold=0.9, nms_threshold=0.3, top_k=5000
-)
+#
+# One detector PER THREAD, not one shared module-level instance. detect() is preceded by a
+# setInputSize() that MUTATES the detector, and OpenCV reallocates its internal DNN buffers from
+# that size - two threads interleaving those two calls corrupt each other's buffers, which shows
+# up as `cv2.error: (-215:Assertion failed) buf.shape() == m.shape() in Net::Impl::forwardGraph`
+# and a 500. Reproduced directly under concurrent load (2026-09-07); same reasoning as the
+# per-thread YOLO models in object_detection_service.py, see the comment there.
+_thread_detector = threading.local()
+
+
+def _detector():
+    detector = getattr(_thread_detector, "yunet", None)
+    if detector is None:
+        detector = cv2.FaceDetectorYN_create(
+            _YUNET_PATH, "", (320, 320), score_threshold=0.9, nms_threshold=0.3, top_k=5000
+        )
+        _thread_detector.yunet = detector
+    return detector
 
 # Fixed size matching a typical ExamRoom capture frame - reused across benchmark calls so the
 # Admin System tab measures real detector latency on this hardware, not a fabricated number.
@@ -165,8 +181,9 @@ _BENCHMARK_IMAGE = np.zeros((480, 640, 3), dtype=np.uint8)
 def _detect_largest_face(image):
     # YuNet expects a color image and needs the actual per-frame size set before each detect()
     # call, since captured frame dimensions aren't guaranteed constant across requests.
-    _DETECTOR.setInputSize((image.shape[1], image.shape[0]))
-    _, faces = _DETECTOR.detect(image)
+    detector = _detector()
+    detector.setInputSize((image.shape[1], image.shape[0]))
+    _, faces = detector.detect(image)
 
     if faces is None or len(faces) == 0:
         return None
@@ -329,7 +346,7 @@ def _pose_fallback_signals(image) -> tuple[bool, float]:
     false negative on the head-down streak) with precision = 0.944. This is deliberately only
     used to decide whether to keep crediting an *existing* head-down streak, never FACE_LOST -
     see the person_present signal above for why."""
-    pose_results = _POSE_MODEL.predict(image, verbose=False)[0]
+    pose_results = pose_model().predict(image, verbose=False)[0]
 
     person_present = pose_results.boxes is not None and len(pose_results.boxes) > 0
 
@@ -440,8 +457,9 @@ class FaceService:
     @staticmethod
     def benchmark_latency_ms() -> float:
         start = time.perf_counter()
-        _DETECTOR.setInputSize((640, 480))
-        _DETECTOR.detect(_BENCHMARK_IMAGE)
+        detector = _detector()
+        detector.setInputSize((640, 480))
+        detector.detect(_BENCHMARK_IMAGE)
         return round((time.perf_counter() - start) * 1000, 1)
 
     @staticmethod
@@ -550,9 +568,9 @@ class FaceService:
             # frontend/src/hooks/useClientFaceDetector.js). image_bytes here is ALREADY a
             # cropped, grayscale, FACE_SIZE face region, not a raw frame - the client only takes
             # this path when ITS OWN detector was confident a face was present, so server-side
-            # YuNet detection + the pose-model fallback (the two calls that share the
-            # module-level _DETECTOR object load-testing found serializes under concurrency - see
-            # ai_examguard_load_testing memory) are skipped entirely for this poll. A client
+            # YuNet detection + the pose-model fallback (the two genuinely expensive calls -
+            # 2026-09-07 load testing measured this path at ~16ms against ~230ms for a full-frame
+            # audit poll) are skipped entirely for this poll. A client
             # reporting "no face"/uncertain always sends a full raw frame instead and falls
             # through to the branch below, so FACE_LOST is still only ever decided from real
             # server-side detection, never a client's self-report.

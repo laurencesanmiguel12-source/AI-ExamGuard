@@ -29,6 +29,20 @@ class Settings(BaseSettings):
     # Used to build the "review it here" link in the notification body.
     FRONTEND_BASE_URL: str = "http://localhost:5173"
 
+    # How many face-check/object-check inferences may run at once (main.py hands this to anyio's
+    # thread limiter, whose own default of 40 is far too high here - each inference thread lazily
+    # builds its OWN copy of the three YOLO models plus a YuNet detector, since none of them are
+    # thread-safe; see object_detection_service.py).
+    #
+    # 2, not a core count, and this is measured rather than assumed: sweeping 2/4/8 at 10
+    # concurrent students changed aggregate throughput by nothing at all (10.7 / 10.7 / 10.9
+    # req/s), because ultralytics and OpenCV already parallelize a SINGLE inference across every
+    # core - a second concurrent inference just splits the same CPU rather than adding capacity.
+    # So extra threads buy no throughput and cost real memory (1.74GB RSS at 2, 2.19GB at 8).
+    # What the threadpool actually buys is keeping the event loop free, which one spare thread
+    # already achieves. Re-measure on the real deploy host with backend/loadtest/ before changing.
+    INFERENCE_THREADS: int = 2
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @property

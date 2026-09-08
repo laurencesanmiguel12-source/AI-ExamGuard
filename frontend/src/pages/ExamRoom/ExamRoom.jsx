@@ -23,6 +23,15 @@ import RiskPill from "../../components/ui/RiskPill";
 import PreExamModal from "./PreExamModal";
 import { EXTENSION_STORE_URL } from "../../constants/extension";
 
+// How often a webcam frame is grabbed and sent for face/object checks. Was 5000 (0.2 fps).
+// ponytail: per-student poll rate; at 1 fps this is 2 backend ML requests/sec/student, so a 50-
+// student exam is ~100 req/s - the load test that found DB pool exhaustion ran at 0.2 fps. Raise
+// back toward 2000-5000 if p95 latency or face-check accuracy degrades under real concurrency.
+const CAPTURE_INTERVAL_MS = 1000;
+// Server-side audit polls stay at ~15s (see the comment on faceCheckPollCountRef) no matter what
+// CAPTURE_INTERVAL_MS is, because the head-down constants were tuned against that cadence.
+const AUDIT_EVERY_N_POLLS = Math.max(1, Math.round(15000 / CAPTURE_INTERVAL_MS));
+
 function useCountdown(deadline) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -235,7 +244,7 @@ export default function ExamRoom() {
   const { detect: detectFaceLocally } = useClientFaceDetector(
     phase === "in-progress" && needsFaceCheck
   );
-  // Every ~3rd poll (roughly once/15s at the 5s cadence below) forces a full server-side check
+  // Every AUDIT_EVERY_N_POLLS-th poll (~15s regardless of capture rate) forces a full server-side check
   // regardless of what the local detector reports - both an independent audit sample (catches a
   // tampered/lying client reporting "confident" every poll) and, as important, PROLONGED_HEAD_DOWN's
   // only real data source: face_service.py's client_confident_crop path skips _track_head_down
@@ -244,24 +253,34 @@ export default function ExamRoom() {
   // reports 0.50-0.77 confidence (above its own 0.5 "trust this" cutoff) during a genuine head-down
   // tilt on 3 of 4 real polls sampled, only dropping to 0 detections intermittently - meaning a
   // sustained head-down episode could see NO real pose check at all for a full audit interval,
-  // purely by chance of whether MediaPipe happened to lose the face. 1-in-3 restores roughly the
-  // same real-check cadence (~15s) that HEAD_DOWN_DURATION_THRESHOLD_SECONDS=25s and
-  // HEAD_DOWN_MISS_TOLERANCE=1 were originally empirically tuned against, before this client-side
-  // path existed. See face_service.py's client_confident_crop docstring for the server-side half.
+  // purely by chance of whether MediaPipe happened to lose the face. The ~15s real-check cadence is
+  // what HEAD_DOWN_DURATION_THRESHOLD_SECONDS=25s and HEAD_DOWN_MISS_TOLERANCE=1 were empirically
+  // tuned against, so AUDIT_EVERY_N_POLLS is derived from the capture interval rather than fixed -
+  // changing the capture rate must not silently change the audit cadence those constants assume.
+  // (HEAD_DOWN_MISS_TOLERANCE counts *polls*, not seconds: a fixed 1-in-3 at 1s capture would give
+  // it a ~3s forgiveness window instead of the ~30s it was swept at, and the feature would stop
+  // firing.) See face_service.py's client_confident_crop docstring for the server-side half.
   const faceCheckPollCountRef = useRef(0);
 
   useEffect(() => {
     if (phase !== "in-progress" || !session || !needsCamera || !cameraReady) return;
     let cancelled = false;
+    // A face + object round-trip regularly takes longer than CAPTURE_INTERVAL_MS at 1 fps, and
+    // setInterval doesn't wait - without this the in-flight checks stack up unboundedly and the
+    // backend sees a growing pile-up per student. Skipping a tick is the correct behavior: the
+    // effective rate just degrades to whatever the backend can actually keep up with.
+    let inFlight = false;
 
     async function checkOnce() {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const blob = await captureFrame();
         if (!blob || cancelled) return;
 
         if (needsFaceCheck) {
           const pollCount = ++faceCheckPollCountRef.current;
-          const isAuditPoll = pollCount % 3 === 0;
+          const isAuditPoll = pollCount % AUDIT_EVERY_N_POLLS === 0;
 
           let faceBlob = blob;
           let clientConfidentCrop = false;
@@ -308,11 +327,13 @@ export default function ExamRoom() {
         }
       } catch {
         // best-effort; next check will retry naturally
+      } finally {
+        inFlight = false;
       }
     }
 
     checkOnce();
-    const id = setInterval(checkOnce, 5000);
+    const id = setInterval(checkOnce, CAPTURE_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);

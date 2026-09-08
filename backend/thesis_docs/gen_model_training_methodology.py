@@ -797,20 +797,38 @@ bullets([
 
 h2("7.4 Worked computation - the deployed detector")
 
-p("Evaluated on the 322-frame frozen holdout (96 phone-positive, 226 phone-negative), through the "
+p("Evaluated on the 322-frame frozen holdout (76 phone-positive, 246 phone-negative), through the "
   "full production pipeline, at production's real 0.35 confidence threshold:")
 
-code("TP = 76,  FP = 6,  FN = 96 - 76 = 20\n\n"
-     "precision = 76 / (76 + 6)  = 76 / 82 = 0.927\n"
-     "recall    = 76 / 96                  = 0.792\n"
-     "F1        = 2 * 0.927 * 0.792 / (0.927 + 0.792) = 0.854")
+code("TP = 75,  FP = 7,  FN = 76 - 75 = 1\n\n"
+     "precision = 75 / (75 + 7)  = 75 / 82 = 0.915\n"
+     "recall    = 75 / 76                  = 0.987\n"
+     "F1        = 2 * 0.915 * 0.987 / (0.915 + 0.987) = 0.949")
 
-p("Read plainly: of every 100 frames the system flags for a phone, about 93 really contain one; of "
-  "every 100 frames that really contain a phone, about 79 are flagged. The asymmetry is "
-  "intentional. In proctoring a false accusation is more costly than a missed frame, and a missed "
-  "<i>frame</i> is not a missed <i>event</i> - phone use spans many consecutive polls, so the "
-  "system has repeated independent chances to catch a single real episode, while each false "
-  "positive is a fresh burden on a real student.")
+p("Read plainly: of every 100 frames the system flags for a phone, about 92 really contain one; of "
+  "every 100 frames that really contain a phone, about 99 are flagged. The residual error is "
+  "therefore almost entirely on the precision side, which is the side this project would rather "
+  "carry the burden on only if it were the reverse - so the 7 false positives, not the 1 missed "
+  "frame, are where further work belongs. A missed <i>frame</i> is in any case not a missed "
+  "<i>event</i>: phone use spans many consecutive polls, so the system gets repeated independent "
+  "chances at a single real episode, while each false positive is a fresh burden on a real student.")
+
+p("<b>These figures supersede an earlier reported 0.927 / 0.792 / 0.854, and the correction is "
+  "itself a finding worth recording.</b> The fairness audit of 2026-08-01 removed 579 boxes across "
+  "11 subjects in which the OEP rig's own second camera - a chrome camcorder on a stand beside the "
+  "subject's head - had been annotated as a phone. That fix was applied to "
+  "<font face='Courier'>annotation_batch/</font>. The frozen holdout sits physically outside it, "
+  "precisely so that no training-side script can reach it, and so the correction never propagated "
+  "in. The defect was found on 2026-09-08 while diagnosing why three consecutive retrains all "
+  "appeared to regress the holdout: the misses were not spread across conditions but concentrated "
+  "absolutely, with subject01's plain-frame batch scoring 16/16 missed while the same subject's "
+  "phonewin frames scored 30/30. Those 16 frames contain no phone. 41 such boxes were removed "
+  "after frame-by-frame visual verification "
+  "(<font face='Courier'>fix_frozen_holdout_device_labels.py</font>, original labels backed up), "
+  "moving 20 frames from positive to verified negative. Note the correction cut both ways: recall "
+  "rose from 0.792 to 0.987, but precision <i>fell</i> from 0.927 to 0.915, because one frame that "
+  "had been scoring a free true positive for a 0.46-confidence detection on the camera device is "
+  "now, correctly, a false positive.")
 
 h2("7.5 F1 for the other two models")
 
@@ -835,8 +853,8 @@ p("The training run produces its own F1 curve, and it is included here specifica
 figure("BoxF1_curve.png", "fig4_f1_confidence.png",
        "Figure 4. F1 against confidence threshold on the validation split. All classes peak at "
        "<b>F1 = 0.80 at confidence 0.433</b>; the phone class alone peaks near 0.88. <b>This is "
-       "not the 0.854 reported in section 7.4</b> - this curve is box-level and IoU-matched, "
-       "computed per detection on the validation subjects, whereas 0.854 is frame-level presence "
+       "not the 0.949 reported in section 7.4</b> - this curve is box-level and IoU-matched, "
+       "computed per detection on the validation subjects, whereas 0.949 is frame-level presence "
        "on the frozen holdout through the full four-stage production pipeline. The two answer "
        "different questions and are not interchangeable.")
 
@@ -999,19 +1017,35 @@ p("Note that this audit deliberately draws from <b>both</b> the training pool an
 
 h2("8.7 Negative results")
 
-p("Three are recorded, because a methodology that only reports what worked is not a methodology:")
+p("Four are recorded, because a methodology that only reports what worked is not a methodology:")
 
 bullets([
-    "<b>Two retrains on additional hand-corrected data both regressed.</b> A 1,773-frame corrected "
-    "personal-video batch was merged into training twice - once in full, once downweighted. Frozen "
-    "holdout F1 came out at 0.833 and 0.838 against production's 0.854. The batch was dropped from "
-    "the training set entirely and production weights were never touched. The underlying "
+    "<b>Three retrains on additional hand-corrected data all failed to beat production.</b> A "
+    "1,773-frame corrected personal-video batch was merged into training twice - once in full, "
+    "once downweighted - and a third run added an 815-frame six-person webcam batch. Frozen "
+    "holdout F1 came out at 0.833, 0.838 and 0.829 against production's then-reported 0.854. All "
+    "three were dropped and production weights were never touched. Re-scored on the corrected "
+    "holdout labels (7.4), the third candidate reaches identical recall to production (0.987, "
+    "missing the same single frame) and loses only on precision, 10 false positives against 7 - "
+    "so the added data did not improve detection at all, it only made the model fire more loosely. "
+    "The underlying "
     "false-positive bug was later fixed by the zero-cost geometric post-filter in 4.6 - "
     "<b>more data was the wrong tool for that problem.</b>",
     "<b>A second independent pitch signal from the pose model was tried and reverted</b>, on "
     "measured evidence of worse F1.",
     "<b>The offline threshold sweep of 8.3 was deployed and reverted</b> after live measurement "
     "contradicted it.",
+    "<b>Raising the whole-frame inference resolution was tried and rejected.</b> The detector is "
+    "trained at 416 and, because neither the service nor the eval harness passes an override, "
+    "infers at 416 as well. Raising it is a one-argument change and the intuition that a higher "
+    "resolution helps small objects like a distant phone is a common one, so it was measured "
+    "rather than assumed (<font face='Courier'>sweep_inference_resolution.py</font>). It makes "
+    "detection sharply worse: F1 falls from 0.949 at 416 to 0.913 at 640 and 0.667 at 960, with "
+    "recall collapsing from 0.987 to 0.579, while full-pipeline latency rises to 1.5x. The cause "
+    "is train/test scale mismatch - the detection head is calibrated to how objects appear after "
+    "letterboxing to the training resolution, so feeding it a different one presents every phone "
+    "at a scale it never saw. 416 is not a constraint to be overcome here; it is the model's "
+    "correct operating point. Raising resolution would require training at that resolution too.",
 ])
 
 h2("8.8 Software-level regression testing")

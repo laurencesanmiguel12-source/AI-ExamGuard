@@ -1,5 +1,7 @@
 import logging
+from contextlib import asynccontextmanager
 
+import anyio.to_thread
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -44,7 +46,19 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(name)s | %(message)s",
 )
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Both inference routes run their blocking CPU work via run_in_threadpool, which draws from
+    # anyio's shared default thread limiter (40 tokens). 40 concurrent inference threads would
+    # each lazily build their own YOLO/YuNet models - gigabytes of duplicated weights for no
+    # throughput gain. See settings.INFERENCE_THREADS for the measurements behind the number.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = settings.INFERENCE_THREADS
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="AI ExamGuard API",
     version="1.0.0",
     description="AI-powered online examination and proctoring system"

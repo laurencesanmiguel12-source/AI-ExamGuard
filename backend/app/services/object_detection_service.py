@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from collections import deque
 
@@ -158,9 +159,40 @@ def _record_candidate(session_id: int, is_candidate: bool) -> bool:
 # for why a combined single model isn't used. The pose model is used only for wrist location, to
 # focus a second, more sensitive phone-specialist pass on hand regions - see the project plan for
 # why (sideways-held phones are hard to recognize by shape alone from a whole-frame pass).
-_MODEL = YOLO(MODEL_PATH)
-_PHONE_MODEL = YOLO(PHONE_MODEL_PATH)
-_POSE_MODEL = YOLO(POSE_MODEL_PATH)
+#
+# One instance PER THREAD, not one shared module-level instance. Ultralytics keeps per-call state
+# on the model object itself (`model.predictor` and the results hanging off it are rebuilt each
+# predict()), so two threads calling predict() on the SAME YOLO object race - and the damage is
+# silent: a thread can read back boxes produced from the OTHER thread's frame. In a proctoring
+# app that means a violation logged against the wrong student's session, which is far worse than
+# a crash. The sibling YuNet detector in face_service.py fails the same way but louder (it threw
+# real cv2 assertion 500s under concurrency - see the 2026-09-07 load test).
+#
+# Lazy, so a thread that never runs inference never pays for the weights, and so the memory cost
+# scales with the thread limiter set in main.py rather than with the threadpool's default size.
+# The first request on each new thread pays the model-load cost once (~1s); with a small bounded
+# pool that's a handful of one-off slow requests at startup, not a steady-state cost.
+_thread_models = threading.local()
+
+
+def _model_for_thread(attr: str, path: str) -> YOLO:
+    model = getattr(_thread_models, attr, None)
+    if model is None:
+        model = YOLO(path)
+        setattr(_thread_models, attr, model)
+    return model
+
+
+def base_model() -> YOLO:
+    return _model_for_thread("base", MODEL_PATH)
+
+
+def phone_model() -> YOLO:
+    return _model_for_thread("phone", PHONE_MODEL_PATH)
+
+
+def pose_model() -> YOLO:
+    return _model_for_thread("pose", POSE_MODEL_PATH)
 
 # Matches a typical ExamRoom capture frame - reused across benchmark calls so the Admin System
 # tab measures real inference latency on this hardware, not a fabricated number. Only the base +
@@ -245,7 +277,7 @@ def _phone_near_hands(image, pose_results):
         if crop is None or crop.size == 0:
             continue
 
-        crop_results = _PHONE_MODEL.predict(crop, verbose=False, conf=HAND_REGION_PHONE_THRESHOLD)[0]
+        crop_results = phone_model().predict(crop, verbose=False, conf=HAND_REGION_PHONE_THRESHOLD)[0]
         if _non_face_shaped_phone_confs(crop_results.boxes):
             return True
 
@@ -261,8 +293,8 @@ class ObjectDetectionService:
     @staticmethod
     def benchmark_latency_ms() -> float:
         start = time.perf_counter()
-        _MODEL.predict(_BENCHMARK_IMAGE, verbose=False, conf=CONFIDENCE_THRESHOLD)
-        _PHONE_MODEL.predict(_BENCHMARK_IMAGE, verbose=False, conf=PHONE_SPECIALIST_CONFIDENCE_THRESHOLD)
+        base_model().predict(_BENCHMARK_IMAGE, verbose=False, conf=CONFIDENCE_THRESHOLD)
+        phone_model().predict(_BENCHMARK_IMAGE, verbose=False, conf=PHONE_SPECIALIST_CONFIDENCE_THRESHOLD)
         return round((time.perf_counter() - start) * 1000, 1)
 
     @staticmethod
@@ -288,13 +320,13 @@ class ObjectDetectionService:
         if image is None:
             return {"phone_detected": False, "person_count": 0}
 
-        results = _MODEL.predict(image, verbose=False, conf=CONFIDENCE_THRESHOLD)[0]
+        results = base_model().predict(image, verbose=False, conf=CONFIDENCE_THRESHOLD)[0]
         classes = results.boxes.cls.tolist() if results.boxes is not None else []
         person_count = classes.count(PERSON_CLASS)
 
         # Predict at the lower candidate threshold so weak-but-real detections aren't discarded
         # before they get a chance to be corroborated across polls.
-        phone_results = _PHONE_MODEL.predict(
+        phone_results = phone_model().predict(
             image, verbose=False, conf=PHONE_CANDIDATE_THRESHOLD
         )[0]
         phone_scores = _non_face_shaped_phone_confs(phone_results.boxes)
@@ -305,7 +337,7 @@ class ObjectDetectionService:
         corroborated = _record_candidate(session_id, is_candidate)
 
         if not phone_detected:
-            pose_results = _POSE_MODEL.predict(image, verbose=False)[0]
+            pose_results = pose_model().predict(image, verbose=False)[0]
             phone_detected = _phone_near_hands(image, pose_results) or corroborated
 
         if phone_detected:
