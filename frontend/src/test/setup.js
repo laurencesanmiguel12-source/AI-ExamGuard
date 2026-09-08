@@ -26,4 +26,30 @@ expect.extend({
       message: () => (pass ? "expected element not to be disabled" : "expected element to be disabled"),
     };
   },
+  toHaveAttribute(received, name, expected) {
+    const actual = received?.getAttribute?.(name);
+    const present = actual !== null && actual !== undefined;
+    const pass = expected === undefined ? present : actual === expected;
+    return {
+      pass,
+      actual,
+      expected,
+      message: () =>
+        expected === undefined
+          ? `expected element ${pass ? "not " : ""}to have attribute "${name}"`
+          : `expected "${name}" to be "${expected}", got ${present ? `"${actual}"` : "no such attribute"}`,
+    };
+  },
+  toBeEmptyDOMElement(received) {
+    // A component that renders null leaves its container with no child nodes at all. Whitespace
+    // between JSX elements never reaches the DOM, so this needs no trimming.
+    const pass = received?.childNodes?.length === 0;
+    return {
+      pass,
+      message: () =>
+        pass
+          ? "expected element to render something, but it was empty"
+          : `expected element to be empty, but it contained: ${received?.innerHTML}`,
+    };
+  },
 });

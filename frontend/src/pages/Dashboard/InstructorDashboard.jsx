@@ -13,6 +13,7 @@ import SectionTag from "../../components/ui/SectionTag";
 import RiskPill from "../../components/ui/RiskPill";
 import RiskBar from "../../components/ui/RiskBar";
 import ViolationBreakdownChart, { VIOLATION_META } from "../../components/ViolationBreakdownChart";
+import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 const SOUND_PREF_KEY = "liveMonitorSoundEnabled";
 
@@ -363,7 +364,7 @@ export default function InstructorDashboard() {
               <span className="text-[11px] font-mono text-muted-foreground">Analytics</span>
             </button>
             <a
-              href="https://chromewebstore.google.com/detail/ai-examguard-tab-monitor/gbkbkbcbbehpcoifmkenkjafkfbphmkf"
+              href={EXTENSION_STORE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex flex-col items-center gap-1.5 p-4 bg-card border border-border hover:border-foreground/15 rounded-xl transition-colors"

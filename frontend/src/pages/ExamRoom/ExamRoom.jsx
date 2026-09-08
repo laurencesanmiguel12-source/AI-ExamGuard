@@ -21,6 +21,7 @@ import Card from "../../components/ui/Card";
 import StatusDot from "../../components/ui/StatusDot";
 import RiskPill from "../../components/ui/RiskPill";
 import PreExamModal from "./PreExamModal";
+import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 function useCountdown(deadline) {
   const [now, setNow] = useState(() => Date.now());
@@ -509,7 +510,7 @@ export default function ExamRoom() {
                 only). Install it from the Chrome Web Store below, then retry.
               </p>
               <a
-                href="https://chromewebstore.google.com/detail/ai-examguard-tab-monitor/gbkbkbcbbehpcoifmkenkjafkfbphmkf"
+                href={EXTENSION_STORE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center bg-card border border-border hover:bg-muted text-foreground py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors mb-3"

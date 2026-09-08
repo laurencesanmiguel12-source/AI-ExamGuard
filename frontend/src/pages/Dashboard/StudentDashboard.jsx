@@ -11,6 +11,10 @@ import Card from "../../components/ui/Card";
 import SectionTag from "../../components/ui/SectionTag";
 import StatusDot from "../../components/ui/StatusDot";
 import EnrollmentPromptModal from "../../components/EnrollmentPromptModal";
+import DeadlineBadge from "../../components/DeadlineBadge";
+import ExtensionInstallCard, { ExtensionStatusRow } from "../../components/ExtensionInstallCard";
+import useExtensionInstalled from "../../hooks/useExtensionInstalled";
+import { getDeadlineState } from "../../utils/examDeadline";
 
 // sessionStorage (not localStorage) - "dismissed for this session", not forever. A fresh login
 // (new tab/browser session) prompts again; navigating around the dashboard within the same
@@ -37,6 +41,7 @@ export default function StudentDashboard() {
   const [me, setMe] = useState(null);
   const [riskTimeline, setRiskTimeline] = useState([]);
   const [showEnrollPrompt, setShowEnrollPrompt] = useState(false);
+  const { status: extensionStatus, recheck: recheckExtension } = useExtensionInstalled();
 
   useEffect(() => {
     getExams()
@@ -173,6 +178,11 @@ export default function StudentDashboard() {
         </Card>
       )}
 
+      {/* Same reasoning as the face-enrolment banner above: a prerequisite the student can only
+          satisfy outside the exam, so it belongs where they are before the exam rather than on
+          the check screen that blocks them once the clock is running. */}
+      <ExtensionInstallCard status={extensionStatus} onRecheck={recheckExtension} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
@@ -197,6 +207,7 @@ export default function StudentDashboard() {
                 </div>
               )}
               {exams.map((e) => {
+                const deadline = getDeadlineState(e.end_time, Date.now(), e.start_time);
                 return (
                 <div key={e.id} className="px-6 py-4 flex items-center gap-4 hover:bg-secondary/50 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center flex-shrink-0">
@@ -215,8 +226,34 @@ export default function StudentDashboard() {
                         {e.is_active ? "active" : "inactive"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground">
-                      <span>{new Date(e.start_time).toLocaleString()}</span>
+                    {/* The due date is the one date a student plans around, so it gets its own
+                        line and the live countdown, rather than sitting in the grey run of
+                        metadata below where the start time used to be the only date shown. */}
+                    {deadline.status !== "none" && (
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-[12px] font-medium ${
+                            deadline.status === "urgent" || deadline.status === "overdue"
+                              ? "text-red-700"
+                              : "text-foreground"
+                          }`}
+                        >
+                          Due {new Date(e.end_time).toLocaleString([], {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                        <DeadlineBadge endTime={e.end_time} startTime={e.start_time} />
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-muted-foreground">
+                      <span>
+                        {deadline.notYetOpen ? "Opens" : "Opened"}{" "}
+                        {new Date(e.start_time).toLocaleString([], {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </span>
                       <span>·</span>
                       <span>{e.duration_minutes} min</span>
                       <span>·</span>
@@ -225,6 +262,14 @@ export default function StudentDashboard() {
                     {needsEnrollment && (
                       <div className="text-[10px] font-mono text-amber-700 mt-1">
                         Face enrollment required before starting
+                      </div>
+                    )}
+                    {/* end_time is advisory: start_exam never checks it, so an overdue exam left
+                        active can still be started. Say that plainly instead of implying a
+                        deadline the server does not keep. */}
+                    {deadline.status === "overdue" && e.is_active && (
+                      <div className="mt-1 text-[10px] font-mono text-red-700">
+                        Past the due date — still open, but check with your instructor
                       </div>
                     )}
                   </div>
@@ -332,6 +377,7 @@ export default function StudentDashboard() {
             <div className="space-y-2 mb-4">
               <StatusDot on={!!me?.face_model_path} label="Face model trained" />
               <StatusDot on={!!me?.face_model_path} label="Ready for verification" />
+              <ExtensionStatusRow status={extensionStatus} />
             </div>
             {me && (
               <button

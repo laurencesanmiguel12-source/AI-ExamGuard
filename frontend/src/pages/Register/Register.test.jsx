@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 const registerStudent = vi.fn();
 const getCourses = vi.fn();
@@ -80,5 +81,41 @@ describe("Register", () => {
     for (const label of [/first name/i, /last name/i, /email/i, /password/i, /course/i]) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
+  });
+
+  it("asks the new student to install the extension once the account exists", async () => {
+    // Registration is the one moment a student has time to spare and can finish this without an
+    // instructor, a session or a camera. It used to be a 1.5s "Redirecting to login..." flash,
+    // which is not long enough to read, let alone act on.
+    getCourses.mockResolvedValue([{ id: 1, code: "BSCS", name: "BS Computer Science" }]);
+    registerStudent.mockResolvedValue({});
+    renderRegister();
+    await screen.findByRole("option", { name: /bs computer science/i });
+
+    await userEvent.type(screen.getByLabelText(/first name/i), "Ana");
+    await userEvent.type(screen.getByLabelText(/last name/i), "Reyes");
+    await userEvent.type(screen.getByLabelText(/email/i), "ana@arellano.edu");
+    await userEvent.type(screen.getByLabelText(/password/i), "TestPass123!");
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(await screen.findByText(/account created/i)).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: /get the extension/i });
+    expect(link).toHaveAttribute("href", EXTENSION_STORE_URL);
+  });
+
+  it("waits for the student instead of redirecting out from under them", async () => {
+    getCourses.mockResolvedValue([{ id: 1, code: "BSCS", name: "BS Computer Science" }]);
+    registerStudent.mockResolvedValue({});
+    renderRegister();
+    await screen.findByRole("option", { name: /bs computer science/i });
+
+    await userEvent.type(screen.getByLabelText(/first name/i), "Ana");
+    await userEvent.type(screen.getByLabelText(/last name/i), "Reyes");
+    await userEvent.type(screen.getByLabelText(/email/i), "ana@arellano.edu");
+    await userEvent.type(screen.getByLabelText(/password/i), "TestPass123!");
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    // They leave by choosing to, so the install link cannot vanish mid-click.
+    expect(await screen.findByRole("button", { name: /continue to sign in/i })).toBeInTheDocument();
   });
 });

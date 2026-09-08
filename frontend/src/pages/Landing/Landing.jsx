@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import PublicTopbar from "../../components/PublicTopbar";
 import SectionTag from "../../components/ui/SectionTag";
+import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 const MARKETING_FEATURES = [
   {
@@ -500,7 +501,7 @@ export default function Landing() {
               <Lock className="w-4 h-4"/> Sign In
             </button>
           </div>
-          <a href="https://chromewebstore.google.com/detail/ai-examguard-tab-monitor/gbkbkbcbbehpcoifmkenkjafkfbphmkf"
+          <a href={EXTENSION_STORE_URL}
             target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 text-[11px] font-mono uppercase tracking-widest mt-8 transition-colors">
             <Download className="w-3.5 h-3.5"/> Already registered? Get the Tab Monitor extension from the Chrome Web Store

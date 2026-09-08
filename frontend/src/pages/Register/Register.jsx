@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Shield, ArrowRight } from "lucide-react";
+import { Shield, ArrowRight, CheckCircle2, Download, Puzzle } from "lucide-react";
 import { register } from "../../api/auth";
 import { getCourses } from "../../api/courses";
 import { useSchool, useSchoolNav, useSchoolSlug } from "../../hooks/useSchoolNav";
 import Card from "../../components/ui/Card";
 import { TextField, SelectField } from "../../components/ui/FormField";
+import { EXTENSION_STORE_URL } from "../../constants/extension";
 
 const EMPTY_FORM = {
   email: "",
@@ -41,7 +42,6 @@ export default function Register() {
     try {
       await register({ ...form, course_id: Number(form.course_id) });
       setDone(true);
-      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       setError(err.response?.data?.detail ?? "Couldn't create your account. Check your details and try again.");
     } finally {
@@ -73,8 +73,51 @@ export default function Register() {
 
         <Card className="p-6">
           {done ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-foreground">Account created. Redirecting to login…</p>
+            <div className="py-2">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-700" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Account created</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  One thing to do before your first exam.
+                </p>
+              </div>
+
+              {/* Installing the extension is the only exam prerequisite a student can finish
+                  right now, on this screen, with no instructor involved - face enrolment needs
+                  a signed-in session and a camera. This used to be a 1.5s "redirecting..."
+                  message, which is not long enough to read, let alone act on. */}
+              <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <div className="flex items-start gap-3">
+                  <Puzzle className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      Install the Tab Monitor extension
+                    </p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Your exams are proctored in Chrome and check for it before they start.
+                      Install it now — it takes a few seconds, and doing it later means doing it
+                      with the exam clock already running.
+                    </p>
+                    <a
+                      href={EXTENSION_STORE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-[11px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Get the extension
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate("/login")}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-2.5 text-sm font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+              >
+                Continue to sign in <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
