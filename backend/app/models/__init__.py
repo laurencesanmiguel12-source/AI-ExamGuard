@@ -6,6 +6,10 @@ from app.models.subject import Subject
 from app.models.user import User
 from app.models.student import Student
 from app.models.instructor import Instructor
+from app.models.academic_year import AcademicYear
+from app.models.term import Term
+from app.models.section import Section
+from app.models.enrollment import Enrollment
 from app.models.exam import Exam
 from app.models.question import Question
 from app.models.choice import Choice
