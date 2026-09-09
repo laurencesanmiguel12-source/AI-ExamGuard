@@ -40,7 +40,23 @@ CONFIDENCE_THRESHOLD = 0.35
 # ongoing investigation into why the offline sweep was this misleading. Do not re-raise this
 # without a live smoke-test confirming recall on real, continuously-captured phone frames, not just
 # frozen-holdout aggregate numbers.
-PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = 0.35
+#
+# 2026-09-09, live: lowered 0.35 -> 0.25, and made it env-overridable so it can be tuned on the
+# host without a rebuild. Evidence is this deployment's OWN near-miss captures, which record the
+# confidence of every detection that landed in the 0.20-0.35 band and was therefore NOT acted on:
+# 0.21, 0.25, 0.29, 0.31, 0.32 across two sessions. On this room's lighting, camera and phones the
+# model consistently sees the phone but scores it just under 0.35, so a genuinely visible phone
+# never fired immediately and fell through to 3-of-3 corroboration instead - which needs three
+# CONSECUTIVE polls, i.e. minutes of continuous holding at the real observed poll spacing.
+#
+# 0.25 sits below the cluster of real detections above and still above the 0.20 candidate floor,
+# so the corroboration path is kept for anything weaker. This raises recall at some cost to
+# precision; it is the same direction as the 0.70 experiment that failed, not a repeat of it (that
+# RAISED the threshold and crashed live recall to 4%). Re-measure the frozen holdout and the
+# multi-person holdout before treating this as permanent.
+PHONE_SPECIALIST_CONFIDENCE_THRESHOLD = float(
+    os.environ.get("PHONE_CONFIDENCE_THRESHOLD", "0.25")
+)
 PHONE_SPECIALIST_CLASS = 0  # single-class model (see backend/training/prepare_dataset.py)
 # phone_specialist.pt (trained via finetune_phone_face.py) is actually a 2-class model - class 1
 # is "face", computed on every predict() call but discarded until this constant started being
