@@ -128,6 +128,28 @@ def get_evidence(
             detail=f"student_id={violation.exam_session.student_id}"
         )
     path = ViolationService.get_evidence_path(violation_id, db)
+
+    # Release the connection BEFORE handing back a FileResponse, and never after.
+    #
+    # This endpoint took the whole app down on 2026-09-09. FileResponse streams its body after
+    # the handler returns, and get_db()'s session is only closed in dependency teardown, which
+    # runs after that streaming finishes - so every in-flight image pinned a pooled connection
+    # for the entire transfer. Worse, the reads above leave an open read transaction, so each
+    # one sat in Postgres as "idle in transaction" rather than merely idle.
+    #
+    # A review screen renders one <img> per violation, so a browser opens dozens of these at
+    # once: 50 concurrent thumbnails exhausted pool_size=20 + max_overflow=30 in twelve seconds,
+    # and the connections never came back (a browser cancelling image loads on navigation leaves
+    # the stream, and therefore the teardown, hanging behind BaseHTTPMiddleware). Every
+    # subsequent request in the entire API then failed on QueuePool timeout - a full outage
+    # triggered by opening one page.
+    #
+    # commit() ends the transaction and close() returns the connection now, while this handler
+    # still controls the timing. Everything above has already been read into Python objects or
+    # a plain string path, so nothing here re-queries afterwards.
+    db.commit()
+    db.close()
+
     return FileResponse(path, media_type="image/jpeg")
 
 

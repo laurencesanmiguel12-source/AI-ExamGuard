@@ -50,7 +50,17 @@ def get_evidence(
     AuditLogService.log(
         current_user.id, "VIEW_NEAR_MISS_EVIDENCE", "near_miss_capture", capture_id, db
     )
-    return FileResponse(capture.evidence_path, media_type="image/jpeg")
+
+    # Same hazard as violation evidence, same fix - see the long comment on
+    # violation.py's get_evidence. FileResponse streams after this returns, so the pooled
+    # connection has to be given back here rather than in dependency teardown. The review queue
+    # renders these as a grid, which is exactly the concurrent-thumbnail burst that exhausted
+    # the pool and took the whole API down on 2026-09-09.
+    path = capture.evidence_path
+    db.commit()
+    db.close()
+
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @router.put("/{capture_id}", response_model=NearMissResponse)
