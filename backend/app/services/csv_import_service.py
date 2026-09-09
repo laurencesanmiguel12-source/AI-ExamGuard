@@ -82,10 +82,30 @@ class CSVImportService:
                     is_correct = _parse_bool(correct_raw) or False
                     choices.append((text_val, is_correct))
 
+                # EXACTLY one correct choice, not "at least one".
+                #
+                # Reported by the defense panel, and it matters because grading is single-select:
+                # StudentAnswerService records one chosen choice and scores it with
+                # `is_correct = choice.is_correct`. Two choices marked correct therefore means two
+                # different answers both earn full marks, with nothing anywhere flagging the
+                # question as ambiguous - it just silently grades in a way no answer key explains.
+                # The previous rule accepted that file without complaint.
+                #
+                # Identification questions are excluded above (they carry no choices at all); the
+                # remaining live types - Multiple Choice and True/False - are both single-answer.
+                # If a genuine multi-answer type is ever added, this needs to become conditional
+                # on question_type rather than being relaxed back.
+                correct_count = sum(1 for _text, is_correct in choices if is_correct)
+
                 if len(choices) < 2:
                     row_errors.append("at least 2 non-blank choices are required")
-                elif not any(is_correct for _text, is_correct in choices):
-                    row_errors.append("at least one choice must be marked correct")
+                elif correct_count == 0:
+                    row_errors.append("exactly one choice must be marked correct, but none are")
+                elif correct_count > 1:
+                    row_errors.append(
+                        f"exactly one choice must be marked correct, but {correct_count} are - "
+                        f"a question with two correct answers cannot be graded consistently"
+                    )
 
             if row_errors:
                 errors.append(CSVImportRowError(row=row_number, message="; ".join(row_errors)))

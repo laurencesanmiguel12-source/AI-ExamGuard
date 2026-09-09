@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+from app.schemas.email_typo import check_email_typo
 
 
 class InstructorBase(BaseModel):
@@ -18,6 +20,11 @@ class InstructorCreate(BaseModel):
     # remembers to assign a subject separately. Optional to keep the old request shape working.
     subject_ids: list[int] = []
 
+    @field_validator("email")
+    @classmethod
+    def _reject_mistyped_provider(cls, value: str) -> str:
+        check_email_typo(value)
+        return value
 
 class InstructorUpdate(BaseModel):
     employee_number: str | None = None

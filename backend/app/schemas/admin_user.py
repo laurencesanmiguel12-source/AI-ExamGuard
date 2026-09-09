@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+
+from app.schemas.email_typo import check_email_typo
 
 VALID_ROLE_NAMES = {"student", "instructor", "admin", "super_admin"}
 
@@ -17,3 +19,9 @@ class PlatformUserCreate(BaseModel):
     last_name: str
     role_name: str
     school_id: int
+
+    @field_validator("email")
+    @classmethod
+    def _reject_mistyped_provider(cls, value: str) -> str:
+        check_email_typo(value)
+        return value

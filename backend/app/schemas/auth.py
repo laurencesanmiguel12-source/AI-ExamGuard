@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+
+from app.schemas.email_typo import check_email_typo
 
 
 class RegisterRequest(BaseModel):
@@ -8,6 +10,11 @@ class RegisterRequest(BaseModel):
     last_name: str
     course_id: int
 
+    @field_validator("email")
+    @classmethod
+    def _reject_mistyped_provider(cls, value: str) -> str:
+        check_email_typo(value)
+        return value
 
 class LoginRequest(BaseModel):
     email: EmailStr

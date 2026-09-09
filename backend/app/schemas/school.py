@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+from app.schemas.email_typo import check_email_typo
 
 
 class SchoolBase(BaseModel):
@@ -62,3 +64,9 @@ class SchoolRegisterRequest(BaseModel):
     password: str
     first_name: str
     last_name: str
+
+    @field_validator("email")
+    @classmethod
+    def _reject_mistyped_provider(cls, value: str) -> str:
+        check_email_typo(value)
+        return value
