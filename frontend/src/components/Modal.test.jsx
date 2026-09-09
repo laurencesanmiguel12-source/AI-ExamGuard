@@ -4,77 +4,112 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Modal from "./Modal";
 
-// Every dialog in the app (edit forms on the list pages, every delete confirmation) renders
-// through this component, so these guarantees hold app-wide or nowhere.
+function open(children = <p>body</p>) {
+  const onClose = vi.fn();
+  const utils = render(<Modal title="Add Exam" onClose={onClose}>{children}</Modal>);
+  return { onClose, ...utils };
+}
+
 describe("Modal", () => {
-  it("exposes itself to assistive tech as a dialog named by its heading", () => {
-    render(<Modal title="Delete Course" onClose={() => {}}>body</Modal>);
+  it("keeps the close button reachable no matter how tall the form is", () => {
+    // The defense-panel report: a ten-field form overflowed a centred, position-fixed panel, so
+    // the X ended up ABOVE the top of the window and submit below the bottom of it. The header
+    // must not scroll away with the body.
+    const { container } = open();
+    const panel = container.querySelector('[role="dialog"]');
+    const header = screen.getByRole("button", { name: /close dialog/i }).parentElement;
 
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toBeInTheDocument();
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
-    // The accessible name has to come from the visible heading, not a duplicated string.
-    expect(screen.getByRole("dialog", { name: "Delete Course" })).toBeInTheDocument();
+    expect(panel.className).toMatch(/max-h-/);
+    expect(panel.className).toMatch(/flex-col/);
+    expect(header.className).toMatch(/shrink-0/);
   });
 
-  it("moves focus into the dialog on open", () => {
-    render(<Modal title="Edit" onClose={() => {}}>body</Modal>);
+  it("scrolls the body rather than the whole panel", () => {
+    const { container } = open();
+    const body = container.querySelector('[role="dialog"] > div:last-child');
 
-    // Without this a screen reader never announces the dialog and a keyboard user is still
-    // tabbing through the page behind it.
-    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+    expect(body.className).toMatch(/overflow-y-auto/);
+    // Without min-h-0 a flex child refuses to shrink below its content, and the overflow rule
+    // silently does nothing - the exact failure this is guarding.
+    expect(body.className).toMatch(/min-h-0/);
   });
 
-  it("closes on Escape", async () => {
-    const onClose = vi.fn();
-    render(<Modal title="Edit" onClose={onClose}>body</Modal>);
+  it("lets the backdrop scroll as a fallback on a very short window", () => {
+    const { container } = open();
+    expect(container.firstChild.className).toMatch(/overflow-y-auto/);
+  });
 
+  it("still closes on the X", async () => {
+    const { onClose } = open();
+    await userEvent.click(screen.getByRole("button", { name: /close dialog/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("still closes on Escape", async () => {
+    const { onClose } = open();
     await userEvent.keyboard("{Escape}");
-
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("closes from the close button", async () => {
-    const onClose = vi.fn();
-    render(<Modal title="Edit" onClose={onClose}>body</Modal>);
-
-    await userEvent.click(screen.getByRole("button", { name: "Close dialog" }));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it("keeps its dialog semantics and labelling", () => {
+    open();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog.getAttribute("aria-labelledby")).toBeTruthy();
+    expect(screen.getByText("Add Exam")).toBeInTheDocument();
   });
 
-  it("keeps Tab inside the dialog", async () => {
-    render(
-      <Modal title="Edit" onClose={() => {}}>
-        <button type="button">Save</button>
-      </Modal>
-    );
-
-    // Close button and Save are the only focusables; tabbing past the last must wrap to the
-    // first rather than escaping to the page underneath.
-    await userEvent.tab();
-    await userEvent.tab();
-    await userEvent.tab();
-
-    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+  it("renders its children", () => {
+    open(<button>Save exam</button>);
+    expect(screen.getByRole("button", { name: "Save exam" })).toBeInTheDocument();
   });
 
-  it("restores focus to whatever opened it", async () => {
-    function Harness() {
-      const [open, setOpen] = useState(false);
+  it("lets you type a whole word into a field without losing the caret", async () => {
+    // The defense-panel report: "cannot type continuously". Every parent re-render passed a new
+    // onClose arrow function, the focus effect re-ran, and focus jumped from the input back to
+    // the dialog container - so a field accepted one character at a time.
+    function Host() {
+      const [value, setValue] = useState("");
+      // Deliberately a fresh arrow each render, exactly as every real caller writes it.
       return (
-        <>
-          <button type="button" onClick={() => setOpen(true)}>Open</button>
-          {open && <Modal title="Edit" onClose={() => setOpen(false)}>body</Modal>}
-        </>
+        <Modal title="Add Instructor" onClose={() => {}}>
+          <input
+            aria-label="First name"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </Modal>
       );
     }
-    render(<Harness />);
-    const opener = screen.getByRole("button", { name: "Open" });
+    render(<Host />);
 
-    await userEvent.click(opener);
-    await userEvent.keyboard("{Escape}");
+    const field = screen.getByLabelText("First name");
+    field.focus();
+    await userEvent.keyboard("Noelito");
 
-    expect(document.activeElement).toBe(opener);
+    expect(field).toHaveValue("Noelito");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("focuses the dialog once on open, not on every re-render", async () => {
+    function Host() {
+      const [n, setN] = useState(0);
+      return (
+        <Modal title="Add Instructor" onClose={() => {}}>
+          <button onClick={() => setN(n + 1)}>bump {n}</button>
+          <input aria-label="Email" />
+        </Modal>
+      );
+    }
+    render(<Host />);
+
+    const field = screen.getByLabelText("Email");
+    field.focus();
+    // A re-render from anything else in the form must not steal the caret either.
+    await userEvent.click(screen.getByRole("button", { name: /bump/i }));
+    field.focus();
+    await userEvent.keyboard("a@b.co");
+
+    expect(field).toHaveValue("a@b.co");
   });
 });

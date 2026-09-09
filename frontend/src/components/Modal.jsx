@@ -8,6 +8,23 @@ export default function Modal({ title, onClose, children }) {
   const titleId = useId();
   const panelRef = useRef(null);
 
+  // Callers write onClose={() => setEditing(null)}, so `onClose` is a NEW function on every
+  // render. Held in a ref, the setup effect below can depend on nothing and still call the
+  // current one - see the comment on that effect for why this matters so much.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Runs ONCE per dialog, deliberately - the dependency array must stay empty.
+  //
+  // This effect used to depend on [onClose]. Because that prop is a fresh arrow function each
+  // render, the effect tore down and re-ran on every single keystroke inside a form: the cleanup
+  // restored focus to whatever was focused before the dialog opened, and the setup then called
+  // panelRef.focus(), moving focus off the input and onto the dialog container. Typing a name
+  // therefore accepted one character and dropped the caret - reported from the defense panel as
+  // "cannot type continuously". Focusing the panel is correct on OPEN and wrong at any other
+  // time, so it must not be tied to a prop that changes.
   useEffect(() => {
     // Remember what was focused so it can be restored on close - otherwise a keyboard user is
     // dumped back at the top of the document every time they dismiss a dialog.
@@ -20,7 +37,7 @@ export default function Modal({ title, onClose, children }) {
     function onKeyDown(event) {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -51,19 +68,31 @@ export default function Modal({ title, onClose, children }) {
       document.removeEventListener("keydown", onKeyDown, true);
       if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
     };
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    // A dialog taller than the window used to be genuinely unusable, reported from the defense
+    // panel as "cannot be scrolled and closed" - and it was both. The panel had no height limit
+    // and nothing scrolled, so a long form (Add Exam is ten fields) simply overflowed past the
+    // top and bottom of a centred, position-fixed box: the submit button was unreachable below
+    // the fold and the X was off-screen ABOVE it, because vertical centring pushes the header
+    // out of view once the panel outgrows the viewport. Escape still worked, which is why it
+    // read as "broken" rather than "stuck" - the only way out was a key nobody thinks to press.
+    //
+    // Three things fix it together: the panel is capped at the viewport, the header and footer
+    // stay put while only the body scrolls (so the close button is always reachable), and the
+    // backdrop itself scrolls as a last resort on very short windows.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="w-full max-w-md bg-card border border-border rounded-xl shadow-lg outline-none"
+        className="my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-xl border border-border bg-card shadow-lg outline-none"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <h3 id={titleId} className="font-display font-bold text-lg text-foreground">{title}</h3>
           <button
             type="button"
@@ -74,7 +103,7 @@ export default function Modal({ title, onClose, children }) {
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

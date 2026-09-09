@@ -40,6 +40,16 @@ expect.extend({
           : `expected "${name}" to be "${expected}", got ${present ? `"${actual}"` : "no such attribute"}`,
     };
   },
+  toHaveValue(received, expected) {
+    const actual = received?.value;
+    const pass = actual === expected;
+    return {
+      pass,
+      actual,
+      expected,
+      message: () => `expected field value to be "${expected}", got "${actual}"`,
+    };
+  },
   toBeEmptyDOMElement(received) {
     // A component that renders null leaves its container with no child nodes at all. Whitespace
     // between JSX elements never reaches the DOM, so this needs no trimming.
