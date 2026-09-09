@@ -14,6 +14,9 @@ import Subjects from "./pages/Subjects/Subjects";
 import Students from "./pages/Students/Students";
 import Instructors from "./pages/Instructors/Instructors";
 import SetupImport from "./pages/SetupImport/SetupImport";
+import AcademicCalendar from "./pages/Academic/AcademicCalendar";
+import Sections from "./pages/Sections/Sections";
+import SectionRoster from "./pages/Sections/SectionRoster";
 import SchoolApprovals from "./pages/SchoolApprovals/SchoolApprovals";
 import Exams from "./pages/Exams/Exams";
 import ExamContent from "./pages/ExamContent/ExamContent";
@@ -65,6 +68,11 @@ function App() {
                       add/edit/delete controls. Previously admin-only, which left an instructor
                       with no way to look a student up anywhere in the app. */}
                   <Route path="students" element={<Students />} />
+                  {/* Read-only for instructors, same as Students above: an instructor teaches
+                      sections and needs to see who is in them, but the pages hide the
+                      admin-only create and enrol controls. */}
+                  <Route path="sections" element={<Sections />} />
+                  <Route path="sections/:sectionId" element={<SectionRoster />} />
                 </Route>
 
                 <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
@@ -72,6 +80,7 @@ function App() {
                   <Route path="subjects" element={<Subjects />} />
                   <Route path="instructors" element={<Instructors />} />
                   <Route path="setup-import" element={<SetupImport />} />
+                  <Route path="academic" element={<AcademicCalendar />} />
                 </Route>
 
                 {/* super_admin ONLY - allowedRoles={["admin"]} would also admit every school

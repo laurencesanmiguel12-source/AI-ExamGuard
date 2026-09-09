@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, Upload, ShieldAlert, X } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, Upload, ShieldAlert, CalendarDays, Boxes, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
@@ -24,8 +24,14 @@ const NAV_GROUPS = [
   {
     group: "Academic Management",
     items: [
+      // First in the group because everything under it depends on it: a section needs a term,
+      // and a class list needs a section. Setting up a school in sidebar order now works.
+      { to: "/academic", label: "Academic Calendar", icon: CalendarDays, roles: ["admin"] },
       { to: "/courses", label: "Course Management", icon: BookOpen, roles: ["admin"] },
       { to: "/subjects", label: "Subject Management", icon: Layers, roles: ["admin"] },
+      // Instructors get this read-only (the page hides its own admin controls) - they teach
+      // sections and need to see who is in them.
+      { to: "/sections", label: "Sections & Class Lists", icon: Boxes, roles: ["admin", "instructor"] },
       { to: "/instructors", label: "Instructor Management", icon: Users, roles: ["admin"] },
       // Instructors get read-only Students (the page hides its own admin-only add/edit/delete
       // controls). Without this entry there was no way for an instructor to look a student up at

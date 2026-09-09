@@ -70,3 +70,37 @@ describe("Sidebar — existing entries still intact", () => {
     expect(screen.queryByRole("link", { name: /school approvals/i })).toBe(null);
   });
 });
+
+describe("Sidebar — the academic hierarchy", () => {
+  it("gives an admin the calendar the rest of the hierarchy depends on", () => {
+    // A section needs a term and a class list needs a section, so with no way to reach the
+    // calendar the entities existed in the API and nowhere else.
+    showAs("admin");
+    expect(screen.getByRole("link", { name: /academic calendar/i })).toBeInTheDocument();
+  });
+
+  it("puts the calendar above the things that depend on it", () => {
+    // Working down the sidebar in order has to produce a school that is actually set up.
+    showAs("admin");
+    const labels = screen.getAllByRole("link").map((a) => a.textContent);
+    expect(labels.indexOf("Academic Calendar")).toBeLessThan(labels.indexOf("Sections & Class Lists"));
+  });
+
+  it("lets an instructor see the classes they teach", () => {
+    // Read-only for them - the page hides its own admin controls - but an instructor with no
+    // route to their own class list is the same dead end new instructors already hit once.
+    showAs("instructor");
+    expect(screen.getByRole("link", { name: /sections & class lists/i })).toBeInTheDocument();
+  });
+
+  it("keeps the calendar itself admin-only", () => {
+    showAs("instructor");
+    expect(screen.queryByRole("link", { name: /academic calendar/i })).toBe(null);
+  });
+
+  it("shows a student neither", () => {
+    showAs("student");
+    expect(screen.queryByRole("link", { name: /academic calendar/i })).toBe(null);
+    expect(screen.queryByRole("link", { name: /sections & class lists/i })).toBe(null);
+  });
+});
