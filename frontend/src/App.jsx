@@ -20,6 +20,7 @@ import ExamContent from "./pages/ExamContent/ExamContent";
 import ExamRoster from "./pages/ExamRoster/ExamRoster";
 import ExamRoom from "./pages/ExamRoom/ExamRoom";
 import Results from "./pages/Results/Results";
+import MyViolations from "./pages/MyViolations/MyViolations";
 import ResultDetail from "./pages/Results/ResultDetail";
 import Reports from "./pages/Reports/Reports";
 import FaceEnrollment from "./pages/FaceEnrollment/FaceEnrollment";
@@ -52,6 +53,7 @@ function App() {
                 <Route element={<ProtectedRoute allowedRoles={["student"]} />}>
                   <Route path="results" element={<Results />} />
                   <Route path="results/:sessionId" element={<ResultDetail />} />
+                  <Route path="my-violations" element={<MyViolations />} />
                 </Route>
 
                 <Route element={<ProtectedRoute allowedRoles={EXAM_CONTENT_ROLES} />}>

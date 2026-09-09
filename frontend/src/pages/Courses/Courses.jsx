@@ -88,6 +88,7 @@ export default function Courses() {
       />
 
       <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No courses yet"
+        searchable searchPlaceholder="Search courses by code or name…"
         emptyHint="A course is a degree programme like BS Computer Science. Add one first — students choose a course when they register, and every subject belongs to one."
       />
 

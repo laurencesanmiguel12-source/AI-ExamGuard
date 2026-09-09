@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, Upload, X } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, Upload, ShieldAlert, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
@@ -16,6 +16,9 @@ const NAV_GROUPS = [
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "instructor", "student"] },
       { to: "/results", label: "My Results", icon: Award, roles: ["student"] },
+      // Appeals existed but sat three clicks deep inside one attempt's result page, so a
+      // student had to already suspect they had been flagged to ever find them.
+      { to: "/my-violations", label: "Violations & Appeals", icon: ShieldAlert, roles: ["student"] },
     ],
   },
   {

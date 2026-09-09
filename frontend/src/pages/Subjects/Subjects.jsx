@@ -102,6 +102,7 @@ export default function Subjects() {
       )}
 
       <DataTable columns={columns} rows={subjects} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No subjects yet"
+        searchable searchPlaceholder="Search subjects by code, name or course…"
         emptyHint="Subjects are the individual classes inside a course, like CS-101. Exams are created against a subject, so you need at least one before any exam can exist."
       />
 

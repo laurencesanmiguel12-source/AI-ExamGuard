@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { BookOpen, ArrowRight, UserCheck } from "lucide-react";
+import { BookOpen, ArrowRight, UserCheck, ShieldAlert } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getExams } from "../../api/exams";
 import { getExamSessions } from "../../api/examSessions";
@@ -182,6 +182,34 @@ export default function StudentDashboard() {
           satisfy outside the exam, so it belongs where they are before the exam rather than on
           the check screen that blocks them once the clock is running. */}
       <ExtensionInstallCard status={extensionStatus} onRecheck={recheckExtension} />
+
+      {/* The dashboard already computed this count and then never showed it, so a student had no
+          way to learn they had been flagged at all - they had to open the right past attempt and
+          scroll. Appeals only mean something if the person entitled to appeal knows there is
+          something to contest. */}
+      {stats?.violationsCount > 0 && (
+        <Card className="mb-6 border-orange-200 bg-orange-50 p-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-orange-700" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {stats.violationsCount} proctoring violation
+                {stats.violationsCount === 1 ? "" : "s"} recorded
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Your instructor can see these. If any were recorded in error, you can appeal and
+                explain what happened.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/my-violations")}
+              className="shrink-0 rounded-xl bg-primary px-4 py-2 text-[11px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90"
+            >
+              Review &amp; appeal
+            </button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

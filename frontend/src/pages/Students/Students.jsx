@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getStudents, createStudent, updateStudent, deleteStudent } from "../../api/students";
 import { getCourses } from "../../api/courses";
+import { getSubjects } from "../../api/subjects";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import DetailModal from "../../components/DetailModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
 import { isAdmin } from "../../utils/roles";
@@ -27,6 +29,8 @@ export default function Students() {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [viewing, setViewing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -36,10 +40,11 @@ export default function Students() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([getStudents(), getCourses(user.school_id)])
-      .then(([s, c]) => {
+    Promise.all([getStudents(), getCourses(user.school_id), getSubjects().catch(() => [])])
+      .then(([s, c, sub]) => {
         setStudents(s);
         setCourses(c);
+        setSubjects(sub);
       })
       .finally(() => setLoading(false));
   }
@@ -166,6 +171,9 @@ export default function Students() {
         loading={loading}
         onEdit={canManage ? openEdit : undefined}
         onDelete={canManage ? setDeleting : undefined}
+        onRowClick={setViewing}
+        searchable
+        searchPlaceholder="Search students by name, number or course…"
         emptyLabel="No students yet"
         emptyHint={
           canManage
@@ -173,6 +181,42 @@ export default function Students() {
             : "No students have registered at your school yet. Once they do, they will appear here."
         }
       />
+
+      {/* Read-only "who is this", opened by clicking the row. The panel asked for the student's
+          subjects and course specifically - a student belongs to one course, and their subjects
+          are that course's subjects, which nothing in the UI previously spelled out. */}
+      {viewing && (
+        <DetailModal
+          title={viewing.student_name ?? `Student #${viewing.user_id}`}
+          subtitle={`${viewing.student_number} · ${courseName(viewing.course_id)}`}
+          stats={[
+            { label: "Subjects", value: subjects.filter((sub) => sub.course_id === viewing.course_id).length },
+            { label: "Face model", value: viewing.face_model_path ? "Yes" : "No" },
+            { label: "Accommodations", value: (viewing.skip_face_check ? 1 : 0) + (viewing.skip_object_check ? 1 : 0) },
+          ]}
+          sections={[
+            {
+              label: "Record",
+              rows: [
+                ["Student number", viewing.student_number],
+                ["Course", courses.find((c) => c.id === viewing.course_id)?.name ?? courseName(viewing.course_id)],
+                ["Face enrolled", viewing.face_model_path ? "Yes" : "Not yet"],
+                ["Skip face check", viewing.skip_face_check ? "Yes" : "No"],
+                ["Skip object check", viewing.skip_object_check ? "Yes" : "No"],
+                ["Extra time", viewing.extra_time_minutes ? `${viewing.extra_time_minutes} min` : "None"],
+              ],
+            },
+            {
+              label: "Subjects in their course",
+              emptyLabel: "This course has no subjects yet, so there is nothing for them to sit.",
+              items: subjects
+                .filter((sub) => sub.course_id === viewing.course_id)
+                .map((sub) => ({ key: sub.id, primary: sub.name, secondary: sub.code })),
+            },
+          ]}
+          onClose={() => setViewing(null)}
+        />
+      )}
 
       {editing && (
         <Modal title={editing.id ? "Edit Student" : "Add Student"} onClose={() => setEditing(null)}>

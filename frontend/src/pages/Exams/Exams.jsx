@@ -208,6 +208,7 @@ export default function Exams() {
       )}
 
       <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet"
+        searchable searchPlaceholder="Search exams by title or subject…"
         emptyHint="An exam belongs to a subject and is owned by one instructor. Once created, open it to write questions and choose which students sit it."
       />
 

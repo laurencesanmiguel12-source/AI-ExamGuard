@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, BookOpen, AlertTriangle } from "lucide-react";
 import { getInstructors, createInstructor, updateInstructor, deleteInstructor } from "../../api/instructors";
 import { getSubjects } from "../../api/subjects";
+import { getStudents } from "../../api/students";
 import {
   getInstructorSubjects,
   assignInstructorSubject,
@@ -9,6 +10,7 @@ import {
 } from "../../api/instructorSubjects";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import DetailModal from "../../components/DetailModal";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField } from "../../components/ui/FormField";
@@ -172,13 +174,16 @@ export default function Instructors() {
   const [managingSubjects, setManagingSubjects] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [subjectCounts, setSubjectCounts] = useState({});
+  const [students, setStudents] = useState([]);
+  const [viewing, setViewing] = useState(null);
 
   function refresh() {
     setLoading(true);
-    Promise.all([getInstructors(), getSubjects()])
-      .then(([i, s]) => {
+    Promise.all([getInstructors(), getSubjects(), getStudents().catch(() => [])])
+      .then(([i, s, stu]) => {
         setInstructors(i);
         setAllSubjects(s);
+        setStudents(stu);
         // One request per instructor - the same shape the instructor dashboard already uses for
         // per-exam rosters, and this list is short. A failure here only costs the warning badge,
         // so it must not blank out the table.
@@ -255,9 +260,53 @@ export default function Instructors() {
         loading={loading}
         onEdit={openEdit}
         onDelete={setDeleting}
+        onRowClick={setViewing}
+        searchable
+        searchPlaceholder="Search instructors by name, email or subject…"
         emptyLabel="No instructors yet"
         emptyHint="Add your teaching staff here. Give each one at least one subject when you create them, or they will not be able to set any exam."
       />
+
+      {/* The panel asked for "how many course and subject and student the instructor has".
+          Courses and subjects come straight from the assignments the API now returns; the student
+          count is everyone enrolled in any course this instructor teaches into, which is the
+          number that answers "how big is their teaching load". */}
+      {viewing && (() => {
+        const assignments = viewing.assignments ?? [];
+        const courseIds = [...new Set(assignments.map((a) => a.course_id).filter(Boolean))];
+        const reachableStudents = students.filter((st) => courseIds.includes(st.course_id));
+        return (
+          <DetailModal
+            title={viewing.instructor_name ?? `Instructor #${viewing.user_id}`}
+            subtitle={viewing.email ?? undefined}
+            stats={[
+              { label: "Courses", value: courseIds.length },
+              { label: "Subjects", value: assignments.length },
+              { label: "Students", value: reachableStudents.length },
+            ]}
+            sections={[
+              {
+                label: "Record",
+                rows: [
+                  ["Employee number", viewing.employee_number],
+                  ["Email", viewing.email],
+                ],
+              },
+              {
+                label: "Teaching",
+                emptyLabel:
+                  "No subjects assigned — this instructor cannot create an exam until they have one.",
+                items: assignments.map((a) => ({
+                  key: a.subject_id,
+                  primary: a.subject_name,
+                  secondary: `${a.subject_code} · ${a.course_code ?? "no course"}`,
+                })),
+              },
+            ]}
+            onClose={() => setViewing(null)}
+          />
+        );
+      })()}
 
       {editing && (
         <Modal title={editing.id ? "Edit Instructor" : "Add Instructor"} onClose={() => setEditing(null)}>
