@@ -146,6 +146,35 @@ class ExamService:
         return exam
 
     @staticmethod
+    def _section_for_instructor(section_id: int, instructor: Instructor, db: Session):
+        """The section, if this instructor may actually set an exam on it.
+
+        Ownership is the point of a section: it names exactly one instructor. Until now the
+        permission layer had to approximate this through subject assignment, which is why two
+        instructors sharing a subject could each reach the other's work. Here it is a direct
+        check - you own the class or you do not.
+        """
+        from app.models.section import Section
+
+        section = db.query(Section).filter(Section.id == section_id).first()
+        if section is None:
+            raise HTTPException(status_code=404, detail="Section not found.")
+
+        if section.instructor_id != instructor.id:
+            raise HTTPException(
+                status_code=403,
+                detail="That section is taught by another instructor.",
+            )
+
+        if section.term is not None and section.term.status == "CLOSED":
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{section.term.name}' is closed. Reopen it before adding exams.",
+            )
+
+        return section
+
+    @staticmethod
     def create(instructor: Instructor, request: ExamCreate, db: Session):
 
         subject = (
@@ -165,6 +194,16 @@ class ExamService:
         # instructor_id is always the caller's own instructor record, never taken from the
         # request body - see backend/app/auth/instructor_context.py's get_current_instructor.
         exam_data = request.model_dump(exclude={"instructor_id"})
+
+        # A section, when given, is authoritative for subject as well - it already names one, and
+        # letting the body disagree would let an exam claim a section of CS-101 while filing
+        # itself under a different subject entirely. Deriving instead of validating means the two
+        # cannot drift apart at all.
+        section_id = exam_data.get("section_id")
+        if section_id is not None:
+            section = ExamService._section_for_instructor(section_id, instructor, db)
+            exam_data["subject_id"] = section.subject_id
+
         exam = Exam(**exam_data, instructor_id=instructor.id)
 
         db.add(exam)

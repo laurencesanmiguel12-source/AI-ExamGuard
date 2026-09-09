@@ -33,7 +33,10 @@ class ExamBase(BaseModel):
 
 
 class ExamCreate(ExamBase):
-    pass
+    # Optional through the migration. When given, subject_id and instructor_id are DERIVED from
+    # the section rather than trusted from the body - otherwise an exam could claim a section
+    # taught by one instructor while recording another, and the two would drift apart silently.
+    section_id: int | None = None
 
 
 class ExamUpdate(BaseModel):
@@ -52,6 +55,10 @@ class ExamUpdate(BaseModel):
 
 class ExamResponse(ExamBase):
     id: int
+    section_id: int | None = None
+    # Reached through the section, not stored on the exam - the whole point of the hierarchy.
+    # None on an exam that predates its section being assigned.
+    term_label: str | None = None
 
     model_config = ConfigDict(
         from_attributes=True
