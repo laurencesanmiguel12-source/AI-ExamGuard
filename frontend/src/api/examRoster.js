@@ -23,3 +23,11 @@ export async function bulkAddExamRosterStudents(examId) {
 export async function removeExamRosterStudent(examId, studentId) {
   await apiClient.delete(`/exams/${examId}/roster/${studentId}`);
 }
+
+// Which of the two roster sources is actually in force, and whether it admits anybody. The two
+// situations this tells apart look identical on screen otherwise: an exam inheriting a healthy
+// class list, and one pointing at a section with nobody enrolled.
+export async function getExamRosterSource(examId) {
+  const response = await apiClient.get(`/exams/${examId}/roster/source`);
+  return response.data;
+}

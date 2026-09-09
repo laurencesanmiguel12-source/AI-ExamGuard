@@ -50,6 +50,18 @@ expect.extend({
       message: () => `expected field value to be "${expected}", got "${actual}"`,
     };
   },
+  toHaveTextContent(received, expected) {
+    // Asserts against the element's rendered text rather than a whole-document query, which is
+    // what lets a spec pin a message to the specific banner that must carry it - "is this string
+    // somewhere on the page" would pass even when the wrong element said it.
+    const actual = received?.textContent ?? "";
+    const pass = expected instanceof RegExp ? expected.test(actual) : actual.includes(expected);
+    return {
+      pass,
+      message: () =>
+        `expected element text ${pass ? "not " : ""}to match ${expected}, got "${actual}"`,
+    };
+  },
   toBeEmptyDOMElement(received) {
     // A component that renders null leaves its container with no child nodes at all. Whitespace
     // between JSX elements never reaches the DOM, so this needs no trimming.

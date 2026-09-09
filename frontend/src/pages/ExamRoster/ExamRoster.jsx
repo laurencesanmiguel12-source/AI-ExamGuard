@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Users, AlertTriangle } from "lucide-react";
 import { getExam } from "../../api/exams";
 import {
   getExamRoster,
+  getExamRosterSource,
   getAvailableRosterStudents,
   addExamRosterStudent,
   removeExamRosterStudent,
@@ -29,6 +30,7 @@ export default function ExamRoster() {
   const [phase, setPhase] = useState("loading");
   const [exam, setExam] = useState(null);
   const [roster, setRoster] = useState([]);
+  const [source, setSource] = useState(null);
   const [available, setAvailable] = useState([]);
   const [pageError, setPageError] = useState("");
   const [addError, setAddError] = useState("");
@@ -36,10 +38,16 @@ export default function ExamRoster() {
   const [bulkAdding, setBulkAdding] = useState(false);
 
   function refresh() {
-    return Promise.all([getExam(examId), getExamRoster(examId), getAvailableRosterStudents(examId)])
-      .then(([examData, rosterData, availableData]) => {
+    return Promise.all([
+      getExam(examId),
+      getExamRoster(examId),
+      getExamRosterSource(examId),
+      getAvailableRosterStudents(examId),
+    ])
+      .then(([examData, rosterData, sourceData, availableData]) => {
         setExam(examData);
         setRoster(rosterData);
+        setSource(sourceData);
         setAvailable(availableData);
         setPhase("ready");
       })
@@ -100,7 +108,14 @@ export default function ExamRoster() {
     return <div className="text-sm text-red-600">Couldn't load this exam.</div>;
   }
 
-  const isRestricted = roster.length > 0;
+  // Since roster inheritance landed, "the table below is empty" and "nobody can sit this exam"
+  // stopped being the same statement: an exam with no explicit rows admits its section's enrolled
+  // class instead. Only the server knows which source is actually in force, so this reads
+  // roster/source rather than re-deriving it from roster.length - deriving it locally is exactly
+  // what made a healthy inherited exam announce that nobody could open it.
+  const inherited = source?.source === "SECTION";
+  const admits = source?.count ?? roster.length;
+  const admitsNobody = source?.admits_nobody ?? roster.length === 0;
 
   return (
     <div>
@@ -114,7 +129,7 @@ export default function ExamRoster() {
       <PageHeader
         eyebrow="Exam Roster"
         title={exam.title}
-        description="Choose which students sit this exam. Only students on this roster can open it — being enrolled in the course is not enough on its own."
+        description="Who sits this exam. Leave it empty to admit the section's enrolled class; add anyone here to restrict it to exactly the students you list."
       />
 
       {pageError && (
@@ -124,18 +139,42 @@ export default function ExamRoster() {
       )}
 
       <div
+        role={admitsNobody ? "alert" : "status"}
         className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
-          isRestricted
-            ? "bg-orange-50 border-orange-200 text-orange-700"
-            : "bg-red-50 border-red-200 text-red-700"
+          admitsNobody
+            ? "bg-red-50 border-red-200 text-red-700"
+            : inherited
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-orange-50 border-orange-200 text-orange-700"
         }`}
       >
-        {isRestricted
-          ? `Visible only to the ${roster.length} assigned student${roster.length === 1 ? "" : "s"} below.`
-          : "No students assigned yet — this exam isn't visible or startable for anyone in its course until you add some below."}
+        {admitsNobody
+          ? inherited
+            ? "Nobody can open this exam. It has no roster of its own, so it admits its section's class list — and that section has nobody enrolled. Enrol students in the section, or add them below to roster them for this exam alone."
+            : "Nobody can open this exam. It has no roster of its own and isn't linked to a section, so there is no class list for it to fall back on. Add students below."
+          : inherited
+            ? `Admitting the ${admits} student${admits === 1 ? "" : "s"} enrolled in this exam's section. Nothing is rostered here, so the class list is inherited and stays in step with the section.`
+            : `Restricted to the ${admits} student${admits === 1 ? "" : "s"} listed below. This exam has its own roster, so its section's class list does not apply.`}
       </div>
 
-      {available.length > 0 && (
+      {inherited && !admitsNobody && available.length > 0 && (
+        <div
+          role="status"
+          className="mb-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p className="text-sm text-foreground">
+            Adding anyone below <strong>replaces</strong> the inherited class list rather than
+            adding to it — the moment one student is rostered here, this exam admits only the
+            students you have listed. To sit the whole class plus one extra, add everybody.
+          </p>
+        </div>
+      )}
+
+      {/* Only meaningful for an exam that actually keeps its own roster. On an inherited one
+          "not on the roster yet" is the normal, correct state, and nudging someone to add them
+          would quietly convert the exam to an explicit roster - the opposite of what they want. */}
+      {available.length > 0 && !inherited && (
         <div className="mb-8 rounded-xl border bg-blue-50 border-blue-200 text-blue-700 px-4 py-3 text-sm">
           {available.length} student{available.length === 1 ? "" : "s"} in this course{" "}
           {available.length === 1 ? "isn't" : "aren't"} on the roster yet, including anyone who
@@ -147,15 +186,15 @@ export default function ExamRoster() {
         <h3 className="text-sm font-semibold text-foreground">Assigned Students</h3>
       </div>
 
-      {exam.is_active && roster.length === 0 && (
+      {exam.is_active && admitsNobody && (
         <div
           role="status"
           className="mb-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
           <p className="text-sm text-foreground">
-            This exam is active but has nobody on its roster, so no student can open it. Add
-            students below before it is due to start.
+            This exam is active but admits nobody, so no student can open it. Fix this before it
+            is due to start.
           </p>
         </div>
       )}
@@ -165,8 +204,12 @@ export default function ExamRoster() {
         rows={roster}
         loading={false}
         onDelete={setDeleting}
-        emptyLabel="Nobody can sit this exam yet"
-        emptyHint="An exam is only visible to students you add here. Being enrolled in the course is not enough on its own — pick students from the list below."
+        emptyLabel={inherited ? "Inheriting the section's class list" : "Nobody can sit this exam yet"}
+        emptyHint={
+          inherited
+            ? "Nothing is rostered for this exam specifically, so it admits whoever is enrolled in its section. Add students here only to restrict it to a smaller group — a makeup or a deferred sitting."
+            : "This exam has no class list to fall back on. Pick students from the list below."
+        }
       />
 
       <div className="mt-8 mb-3 flex items-center justify-between">
