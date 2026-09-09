@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import is_super_admin
 from app.models.course import Course
 from app.models.exam import Exam
+from app.models.enrollment import ACTIVE_ENROLLMENT, Enrollment
 from app.models.exam_roster import ExamRoster
 from app.models.instructor import Instructor
 from app.models.instructor_subject import InstructorSubject
@@ -32,23 +33,96 @@ class ExamService:
             )
 
     @staticmethod
+    def has_explicit_roster(exam: Exam, db: Session) -> bool:
+        """Whether anyone has been rostered onto this exam by hand.
+
+        The presence of ANY explicit row - not the presence of this particular student's - is what
+        decides which source governs. Otherwise an instructor who rosters five students for a
+        makeup sitting would find the section's other forty silently eligible too, because each
+        of them individually has no explicit row.
+        """
+        return (
+            db.query(ExamRoster).filter(ExamRoster.exam_id == exam.id).first() is not None
+        )
+
+    @staticmethod
     def is_student_eligible(student: Student, exam: Exam, db: Session) -> bool:
-        subject = db.query(Subject).filter(Subject.id == exam.subject_id).first()
-        if subject is None or subject.course_id != student.course_id:
+        """Who may sit this exam.
+
+        Two sources, in strict priority order:
+
+        1. An EXPLICIT roster, if one exists at all. An instructor who rosters anybody has said
+           precisely who sits this exam - a makeup, a deferred sitting, a subset - and that
+           statement must not be widened by inheritance.
+        2. Otherwise the exam's SECTION ENROLMENT: the class list. This is the normal case, and
+           the reason a roster no longer has to be typed in for every exam.
+
+        The 2026-08-20 policy is preserved exactly: an exam with neither an explicit roster nor
+        any section enrolment admits NOBODY. It is deliberately not "no roster means course-wide"
+        - live feedback was that a newly self-registered student seeing every unrostered course
+        exam was the wrong default for this deployment.
+
+        **The migration hazard this had to avoid.** That policy plus inheritance is how a whole
+        class gets locked out on exam day: an exam moved onto a section whose enrolment is empty
+        would look correctly configured and admit no one. The empty case is therefore surfaced,
+        not silent - see ExamService.roster_source, which the roster screen warns from.
+        """
+        if ExamService.has_explicit_roster(exam, db):
+            # Course membership still gates the explicit path, unchanged - it is the safety net
+            # for a hand-built list, where a mistyped id is a real possibility.
+            subject = db.query(Subject).filter(Subject.id == exam.subject_id).first()
+            if subject is None or subject.course_id != student.course_id:
+                return False
+            return (
+                db.query(ExamRoster)
+                .filter(ExamRoster.exam_id == exam.id, ExamRoster.student_id == student.id)
+                .first()
+                is not None
+            )
+
+        if exam.section_id is None:
             return False
 
-        # Roster-required by default (changed 2026-08-20 from opt-in narrowing, where an
-        # exam with zero roster rows was course-wide by default): a student is only eligible
-        # once an instructor has explicitly rostered them for this specific exam. This was a
-        # deliberate policy flip, not a bug fix - live production feedback was that a newly
-        # self-registered student seeing every unrostered course exam immediately was the wrong
-        # default for this deployment.
+        # No course check on this path, deliberately. Enrolling a student in a section is an
+        # explicit administrative act naming that exact student, which is a stronger statement
+        # than "belongs to the same programme" - and cross-programme enrolment (an elective, a
+        # cross-enrolled student) is normal at a university. Requiring both would reject those
+        # students from an exam they were deliberately enrolled for.
         return (
-            db.query(ExamRoster)
-            .filter(ExamRoster.exam_id == exam.id, ExamRoster.student_id == student.id)
+            db.query(Enrollment)
+            .filter(
+                Enrollment.section_id == exam.section_id,
+                Enrollment.student_id == student.id,
+                Enrollment.status == ACTIVE_ENROLLMENT,
+            )
             .first()
             is not None
         )
+
+    @staticmethod
+    def roster_source(exam: Exam, db: Session) -> dict:
+        """Where this exam's roster comes from, and how many it admits.
+
+        Exists so the roster screen can say which of the two sources is in force and warn when
+        the answer is "nobody" - the lockout case above is invisible otherwise, because an exam
+        with an empty inherited roster looks exactly like a correctly configured one.
+        """
+        if ExamService.has_explicit_roster(exam, db):
+            count = db.query(ExamRoster).filter(ExamRoster.exam_id == exam.id).count()
+            return {"source": "EXPLICIT", "count": count, "admits_nobody": count == 0}
+
+        if exam.section_id is None:
+            return {"source": "NONE", "count": 0, "admits_nobody": True}
+
+        count = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.section_id == exam.section_id,
+                Enrollment.status == ACTIVE_ENROLLMENT,
+            )
+            .count()
+        )
+        return {"source": "SECTION", "count": count, "admits_nobody": count == 0}
 
     @staticmethod
     def get_all(current_user: User, db: Session):

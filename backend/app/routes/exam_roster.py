@@ -7,6 +7,7 @@ from app.models.exam import Exam
 from app.schemas.exam_roster import ExamRosterCreate, ExamRosterWithStudentResponse
 from app.schemas.student import StudentResponse
 from app.services.exam_roster_service import ExamRosterService
+from app.services.exam_service import ExamService
 
 router = APIRouter(prefix="/exams", tags=["Exam Roster"])
 
@@ -20,6 +21,22 @@ def list_exam_roster(
     exam: Exam = Depends(require_exam_owner)
 ):
     return ExamRosterService.get_all_for_exam(exam, db)
+
+
+# Literal path registered before the {param} routes below it - main.py's route-ordering rule.
+@router.get("/{exam_id}/roster/source")
+def exam_roster_source(
+    db: Session = Depends(get_db),
+    exam: Exam = Depends(require_exam_owner)
+):
+    """Where this exam's roster comes from, and whether it currently admits anybody.
+
+    The roster screen needs this to tell two visually identical situations apart: an exam
+    inheriting a healthy class list, and one pointing at a section with nobody enrolled. The
+    second admits no students at all, and without this it looks exactly like a correctly
+    configured exam right up until nobody can start it.
+    """
+    return ExamService.roster_source(exam, db)
 
 
 @router.get(
