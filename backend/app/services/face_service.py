@@ -13,6 +13,7 @@ from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.violation import ViolationCreate
 from app.services.object_detection_service import pose_model
+from app.services.violation_episodes import begin_episode, end_episode
 from app.services.violation_service import ViolationService
 
 FACE_SIZE = (200, 200)
@@ -716,13 +717,24 @@ class FaceService:
 
         match = label == student.id and confidence < CONFIDENCE_THRESHOLD
 
+        # Once per episode, not once per poll. LBPH distance moves frame to frame, so around the
+        # threshold this alternated match/mismatch and logged three IDENTITY_MISMATCH rows in two
+        # minutes on 2026-09-09 - two of them five seconds apart - for one continuously seated
+        # student. Accusing someone of impersonation repeatedly for one stretch of sitting still
+        # is the worst version of this bug, and it inflates the risk score by the poll rate.
+        #
+        # Shares object_detection_service's episode tracker so both detectors behave identically
+        # and are cleaned up by the same discard_session() call.
         if not match:
-            ViolationService.log_violation(
-                session_id,
-                ViolationCreate(event_type="IDENTITY_MISMATCH"),
-                db,
-                evidence_bytes=image_bytes
-            )
+            if begin_episode(session_id, "IDENTITY_MISMATCH"):
+                ViolationService.log_violation(
+                    session_id,
+                    ViolationCreate(event_type="IDENTITY_MISMATCH"),
+                    db,
+                    evidence_bytes=image_bytes
+                )
+        else:
+            end_episode(session_id, "IDENTITY_MISMATCH")
 
         return {
             "face_detected": True,

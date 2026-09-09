@@ -8,11 +8,18 @@ continuous episodes.
 That matters beyond log noise - risk is scored from violation counts, so one continuous episode
 scored differently depending only on how many times it happened to be polled.
 """
-from app.services.object_detection_service import (
-    _begin_episode,
-    _end_episode,
+from app.services.violation_episodes import (
+    EPISODE_CLEAR_TOLERANCE,
+    begin_episode,
     discard_session,
+    end_episode,
 )
+
+
+def clear_fully(session, event):
+    """A real episode only ends after EPISODE_CLEAR_TOLERANCE consecutive negative polls."""
+    for _ in range(EPISODE_CLEAR_TOLERANCE):
+        end_episode(session, event)
 
 SESSION = 4242
 
@@ -26,58 +33,84 @@ def teardown_function():
 
 
 def test_one_log_for_a_sustained_episode():
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True, "first poll must log"
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True, "first poll must log"
     for _ in range(20):
-        assert _begin_episode(SESSION, "PHONE_DETECTED") is False, "must not re-log while held"
+        assert begin_episode(SESSION, "PHONE_DETECTED") is False, "must not re-log while held"
 
 
 def test_the_condition_clearing_re_arms_it():
-    _begin_episode(SESSION, "PHONE_DETECTED")
-    _end_episode(SESSION, "PHONE_DETECTED")
+    begin_episode(SESSION, "PHONE_DETECTED")
+    clear_fully(SESSION, "PHONE_DETECTED")
 
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True, "a new episode is a new violation"
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True, "a new episode is a new violation"
 
 
-def test_a_brief_gap_still_counts_as_two_episodes():
+def test_a_real_gap_still_counts_as_two_episodes():
     # Put the phone down and pick it up again: genuinely two events, and the instructor should
     # see both.
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
-    _end_episode(SESSION, "PHONE_DETECTED")
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+    clear_fully(SESSION, "PHONE_DETECTED")
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+
+
+def test_a_single_flickering_poll_does_not_re_fire():
+    """The bug seen live: a held phone whose confidence oscillates across the threshold logged
+    six violations in two minutes, because one negative poll re-armed the event."""
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+
+    for _ in range(10):
+        end_episode(SESSION, "PHONE_DETECTED")          # one dip below threshold
+        assert begin_episode(SESSION, "PHONE_DETECTED") is False, "a flicker is not a new episode"
+
+
+def test_a_positive_poll_resets_the_clear_streak():
+    """Otherwise alternating detect/miss would creep up on the tolerance and eventually re-fire
+    in the middle of one continuous episode."""
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+    for _ in range(20):
+        end_episode(SESSION, "PHONE_DETECTED")
+        assert begin_episode(SESSION, "PHONE_DETECTED") is False
+
+
+def test_identity_mismatch_uses_the_same_tracker():
+    # Logged from face_service, not object_detection_service - the whole reason this lives in its
+    # own module. Three IDENTITY_MISMATCH rows fired for one seated student before this.
+    assert begin_episode(SESSION, "IDENTITY_MISMATCH") is True
+    assert begin_episode(SESSION, "IDENTITY_MISMATCH") is False
 
 
 def test_event_types_are_tracked_independently():
     # A phone episode must not suppress a separate multiple-people episode.
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
-    assert _begin_episode(SESSION, "MULTIPLE_PEOPLE") is True
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is False
-    assert _begin_episode(SESSION, "MULTIPLE_PEOPLE") is False
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+    assert begin_episode(SESSION, "MULTIPLE_PEOPLE") is True
+    assert begin_episode(SESSION, "PHONE_DETECTED") is False
+    assert begin_episode(SESSION, "MULTIPLE_PEOPLE") is False
 
-    _end_episode(SESSION, "PHONE_DETECTED")
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
-    assert _begin_episode(SESSION, "MULTIPLE_PEOPLE") is False, "clearing one must not clear both"
+    clear_fully(SESSION, "PHONE_DETECTED")
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
+    assert begin_episode(SESSION, "MULTIPLE_PEOPLE") is False, "clearing one must not clear both"
 
 
 def test_sessions_do_not_share_episode_state():
     other = SESSION + 1
     try:
-        assert _begin_episode(SESSION, "MULTIPLE_PEOPLE") is True
+        assert begin_episode(SESSION, "MULTIPLE_PEOPLE") is True
         # A different student in their own session must still get their own first violation.
-        assert _begin_episode(other, "MULTIPLE_PEOPLE") is True
+        assert begin_episode(other, "MULTIPLE_PEOPLE") is True
     finally:
         discard_session(other)
 
 
 def test_ending_an_episode_that_never_started_is_harmless():
     # Every poll with no phone calls this, including the very first one of a session.
-    _end_episode(SESSION, "PHONE_DETECTED")
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
+    clear_fully(SESSION, "PHONE_DETECTED")
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True
 
 
 def test_discard_session_clears_the_state():
-    _begin_episode(SESSION, "PHONE_DETECTED")
+    begin_episode(SESSION, "PHONE_DETECTED")
     discard_session(SESSION)
 
     # Otherwise the dict grows by one entry per exam session ever taken, for the life of the
     # process - the same leak discard_session already exists to prevent for the other two dicts.
-    assert _begin_episode(SESSION, "PHONE_DETECTED") is True
+    assert begin_episode(SESSION, "PHONE_DETECTED") is True

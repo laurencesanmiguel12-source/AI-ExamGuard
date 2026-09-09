@@ -11,6 +11,11 @@ from app.models.exam_session import ExamSession
 from app.models.student import Student
 from app.schemas.violation import ViolationCreate
 from app.services.near_miss_capture_service import NearMissCaptureService
+from app.services.violation_episodes import (
+    begin_episode,
+    discard_session as _discard_episodes,
+    end_episode,
+)
 from app.services.violation_service import ViolationService
 
 MODEL_PATH = os.path.join(
@@ -157,42 +162,7 @@ def discard_session(session_id: int) -> None:
     polled object-check at all (no-op)."""
     _recent_candidates.pop(session_id, None)
     _near_miss_counts.pop(session_id, None)
-    _episode_open.pop(session_id, None)
-
-
-# Fire-once-per-episode, mirroring _track_head_down and _check_static_image in face_service.py.
-#
-# PHONE_DETECTED and MULTIPLE_PEOPLE were the two detectors WITHOUT this, so they re-logged on
-# every single poll for as long as the condition held. Observed live 2026-09-09: one student with
-# two people in frame produced 6 MULTIPLE_PEOPLE rows in 50 seconds, and a held phone produced 4
-# PHONE_DETECTED rows in 35 - one per poll, each with its own evidence image written to disk.
-#
-# That is not just noise in the log. Risk is scored from violation COUNTS, and multiple_people
-# carries the largest coefficient in the fitted model, so a single continuous episode inflated the
-# score by however many times it happened to be polled - meaning the same behaviour scores
-# differently on a fast machine than a slow one. It also multiplies evidence writes, and it made
-# the instructor's timeline unreadable.
-#
-# One row when the condition first appears; nothing more until it clears and returns. Deliberately
-# state-based rather than a time cooldown: a cooldown would still re-fire during one unbroken
-# episode, which is the thing being fixed. Same in-memory-per-session tradeoff as the
-# corroboration window above (lost on restart, single-process only) and evicted by the same
-# discard_session() call.
-_episode_open: dict[int, set[str]] = {}
-
-
-def _begin_episode(session_id: int, event_type: str) -> bool:
-    """True only on the transition into an episode - i.e. the poll that should log."""
-    open_for_session = _episode_open.setdefault(session_id, set())
-    if event_type in open_for_session:
-        return False
-    open_for_session.add(event_type)
-    return True
-
-
-def _end_episode(session_id: int, event_type: str) -> None:
-    """Re-arms the event, so the NEXT occurrence logs again as a genuinely new episode."""
-    _episode_open.get(session_id, set()).discard(event_type)
+    _discard_episodes(session_id)
 
 
 def _record_candidate(session_id: int, is_candidate: bool) -> bool:
@@ -393,7 +363,7 @@ class ObjectDetectionService:
             phone_detected = _phone_near_hands(image, pose_results) or corroborated
 
         if phone_detected:
-            if _begin_episode(session_id, "PHONE_DETECTED"):
+            if begin_episode(session_id, "PHONE_DETECTED"):
                 ViolationService.log_violation(
                     session_id,
                     ViolationCreate(event_type="PHONE_DETECTED"),
@@ -401,7 +371,7 @@ class ObjectDetectionService:
                     evidence_bytes=image_bytes
                 )
         else:
-            _end_episode(session_id, "PHONE_DETECTED")
+            end_episode(session_id, "PHONE_DETECTED")
             # Nothing happens to the student here - this only keeps the frame so the detector's
             # own misses can be reviewed and trained on. See NearMissCaptureService.
             NearMissCaptureService.capture(
@@ -413,7 +383,7 @@ class ObjectDetectionService:
             )
 
         if person_count > 1:
-            if _begin_episode(session_id, "MULTIPLE_PEOPLE"):
+            if begin_episode(session_id, "MULTIPLE_PEOPLE"):
                 ViolationService.log_violation(
                     session_id,
                     ViolationCreate(event_type="MULTIPLE_PEOPLE"),
@@ -421,7 +391,7 @@ class ObjectDetectionService:
                     evidence_bytes=image_bytes
                 )
         else:
-            _end_episode(session_id, "MULTIPLE_PEOPLE")
+            end_episode(session_id, "MULTIPLE_PEOPLE")
 
         return {
             "phone_detected": phone_detected,
