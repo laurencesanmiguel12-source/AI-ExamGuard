@@ -66,12 +66,12 @@ class Exam(Base, TimestampMixin):
     # and no single teacher, so hanging an exam off one left nowhere for a school year to attach,
     # no way to tell two instructors of the same subject apart, and no roster to inherit.
     #
-    # Nullable through steps 3-4 of the migration: every existing exam has been backfilled, but
-    # subject_id and instructor_id remain authoritative until step 5 retires them, so old code
-    # paths keep working while new ones read through here.
-    section_id: Mapped[int | None] = mapped_column(
+    # REQUIRED as of step 5. subject_id and instructor_id above are still stored - a great deal of
+    # school scoping and analytics joins through them - but they are now DERIVED from this section
+    # on every write rather than supplied by the client, so they cannot disagree with it.
+    section_id: Mapped[int] = mapped_column(
         ForeignKey("sections.id"),
-        nullable=True
+        nullable=False
     )
 
     subject = relationship(
@@ -103,8 +103,9 @@ class Exam(Base, TimestampMixin):
 
     # --- reached through the section ---------------------------------------------------------
     # This is the entire point of step 3: term and academic year stop being fields anyone fills
-    # in on an exam form and become facts you arrive at by following one link. All three degrade
-    # to None on an exam with no section yet, so nothing breaks mid-migration.
+    # in on an exam form and become facts you arrive at by following one link. The None guards
+    # stay: an Exam built in memory but not yet flushed has no section loaded, and a term with no
+    # academic year is reachable in tests.
 
     @property
     def term(self):

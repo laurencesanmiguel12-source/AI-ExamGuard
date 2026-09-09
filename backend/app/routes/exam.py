@@ -39,17 +39,10 @@ def create_exam(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_instructor)
 ):
-    if current_user.role.name.lower() == "instructor":
-        instructor = db.query(Instructor).filter(Instructor.user_id == current_user.id).first()
-        if instructor is None:
-            raise HTTPException(status_code=404, detail="No instructor profile linked to this account.")
-    else:
-        instructor = db.query(Instructor).filter(Instructor.id == request.instructor_id).first()
-        if instructor is None:
-            raise HTTPException(status_code=404, detail="Instructor not found.")
-        if not is_super_admin(current_user) and instructor.user.school_id != current_user.school_id:
-            raise HTTPException(status_code=403, detail="You do not have permission to assign this instructor.")
-    return ExamService.create(instructor, request, db)
+    # No instructor is resolved here any more. The section names exactly one, and the service
+    # derives it from there - which is also what closed the older hole where an admin could name
+    # any instructor in the body and have the exam recorded against them.
+    return ExamService.create(current_user, request, db)
 
 
 @router.put("/{exam_id}", response_model=ExamResponse)
@@ -57,9 +50,13 @@ def update_exam(
     exam_id: int,
     request: ExamUpdate,
     db: Session = Depends(get_db),
-    exam: Exam = Depends(require_exam_owner)
+    exam: Exam = Depends(require_exam_owner),
+    current_user: User = Depends(require_instructor),
 ):
-    return ExamService.update(exam_id, request, db)
+    # current_user as well as the owner check: require_exam_owner proves the caller may change
+    # THIS exam, and the service needs to prove separately that they may move it to whatever
+    # section the body names.
+    return ExamService.update(exam_id, current_user, request, db)
 
 
 @router.delete("/{exam_id}")

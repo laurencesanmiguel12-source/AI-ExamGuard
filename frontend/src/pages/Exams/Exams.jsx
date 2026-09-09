@@ -6,6 +6,7 @@ import { useSchoolSlug } from "../../hooks/useSchoolNav";
 import { getExams, createExam, updateExam, deleteExam } from "../../api/exams";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
+import { getSections } from "../../api/academic";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
@@ -30,8 +31,10 @@ const EMPTY_FORM = {
   start_time: "",
   end_time: "",
   is_active: false,
-  subject_id: "",
-  instructor_id: "",
+  // The only thing an exam is filed under. Subject and instructor come from the section, so they
+  // are not on this form at all - a field that cannot be filled in cannot disagree with the class
+  // the exam belongs to.
+  section_id: "",
 };
 
 function toLocalInput(iso) {
@@ -47,6 +50,7 @@ export default function Exams() {
   const [exams, setExams] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [instructors, setInstructors] = useState([]);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -57,11 +61,12 @@ export default function Exams() {
 
   function refresh() {
     setLoading(true);
-    Promise.all([getExams(), getSubjects(), getInstructors()])
-      .then(([e, s, i]) => {
+    Promise.all([getExams(), getSubjects(), getInstructors(), getSections()])
+      .then(([e, s, i, sec]) => {
         setExams(e);
         setSubjects(s);
         setInstructors(i);
+        setSections(sec);
       })
       .finally(() => setLoading(false));
   }
@@ -71,10 +76,31 @@ export default function Exams() {
   const subjectName = (id) => subjects.find((s) => s.id === id)?.code ?? `#${id}`;
   const instructorName = (id) => instructors.find((i) => i.id === id)?.employee_number ?? `#${id}`;
   const myInstructor = instructors.find((i) => i.user_id === user.id) ?? null;
+  const sectionById = (id) => sections.find((sec) => sec.id === id) ?? null;
+  // The sections this account may actually set an exam on. An instructor owns their own; an admin
+  // manages the whole school. Offering the rest would put choices in the list that the server
+  // answers with a 403 - the form should not invite a click it knows will fail.
+  const creatableSections = isAdmin(user)
+    ? sections
+    : sections.filter((sec) => sec.instructor_id === myInstructor?.id);
 
   const columns = [
     { key: "title", label: "Title" },
     { key: "subject_id", label: "Subject", render: (row) => subjectName(row.subject_id) },
+    {
+      // The class and the term it ran in, which is what tells two exams on the same subject apart
+      // - the whole reason the hierarchy exists.
+      key: "section_id",
+      label: "Section",
+      render: (row) => {
+        const sec = sectionById(row.section_id);
+        return sec ? `${sec.code} · ${sec.term_name ?? ""}`.trim() : `#${row.section_id}`;
+      },
+      search: (row) => {
+        const sec = sectionById(row.section_id);
+        return sec ? `${sec.code} ${sec.term_name ?? ""} ${sec.academic_year_label ?? ""}` : "";
+      },
+    },
     { key: "instructor_id", label: "Instructor", render: (row) => instructorName(row.instructor_id) },
     { key: "is_active", label: "Status", render: (row) => (row.is_active ? "Active" : "Inactive") },
     {
@@ -104,11 +130,7 @@ export default function Exams() {
   ];
 
   function openCreate() {
-    setForm({
-      ...EMPTY_FORM,
-      subject_id: subjects[0]?.id ?? "",
-      instructor_id: myInstructor?.id ?? instructors[0]?.id ?? "",
-    });
+    setForm({ ...EMPTY_FORM, section_id: creatableSections[0]?.id ?? "" });
     setError("");
     setEditing({});
   }
@@ -124,8 +146,7 @@ export default function Exams() {
       start_time: toLocalInput(exam.start_time),
       end_time: toLocalInput(exam.end_time),
       is_active: exam.is_active,
-      subject_id: exam.subject_id,
-      instructor_id: exam.instructor_id,
+      section_id: exam.section_id ?? "",
     });
     setError("");
     setEditing(exam);
@@ -141,8 +162,7 @@ export default function Exams() {
       total_points: Number(form.total_points),
       passing_score: Number(form.passing_score),
       max_risk_score: form.max_risk_score === "" ? null : Number(form.max_risk_score),
-      subject_id: Number(form.subject_id),
-      instructor_id: Number(form.instructor_id),
+      section_id: Number(form.section_id),
       start_time: new Date(form.start_time).toISOString(),
       end_time: new Date(form.end_time).toISOString(),
     };
@@ -172,7 +192,7 @@ export default function Exams() {
     }
   }
 
-  const canCreate = subjects.length > 0 && (isAdmin(user) ? instructors.length > 0 : !!myInstructor);
+  const canCreate = creatableSections.length > 0;
 
   return (
     <div>
@@ -193,11 +213,11 @@ export default function Exams() {
 
       {!canCreate && !loading && (
         <div className="mb-4 text-sm text-muted-foreground">
-          {subjects.length === 0
-            ? "Create a subject first before adding exams."
-            : isAdmin(user) && instructors.length === 0
-            ? "Create an instructor first before adding exams."
-            : "Your account has no linked instructor profile yet — contact an admin before adding exams."}
+          {sections.length === 0
+            ? "Set up a section first — an exam belongs to one class, and that is where its students come from. Sections & Class Lists."
+            : isAdmin(user)
+            ? "No sections in this school yet."
+            : "You aren't teaching any section yet, so there is no class to set an exam for. An admin assigns sections on Sections & Class Lists."}
         </div>
       )}
 
@@ -209,7 +229,7 @@ export default function Exams() {
 
       <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet"
         searchable searchPlaceholder="Search exams by title or subject…"
-        emptyHint="An exam belongs to a subject and is owned by one instructor. Once created, open it to write questions and choose which students sit it."
+        emptyHint="An exam belongs to one section — one class, in one term, taught by one instructor — and admits that class unless you roster students on the exam itself."
       />
 
       {editing && (
@@ -285,31 +305,28 @@ export default function Exams() {
                 onChange={(e) => setForm({ ...form, end_time: e.target.value })}
               />
             </div>
+            {/* One field where there used to be two. Picking the class settles the subject, the
+                instructor, the term and the school year at once, and picking a section whose
+                enrolment is empty is the one thing worth warning about before the exam day. */}
             <SelectField
-              label="Subject"
+              label="Section"
+              hint="The class sitting this exam. Its enrolled students are admitted automatically unless you set a roster on the exam itself."
               required
-              value={form.subject_id}
-              onChange={(e) => setForm({ ...form, subject_id: e.target.value })}
+              value={form.section_id}
+              onChange={(e) => setForm({ ...form, section_id: e.target.value })}
             >
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.code} — {s.name}
+              {creatableSections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.subject_code} {sec.code} — {sec.term_name} {sec.academic_year_label}
+                  {sec.enrolled_count === 0 ? " (nobody enrolled)" : ` (${sec.enrolled_count})`}
                 </option>
               ))}
             </SelectField>
-            {editing?.id && (
-              <SelectField
-                label="Instructor (reassign)"
-                required
-                value={form.instructor_id}
-                onChange={(e) => setForm({ ...form, instructor_id: e.target.value })}
-              >
-                {instructors.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.employee_number}
-                  </option>
-                ))}
-              </SelectField>
+            {sectionById(Number(form.section_id))?.enrolled_count === 0 && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Nobody is enrolled in this section, so this exam will admit no students unless you
+                roster them on the exam itself.
+              </div>
             )}
             <CheckboxField
               label="Active"

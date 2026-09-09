@@ -15,26 +15,32 @@ from datetime import datetime, timedelta, timezone
 
 
 def test_creating_an_exam_ignores_a_spoofed_instructor_id(
-    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+    client, make_section, make_instructor, auth_headers
 ):
-    real_instructor = make_instructor()
-    other_instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(real_instructor, subject)
+    """instructor_id is no longer a field anybody can send, and the section decides it.
 
-    response = client.post("/exams/", headers=auth_headers(real_instructor.user), json={
+    The attack this guards is unchanged in shape - a body naming somebody else's instructor id -
+    but the defence moved: it used to be "overwrite it with the caller's own", and is now "the
+    section already names exactly one instructor, so there is nothing to overwrite".
+    """
+    section = make_section()
+    other_instructor = make_instructor()
+
+    response = client.post("/exams/", headers=auth_headers(section.instructor.user), json={
         "title": "Spoof Attempt",
         "duration_minutes": 30,
         "passing_score": 50,
         "start_time": datetime.now(timezone.utc).isoformat(),
         "end_time": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-        "subject_id": subject.id,
-        "instructor_id": other_instructor.id,  # attacker-controlled, must be ignored
+        "section_id": section.id,
+        "instructor_id": other_instructor.id,  # attacker-controlled, must have no effect
+        "subject_id": 999999,                  # ditto
     })
 
-    assert response.status_code == 200
-    assert response.json()["instructor_id"] == real_instructor.id
+    assert response.status_code == 200, response.text
+    assert response.json()["instructor_id"] == section.instructor_id
     assert response.json()["instructor_id"] != other_instructor.id
+    assert response.json()["subject_id"] == section.subject_id
 
 
 def test_instructor_cannot_edit_another_instructors_exam(client, make_instructor, make_exam, auth_headers):

@@ -7,7 +7,6 @@ from app.models.exam import Exam
 from app.models.enrollment import ACTIVE_ENROLLMENT, Enrollment
 from app.models.exam_roster import ExamRoster
 from app.models.instructor import Instructor
-from app.models.instructor_subject import InstructorSubject
 from app.models.student import Student
 from app.models.subject import Subject
 from app.models.user import User
@@ -15,22 +14,6 @@ from app.schemas.exam import ExamCreate, ExamUpdate
 
 
 class ExamService:
-
-    @staticmethod
-    def _require_subject_assignment(instructor_id: int, subject_id: int, db: Session) -> None:
-        assigned = (
-            db.query(InstructorSubject)
-            .filter(
-                InstructorSubject.instructor_id == instructor_id,
-                InstructorSubject.subject_id == subject_id,
-            )
-            .first()
-        )
-        if assigned is None:
-            raise HTTPException(
-                status_code=403,
-                detail="Instructor is not assigned to this subject."
-            )
 
     @staticmethod
     def has_explicit_roster(exam: Exam, db: Session) -> bool:
@@ -220,13 +203,17 @@ class ExamService:
         return exam
 
     @staticmethod
-    def _section_for_instructor(section_id: int, instructor: Instructor, db: Session):
-        """The section, if this instructor may actually set an exam on it.
+    def _section_for_exam(section_id: int, current_user: User, db: Session):
+        """The section, if this caller may actually set an exam on it.
 
-        Ownership is the point of a section: it names exactly one instructor. Until now the
-        permission layer had to approximate this through subject assignment, which is why two
-        instructors sharing a subject could each reach the other's work. Here it is a direct
-        check - you own the class or you do not.
+        Ownership is the point of a section: it names exactly one instructor. The permission layer
+        used to approximate this through subject assignment, which is why two instructors sharing
+        a subject could each reach the other's work. Here it is a direct check - you own the class
+        or you do not.
+
+        An admin is scoped to their own school instead. They legitimately manage every class in
+        it, and have no instructor record of their own to compare against - the exam is still
+        attributed to whoever actually teaches the section, not to the admin who created it.
         """
         from app.models.section import Section
 
@@ -234,11 +221,29 @@ class ExamService:
         if section is None:
             raise HTTPException(status_code=404, detail="Section not found.")
 
-        if section.instructor_id != instructor.id:
-            raise HTTPException(
-                status_code=403,
-                detail="That section is taught by another instructor.",
+        if current_user.role.name.lower() in ("admin", "super_admin"):
+            if not is_super_admin(current_user):
+                section_school_id = (
+                    db.query(Course.school_id)
+                    .join(Subject, Subject.course_id == Course.id)
+                    .filter(Subject.id == section.subject_id)
+                    .scalar()
+                )
+                if section_school_id != current_user.school_id:
+                    raise HTTPException(status_code=404, detail="Section not found.")
+        else:
+            instructor = (
+                db.query(Instructor).filter(Instructor.user_id == current_user.id).first()
             )
+            if instructor is None:
+                raise HTTPException(
+                    status_code=404, detail="No instructor profile linked to this account."
+                )
+            if section.instructor_id != instructor.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="That section is taught by another instructor.",
+                )
 
         if section.term is not None and section.term.status == "CLOSED":
             raise HTTPException(
@@ -249,36 +254,21 @@ class ExamService:
         return section
 
     @staticmethod
-    def create(instructor: Instructor, request: ExamCreate, db: Session):
+    def create(current_user: User, request: ExamCreate, db: Session):
+        """An exam is created against a section, and takes its subject and instructor from it.
 
-        subject = (
-            db.query(Subject)
-            .filter(Subject.id == request.subject_id)
-            .first()
+        Neither "what subject is this" nor "who teaches it" comes from the request body any more.
+        The section is the single statement of both, so there is no second copy to keep in step -
+        and an admin creating an exam on somebody else's class no longer has to be trusted to name
+        the right instructor alongside it.
+        """
+        section = ExamService._section_for_exam(request.section_id, current_user, db)
+
+        exam = Exam(
+            **request.model_dump(),
+            subject_id=section.subject_id,
+            instructor_id=section.instructor_id,
         )
-
-        if subject is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Subject not found."
-            )
-
-        ExamService._require_subject_assignment(instructor.id, subject.id, db)
-
-        # instructor_id is always the caller's own instructor record, never taken from the
-        # request body - see backend/app/auth/instructor_context.py's get_current_instructor.
-        exam_data = request.model_dump(exclude={"instructor_id"})
-
-        # A section, when given, is authoritative for subject as well - it already names one, and
-        # letting the body disagree would let an exam claim a section of CS-101 while filing
-        # itself under a different subject entirely. Deriving instead of validating means the two
-        # cannot drift apart at all.
-        section_id = exam_data.get("section_id")
-        if section_id is not None:
-            section = ExamService._section_for_instructor(section_id, instructor, db)
-            exam_data["subject_id"] = section.subject_id
-
-        exam = Exam(**exam_data, instructor_id=instructor.id)
 
         db.add(exam)
         db.commit()
@@ -287,14 +277,21 @@ class ExamService:
         return exam
 
     @staticmethod
-    def update(exam_id: int, request: ExamUpdate, db: Session):
+    def update(exam_id: int, current_user: User, request: ExamUpdate, db: Session):
 
         exam = ExamService.get_by_id(exam_id, db)
 
         update_data = request.model_dump(exclude_unset=True)
 
-        if "subject_id" in update_data and update_data["subject_id"] != exam.subject_id:
-            ExamService._require_subject_assignment(exam.instructor_id, update_data["subject_id"], db)
+        # Moving an exam re-derives its subject and instructor, and is checked against the TARGET
+        # section rather than the one being left. require_exam_owner has already confirmed the
+        # caller owns this exam, which says nothing about where they may move it to - without this
+        # an instructor could file their own exam under a colleague's class.
+        new_section_id = update_data.get("section_id")
+        if new_section_id is not None and new_section_id != exam.section_id:
+            section = ExamService._section_for_exam(new_section_id, current_user, db)
+            update_data["subject_id"] = section.subject_id
+            update_data["instructor_id"] = section.instructor_id
 
         for key, value in update_data.items():
             setattr(exam, key, value)

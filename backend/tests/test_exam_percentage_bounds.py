@@ -16,7 +16,7 @@ that stops the next one being accepted.
 from datetime import datetime, timedelta, timezone
 
 
-def _exam_payload(subject, instructor, **overrides):
+def _exam_payload(section, **overrides):
     payload = {
         "title": "Bounds Test",
         "duration_minutes": 30,
@@ -24,90 +24,80 @@ def _exam_payload(subject, instructor, **overrides):
         "passing_score": 60,
         "start_time": datetime.now(timezone.utc).isoformat(),
         "end_time": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-        "subject_id": subject.id,
-        "instructor_id": instructor.id,
+        # Subject and instructor are the section's, not the body's - see ExamCreate.
+        "section_id": section.id,
     }
     payload.update(overrides)
     return payload
 
 
 def test_passing_score_above_100_is_rejected(
-    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+    client, make_section, auth_headers
 ):
     """150 is the shape of a points-style value on a 150-point exam - it would silently make the
     exam unpassable, since a percentage can never exceed 100."""
-    instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(instructor, subject)
+    section = make_section()
 
     response = client.post(
         "/exams/",
-        headers=auth_headers(instructor.user),
-        json=_exam_payload(subject, instructor, passing_score=150),
+        headers=auth_headers(section.instructor.user),
+        json=_exam_payload(section, passing_score=150),
     )
 
     assert response.status_code == 422
 
 
 def test_negative_passing_score_is_rejected(
-    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+    client, make_section, auth_headers
 ):
-    instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(instructor, subject)
+    section = make_section()
 
     response = client.post(
         "/exams/",
-        headers=auth_headers(instructor.user),
-        json=_exam_payload(subject, instructor, passing_score=-1),
+        headers=auth_headers(section.instructor.user),
+        json=_exam_payload(section, passing_score=-1),
     )
 
     assert response.status_code == 422
 
 
 def test_max_risk_score_above_100_is_rejected(
-    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+    client, make_section, auth_headers
 ):
     """RiskService caps the score at 100, so a threshold above it can never be crossed - retake
     flagging would be silently disabled rather than misconfigured loudly."""
-    instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(instructor, subject)
+    section = make_section()
 
     response = client.post(
         "/exams/",
-        headers=auth_headers(instructor.user),
-        json=_exam_payload(subject, instructor, max_risk_score=101),
+        headers=auth_headers(section.instructor.user),
+        json=_exam_payload(section, max_risk_score=101),
     )
 
     assert response.status_code == 422
 
 
 def test_the_bounds_are_inclusive(
-    client, make_instructor, make_subject, make_instructor_subject, auth_headers
+    client, make_section, auth_headers
 ):
     """0 and 100 are both legitimate: pass-everybody and perfect-score-required respectively."""
-    instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(instructor, subject)
+    section = make_section()
 
     for value in (0, 100):
         response = client.post(
             "/exams/",
-            headers=auth_headers(instructor.user),
-            json=_exam_payload(subject, instructor, passing_score=value, max_risk_score=value),
+            headers=auth_headers(section.instructor.user),
+            json=_exam_payload(section, passing_score=value, max_risk_score=value),
         )
         assert response.status_code == 200, response.text
 
 
 def test_an_update_cannot_push_passing_score_out_of_range(
-    client, make_instructor, make_subject, make_instructor_subject, make_exam, auth_headers
+    client, make_instructor, make_exam, auth_headers
 ):
     """ExamUpdate is a separate schema - bounding only ExamCreate would leave the same hole open
     one PUT away."""
     instructor = make_instructor()
-    subject = make_subject()
-    make_instructor_subject(instructor, subject)
     exam = make_exam(instructor=instructor, total_points=50, passing_score=60)
 
     response = client.put(

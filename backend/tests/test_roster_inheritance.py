@@ -35,9 +35,10 @@ def _exam_on_section(db, school_id, make_exam, make_subject, make_instructor):
     section = AcademicService.create_section(
         subject.id, term.id, instructor.id, "A", school_id, db
     )
-    exam = make_exam(subject=subject, instructor=instructor)
-    exam.section_id = section.id
-    db.commit()
+    # Handed to the fixture rather than assigned afterwards: since step 5 an exam cannot exist
+    # without a section, so make_exam would otherwise build a second one just to have it replaced
+    # - and that spare section would bring its own academic year with it.
+    exam = make_exam(subject=subject, instructor=instructor, section=section)
     return exam, section
 
 
@@ -127,12 +128,14 @@ def test_any_explicit_row_switches_the_whole_exam_to_explicit_mode(
 def test_the_old_explicit_only_behaviour_is_unchanged(
     db, default_school, make_exam, make_student
 ):
-    """An exam with no section at all - every exam before this migration - must behave exactly as
-    it did: explicit roster required, course membership enforced."""
+    """An explicitly rostered student behaves exactly as before inheritance existed.
+
+    The "no section at all" half of this test went with step 5 - that shape is now refused by the
+    schema, and its own test is below.
+    """
     exam = make_exam()
     student = make_student(course=exam.subject.course, exam=exam)
 
-    assert exam.section_id is None
     assert ExamService.is_student_eligible(student, exam, db) is True
 
 
@@ -150,10 +153,14 @@ def test_course_membership_still_gates_the_explicit_path(
 
 # --- the lockout hazard --------------------------------------------------------------------------
 
-def test_an_exam_with_no_roster_and_no_section_still_admits_nobody(
+def test_neither_source_still_admits_nobody(
     db, default_school, make_exam, make_student
 ):
-    """The 2026-08-20 policy, preserved exactly. Deliberately NOT "no roster means course-wide"."""
+    """The 2026-08-20 policy, preserved exactly. Deliberately NOT "no roster means course-wide".
+
+    A student in the exam's course, not rostered by hand and not enrolled in its section, is not
+    eligible - being in the programme has never been enough on its own.
+    """
     exam = make_exam()
     student = make_student(course=exam.subject.course)
 
@@ -191,11 +198,30 @@ def test_roster_source_reports_the_inherited_headcount(
     assert (source["source"], source["count"], source["admits_nobody"]) == ("SECTION", 3, False)
 
 
-def test_roster_source_flags_an_exam_with_no_source_at_all(db, default_school, make_exam):
-    source = ExamService.roster_source(make_exam(), db)
+def test_an_exam_cannot_exist_without_a_section(db, default_school, make_subject, make_instructor):
+    """Step 5's guarantee, enforced by the database rather than by convention.
 
-    assert source["source"] == "NONE"
-    assert source["admits_nobody"] is True
+    roster_source still has a "NONE" branch for an exam with no section; this is what makes that
+    branch unreachable in practice, and it belongs in the schema rather than in a code review.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models.exam import Exam
+
+    subject = make_subject()
+    instructor = make_instructor()
+    now = datetime.now(timezone.utc)
+
+    # A SAVEPOINT rather than a plain flush: the failed insert has to be unwound without taking
+    # the surrounding per-test transaction with it (see the `db` fixture).
+    with pytest.raises(IntegrityError):
+        with db.begin_nested():
+            db.add(Exam(
+                title="Sectionless", duration_minutes=30, total_points=0, passing_score=50,
+                start_time=now, end_time=now + timedelta(hours=1),
+                subject_id=subject.id, instructor_id=instructor.id,
+            ))
+            db.flush()
 
 
 def test_starting_an_exam_uses_the_inherited_roster_end_to_end(

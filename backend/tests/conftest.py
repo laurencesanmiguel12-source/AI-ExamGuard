@@ -53,6 +53,9 @@ from app.models.exam import Exam  # noqa: E402
 from app.models.exam_roster import ExamRoster  # noqa: E402
 from app.models.instructor import Instructor  # noqa: E402
 from app.models.instructor_subject import InstructorSubject  # noqa: E402
+from app.models.academic_year import AcademicYear  # noqa: E402
+from app.models.term import Term  # noqa: E402
+from app.models.section import Section  # noqa: E402
 from app.models.role import Role  # noqa: E402
 from app.models.school import SCHOOL_APPROVED, School  # noqa: E402
 from app.models.student import Student  # noqa: E402
@@ -285,7 +288,69 @@ def make_student(db, make_user, make_course):
 
 
 @pytest.fixture
-def make_exam(db, make_instructor, make_subject):
+def make_term(db):
+    """One ACTIVE term per school, created once and reused.
+
+    Almost no test cares which term its exam sits in - it just needs one to exist, because a
+    section belongs to a term and (since step 5) an exam belongs to a section. Caching per school
+    keeps that from silently becoming one academic year per exam, which would break the
+    one-current-year and one-active-term invariants the hierarchy tests rely on.
+    """
+    from datetime import date
+    cache = {}
+
+    def _make(school_id: int) -> Term:
+        if school_id in cache:
+            return cache[school_id]
+        year = AcademicYear(
+            school_id=school_id, label="2026-2027",
+            starts_on=date(2026, 6, 1), ends_on=date(2027, 5, 31), is_current=True,
+        )
+        db.add(year)
+        db.commit()
+        db.refresh(year)
+        term = Term(
+            academic_year_id=year.id, name="1st Semester", sequence=1,
+            starts_on=date(2026, 6, 1), ends_on=date(2026, 10, 31), status="ACTIVE",
+        )
+        db.add(term)
+        db.commit()
+        db.refresh(term)
+        cache[school_id] = term
+        return term
+    return _make
+
+
+@pytest.fixture
+def make_section(db, make_term, make_subject, make_instructor):
+    counter = {"n": 0}
+
+    def _make(subject=None, instructor=None, **overrides) -> Section:
+        counter["n"] += 1
+        subject = subject if subject is not None else make_subject()
+        instructor = instructor if instructor is not None else make_instructor()
+        # The term follows the SUBJECT's school, not the default one - multi-tenancy tests build
+        # exams on other schools' subjects, and a section spanning two schools is exactly the
+        # cross-tenant shape those tests exist to catch.
+        school_id = (
+            db.query(Course.school_id).filter(Course.id == subject.course_id).scalar()
+        )
+        term = overrides.pop("term", None) or make_term(school_id)
+        defaults = dict(
+            subject_id=subject.id, term_id=term.id, instructor_id=instructor.id,
+            code=f"S{counter['n']}",
+        )
+        defaults.update(overrides)
+        section = Section(**defaults)
+        db.add(section)
+        db.commit()
+        db.refresh(section)
+        return section
+    return _make
+
+
+@pytest.fixture
+def make_exam(db, make_instructor, make_subject, make_section):
     from datetime import datetime, timedelta, timezone
     counter = {"n": 0}
 
@@ -294,6 +359,14 @@ def make_exam(db, make_instructor, make_subject):
         n = counter["n"]
         instructor = overrides.pop("instructor", None) or make_instructor()
         subject = overrides.pop("subject", None) or make_subject()
+        # Since step 5 an exam cannot exist without a section, so one is built to match whatever
+        # subject and instructor the test asked for. subject_id and instructor_id are still set
+        # from the same pair rather than left to drift - that is what the production write path
+        # now guarantees, and a fixture that disagreed with it would be testing a shape the app
+        # can no longer produce.
+        section = overrides.pop("section", None) or make_section(
+            subject=subject, instructor=instructor
+        )
         now = datetime.now(timezone.utc)
         defaults = dict(
             title=f"Test Exam {n}",
@@ -303,8 +376,9 @@ def make_exam(db, make_instructor, make_subject):
             start_time=now - timedelta(hours=1),
             end_time=now + timedelta(hours=1),
             is_active=True,
-            subject_id=subject.id,
-            instructor_id=instructor.id,
+            subject_id=section.subject_id,
+            instructor_id=section.instructor_id,
+            section_id=section.id,
         )
         defaults.update(overrides)
         exam = Exam(**defaults)

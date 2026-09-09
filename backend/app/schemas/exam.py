@@ -19,6 +19,8 @@ PERCENTAGE_FIELD = {"ge": 0, "le": 100}
 
 
 class ExamBase(BaseModel):
+    """The fields an exam actually carries in its own right."""
+
     title: str
     description: str | None = None
     duration_minutes: int
@@ -28,15 +30,19 @@ class ExamBase(BaseModel):
     start_time: datetime
     end_time: datetime
     is_active: bool = False
-    subject_id: int
-    instructor_id: int
 
 
 class ExamCreate(ExamBase):
-    # Optional through the migration. When given, subject_id and instructor_id are DERIVED from
-    # the section rather than trusted from the body - otherwise an exam could claim a section
-    # taught by one instructor while recording another, and the two would drift apart silently.
-    section_id: int | None = None
+    """A section is now the only thing an exam is filed under, and it is required.
+
+    subject_id and instructor_id are deliberately NOT accepted. The section already names both,
+    and a body that could disagree with it is a body that will: an exam claiming a section of
+    CS-101 while filing itself under another subject, or recording an instructor who does not
+    teach the class it belongs to. Deriving both means they cannot drift apart at all, where
+    validating them only reports the disagreement after the fact.
+    """
+
+    section_id: int
 
 
 class ExamUpdate(BaseModel):
@@ -49,15 +55,21 @@ class ExamUpdate(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     is_active: bool | None = None
-    subject_id: int | None = None
-    instructor_id: int | None = None
+    # Moving an exam to a different section re-derives its subject and instructor. subject_id and
+    # instructor_id are gone from here for the same reason they are gone from create: they are
+    # facts about the section now, and a settable copy of a derived fact is a copy that goes
+    # stale.
+    section_id: int | None = None
 
 
 class ExamResponse(ExamBase):
     id: int
-    section_id: int | None = None
+    section_id: int
+    # Still stored and still returned - a great deal of scoping and analytics joins through them -
+    # but derived from the section on every write rather than supplied by the client.
+    subject_id: int
+    instructor_id: int
     # Reached through the section, not stored on the exam - the whole point of the hierarchy.
-    # None on an exam that predates its section being assigned.
     term_label: str | None = None
 
     model_config = ConfigDict(
