@@ -52,7 +52,24 @@ import { EXTENSION_STORE_URL } from "../../constants/extension";
 const CAPTURE_INTERVAL_MS = 5000;
 // Server-side audit polls stay at ~15s (see the comment on faceCheckPollCountRef) no matter what
 // CAPTURE_INTERVAL_MS is, because the head-down constants were tuned against that cadence.
-const AUDIT_EVERY_N_POLLS = Math.max(1, Math.round(15000 / CAPTURE_INTERVAL_MS));
+// 1 = every poll is a full server-side check. Changed from the derived ~15s cadence on
+// 2026-09-09 after IDENTITY_MISMATCH was reported as not firing live.
+//
+// The cause is not the identity threshold - it is that face_service.verify() SKIPS identity
+// verification entirely on the client-crop path (it returns identity_match: null without
+// comparing anything, because MediaPipe's crop framing shifts LBPH distances 15-19 points and
+// would falsely accuse real students). Only audit polls actually verify identity. At the derived
+// 1-in-3 cadence, and at the 30-90s per-poll spacing this host really achieves, identity was
+// being checked roughly once every 1.5-4.5 minutes - indistinguishable from "not firing".
+//
+// Forcing every poll to audit is strictly MORE accurate, not a shortcut: it always sends a real
+// frame through YuNet, which is the crop convention CONFIDENCE_THRESHOLD and every enrollment
+// photo were calibrated against. It also restores PROLONGED_HEAD_DOWN's pose sampling on every
+// poll for the same reason. The cost is CPU - a full-frame face-check is ~230ms against ~16ms
+// for the client-crop path - which is affordable for the 1-2 concurrent students this host can
+// serve anyway (see the capacity note on CAPTURE_INTERVAL_MS above), and would NOT be at scale.
+// Restore Math.max(1, Math.round(15000 / CAPTURE_INTERVAL_MS)) if this ever runs a real cohort.
+const AUDIT_EVERY_N_POLLS = 1;
 
 function useCountdown(deadline) {
   const [now, setNow] = useState(() => Date.now());
