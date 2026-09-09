@@ -63,16 +63,9 @@ export default function SetupImportPanel() {
     : 0;
 
   return (
+    // No heading of its own: this now sits under the Bulk Import page's PageHeader, which says
+    // the same thing in the place every other screen says it.
     <div>
-      <div className="mb-4">
-        <h3 className="text-sm font-semibold text-foreground">Bulk setup import</h3>
-        <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-          Already have your courses, subjects and staff in a spreadsheet? Load them all at once
-          instead of adding them one by one. One file covers all three — rows say which they are,
-          and refer to each other by code, so a subject can name a course listed above it.
-        </p>
-      </div>
-
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap items-center gap-4">
           <button

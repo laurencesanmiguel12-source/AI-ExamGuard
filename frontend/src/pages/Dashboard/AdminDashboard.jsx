@@ -10,7 +10,6 @@ import { getAuditLog } from "../../api/auditLog";
 import { getSchoolAnalytics } from "../../api/analytics";
 import { getSchoolsForReview } from "../../api/schools";
 import SetupChecklist from "../../components/SetupChecklist";
-import SetupImportPanel from "./SetupImportPanel";
 import { previewPurge, purgeExpiredEvidence } from "../../api/retention";
 import {
   getPendingTrainingCandidates,
@@ -286,7 +285,6 @@ export default function AdminDashboard() {
           ["system", "System"],
           ["audit", "Audit"],
           ["retention", "Retention"],
-          ["import", "Bulk Import"],
           ["training", "Training Review"],
         ].map(([key, label]) => (
           <button
@@ -723,8 +721,6 @@ export default function AdminDashboard() {
           )}
         </div>
       )}
-
-      {tab === "import" && <SetupImportPanel />}
 
       {tab === "training" && (
         <div>

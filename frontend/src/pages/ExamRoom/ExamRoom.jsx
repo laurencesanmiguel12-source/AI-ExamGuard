@@ -23,11 +23,33 @@ import RiskPill from "../../components/ui/RiskPill";
 import PreExamModal from "./PreExamModal";
 import { EXTENSION_STORE_URL } from "../../constants/extension";
 
-// How often a webcam frame is grabbed and sent for face/object checks. Was 5000 (0.2 fps).
-// This is a per-student poll rate; at 1 fps this is 2 backend ML requests/sec/student, so a 50-
-// student exam is ~100 req/s - the load test that found DB pool exhaustion ran at 0.2 fps. Raise
-// back toward 2000-5000 if p95 latency or face-check accuracy degrades under real concurrency.
-const CAPTURE_INTERVAL_MS = 1000;
+// How often a webcam frame is grabbed and sent for face/object checks.
+//
+// Briefly 1000 (1 fps) on 2026-09-07; reverted to 5000 on 2026-09-09 after measuring the real
+// deploy host with backend/loadtest/. Two independent reasons, both measured:
+//
+// 1. The box cannot serve it. Total capacity is ~1 object-check/sec regardless of concurrency
+//    (throughput flat from 1 to 10 users while latency grows linearly). At 1 fps a SINGLE student
+//    only achieved 0.90 fps, and TWO students got 0.43 fps each behind a 2s queue - i.e. 1 fps
+//    delivered worse effective sampling than 5s delivers comfortably. At 5s, two students run at
+//    102% of requested with p50 1.4s. INFERENCE_THREADS is not the lever (2/4/8 all ~0.9 req/s).
+//
+// 2. Three detector thresholds count POLLS, not seconds, so raising the rate silently redefined
+//    them - and all three were empirically validated at this cadence:
+//      - STATIC_IMAGE_DIFF_THRESHOLD (8.0) was set where a genuine seated person measured
+//        11.3-30.9 and a rigid photo spoof 3.06-6.68. A person moves far less in 1s than in 15s,
+//        so genuine diffs fall toward a threshold only ~30% below them, and
+//        STATIC_IMAGE_STREAK_THRESHOLD=3 became 3 SECONDS of stillness rather than ~15 - normal
+//        behaviour while reading a question, accused of holding up a photo.
+//      - CANDIDATE_WINDOW_SIZE=3 (phone) spanned ~15s, became ~3s. It suppresses false positives
+//        by demanding independent samples, and frames 1s apart are near-duplicates. 3-of-3 was
+//        chosen over 2-of-3 specifically to avoid quadrupling false accusations.
+//      - MULTIPLE_PEOPLE has NO corroboration at all - it fires on a single frame - and is the
+//        most frequently logged violation, so 5x the polls is 5x the chances to misfire.
+//
+// Raising this again means re-validating those three constants against the new spacing, not just
+// checking that latency looks acceptable. AUDIT_EVERY_N_POLLS below already derives from this.
+const CAPTURE_INTERVAL_MS = 5000;
 // Server-side audit polls stay at ~15s (see the comment on faceCheckPollCountRef) no matter what
 // CAPTURE_INTERVAL_MS is, because the head-down constants were tuned against that cadence.
 const AUDIT_EVERY_N_POLLS = Math.max(1, Math.round(15000 / CAPTURE_INTERVAL_MS));

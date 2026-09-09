@@ -13,6 +13,7 @@ import Courses from "./pages/Courses/Courses";
 import Subjects from "./pages/Subjects/Subjects";
 import Students from "./pages/Students/Students";
 import Instructors from "./pages/Instructors/Instructors";
+import SetupImport from "./pages/SetupImport/SetupImport";
 import SchoolApprovals from "./pages/SchoolApprovals/SchoolApprovals";
 import Exams from "./pages/Exams/Exams";
 import ExamContent from "./pages/ExamContent/ExamContent";
@@ -68,6 +69,7 @@ function App() {
                   <Route path="courses" element={<Courses />} />
                   <Route path="subjects" element={<Subjects />} />
                   <Route path="instructors" element={<Instructors />} />
+                  <Route path="setup-import" element={<SetupImport />} />
                 </Route>
 
                 {/* super_admin ONLY - allowedRoles={["admin"]} would also admit every school

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, X } from "lucide-react";
+import { Shield, LayoutDashboard, BookOpen, Layers, GraduationCap, Users, ClipboardList, Award, BarChart3, Building2, Upload, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSchool, useSchoolSlug } from "../hooks/useSchoolNav";
 import { hasRole } from "../utils/roles";
@@ -29,6 +29,9 @@ const NAV_GROUPS = [
       // all - the reported "can't find students on the lists" - even though GET /students/ has
       // allowed any authenticated user in their own school for a while now.
       { to: "/students", label: "Student Management", icon: GraduationCap, roles: ["admin", "instructor"] },
+      // Last in this group on purpose: it creates the three above it in one go, so it reads as
+      // the shortcut past them rather than a fourth kind of thing to manage.
+      { to: "/setup-import", label: "Bulk Import", icon: Upload, roles: ["admin"] },
     ],
   },
   {
