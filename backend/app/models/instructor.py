@@ -31,3 +31,49 @@ class Instructor(Base, TimestampMixin):
         "Exam",
         back_populates="instructor"
     )
+    # Named relationship rather than querying InstructorSubject ad hoc, so the response schema can
+    # walk instructor -> subject -> course in one place.
+    subject_links = relationship(
+        "InstructorSubject",
+        viewonly=True
+    )
+
+    @property
+    def instructor_name(self) -> str | None:
+        """Mirrors Student.student_name.
+
+        The defense panel reported that the instructor list showed no name at all, and the cause
+        was here: nothing on this model or its response schema ever exposed one, so the table
+        could only print a raw user_id. Students already had this; instructors did not.
+        """
+        if self.user is None:
+            return None
+        return f"{self.user.first_name} {self.user.last_name}"
+
+    @property
+    def email(self) -> str | None:
+        return self.user.email if self.user is not None else None
+
+    @property
+    def assignments(self) -> list[dict]:
+        """What this instructor actually teaches, subject AND course together.
+
+        The panel's second point: two instructors assigned to the same subject were
+        indistinguishable, because the list showed subjects with no course context. A subject code
+        alone is ambiguous across courses, so both are carried here.
+        """
+        out = []
+        for link in self.subject_links:
+            subject = link.subject
+            if subject is None:
+                continue
+            course = subject.course
+            out.append({
+                "subject_id": subject.id,
+                "subject_code": subject.code,
+                "subject_name": subject.name,
+                "course_id": course.id if course is not None else None,
+                "course_code": course.code if course is not None else None,
+                "course_name": course.name if course is not None else None,
+            })
+        return sorted(out, key=lambda a: (a["course_code"] or "", a["subject_code"] or ""))

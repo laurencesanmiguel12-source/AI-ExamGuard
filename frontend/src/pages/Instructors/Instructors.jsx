@@ -87,8 +87,48 @@ function SubjectsModal({ instructor, allSubjects, onClose }) {
 
 function buildColumns(onManageSubjects, subjectCounts) {
   return [
+    // Name first. The list previously led with employee_number and a raw #user_id and never
+    // showed a name at all - the defense panel's "Instructor should have complete information
+    // especially the Name". A database id is not an identity.
+    {
+      key: "instructor_name",
+      label: "Name",
+      render: (row) => (
+        <span className="font-medium text-foreground">
+          {row.instructor_name ?? `#${row.user_id}`}
+        </span>
+      ),
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (row) => (
+        <span className="font-mono text-[12px] text-muted-foreground">{row.email ?? "—"}</span>
+      ),
+    },
     { key: "employee_number", label: "Employee No." },
-    { key: "user_id", label: "User ID", render: (row) => `#${row.user_id}` },
+    // Course alongside subject, so two instructors assigned the same subject code are no longer
+    // interchangeable rows - the panel's second report on this page.
+    {
+      key: "assignments",
+      label: "Teaching",
+      render: (row) => {
+        const assignments = row.assignments ?? [];
+        if (assignments.length === 0) {
+          return <span className="text-[12px] text-muted-foreground">—</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5">
+            {assignments.map((a) => (
+              <span key={a.subject_id} className="text-[12px] text-foreground">
+                <span className="font-mono">{a.subject_code}</span>
+                <span className="text-muted-foreground"> · {a.course_code ?? "no course"}</span>
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
     {
       key: "subjects",
       label: "Subjects",

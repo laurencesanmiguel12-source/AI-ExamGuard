@@ -106,12 +106,21 @@ class ExamSessionService:
                 )
             )
 
-        # A prior submitted session doesn't block a new attempt today (that's normal - a student
-        # can retake if the instructor reopens the exam). But FLAGGED_RETAKE specifically means
-        # "awaiting instructor review" - letting start_exam silently unblock it here would let a
-        # student route around the instructor's grant/deny decision entirely. Only the most recent
-        # prior session matters - a much older FLAGGED_RETAKE followed by a real RETAKE_GRANTED
-        # attempt shouldn't re-block forever.
+        # One attempt, unless an instructor grants another.
+        #
+        # Until 2026-09-09 a plain SUBMITTED session did NOT block a new attempt - a student could
+        # finish an exam and immediately start it again, as many times as they liked, keeping
+        # whichever result they preferred. Only FLAGGED_RETAKE and RETAKE_DENIED blocked, so the
+        # gate existed solely for risk-flagged attempts and the ordinary case fell straight
+        # through. Reported by the defense panel, and confirmed against the live system.
+        #
+        # RETAKE_GRANTED is the deliberate exception: it is what an instructor's grant leaves
+        # behind, and it means "this student may sit the exam once more". The fresh session that
+        # follows becomes SUBMITTED in its own right and blocks again, so a grant buys exactly one
+        # further attempt rather than reopening the exam indefinitely.
+        #
+        # Only the most recent prior session matters - an older FLAGGED_RETAKE followed by a real
+        # granted attempt shouldn't re-block forever.
         latest_session = (
             db.query(ExamSession)
             .filter(
@@ -132,6 +141,15 @@ class ExamSessionService:
             raise HTTPException(
                 status_code=403,
                 detail="Your instructor denied a retake for this exam."
+            )
+
+        if latest_session is not None and latest_session.status == "SUBMITTED":
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "You have already completed this exam. Ask your instructor if you need "
+                    "another attempt."
+                )
             )
 
         session = ExamSession(
@@ -279,14 +297,31 @@ class ExamSessionService:
                 detail="Exam session not found."
             )
 
-        if session.status != "FLAGGED_RETAKE":
+        # GRANT is now the instructor's "re-enrol this student" action as well as the
+        # risk-review outcome it started as. Since start_exam began blocking a plain SUBMITTED
+        # attempt (see its comment), an instructor needed some way to let a student sit an exam
+        # again for ordinary reasons - a power cut, a browser crash, an approved absence - not
+        # only after a risk flag. Granting on a SUBMITTED session is exactly that, and it reuses
+        # the status the retake gate already understands rather than inventing a parallel one.
+        #
+        # DENY stays restricted to FLAGGED_RETAKE: denying a retake nobody asked for is
+        # meaningless, and a SUBMITTED attempt is already blocked by default.
+        grantable = {"FLAGGED_RETAKE", "SUBMITTED"}
+
+        if decision == "GRANT" and session.status not in grantable:
+            raise HTTPException(
+                status_code=400,
+                detail="Only a completed or flagged attempt can be granted a retake."
+            )
+
+        if decision == "DENY" and session.status != "FLAGGED_RETAKE":
             raise HTTPException(
                 status_code=400,
                 detail="This session is not flagged for retake review."
             )
 
         if decision == "GRANT":
-            # Unblocks start_exam's FLAGGED_RETAKE check - this session stays as the historical
+            # Unblocks start_exam's completed-attempt check - this session stays as the historical
             # record, the student's next start_exam call creates a fresh one.
             session.status = "RETAKE_GRANTED"
         elif decision == "DENY":
