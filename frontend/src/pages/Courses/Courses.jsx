@@ -4,6 +4,7 @@ import { getCourses, createCourse, updateCourse, deleteCourse } from "../../api/
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import DetailModal from "../../components/DetailModal";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField } from "../../components/ui/FormField";
@@ -23,6 +24,7 @@ export default function Courses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
@@ -87,10 +89,34 @@ export default function Courses() {
         }
       />
 
-      <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No courses yet"
+      <DataTable columns={COLUMNS} rows={courses} loading={loading} onEdit={openEdit} onDelete={setDeleting} onRowClick={setViewing} emptyLabel="No courses yet"
         searchable searchPlaceholder="Search courses by code or name…"
         emptyHint="A course is a degree programme like BS Computer Science. Add one first — students choose a course when they register, and every subject belongs to one."
       />
+
+      {/* Every list page answers "what is this row" the same way now, and offers the
+          correction from inside the answer. Reported in QA against all of them at once. */}
+      {viewing && (
+        <DetailModal
+          title={viewing.name}
+          subtitle={viewing.code}
+          sections={[
+            {
+              label: "Record",
+              rows: [
+                ["Code", viewing.code],
+                ["Name", viewing.name],
+              ],
+            },
+          ]}
+          onEdit={() => {
+            setViewing(null);
+            openEdit(viewing);
+          }}
+          editLabel="Edit course"
+          onClose={() => setViewing(null)}
+        />
+      )}
 
       {editing && (
         <Modal title={editing.id ? "Edit Course" : "Add Course"} onClose={() => setEditing(null)}>

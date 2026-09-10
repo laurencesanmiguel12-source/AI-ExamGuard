@@ -3,6 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth.security import hash_password
+from app.schemas.email_typo import check_email_typo
 from app.models.course import Course
 from app.models.role import Role
 from app.models.school import SCHOOL_APPROVED, SCHOOL_PENDING, SCHOOL_REJECTED, School
@@ -83,6 +84,58 @@ class AuthService:
         )
         db.add(user)
         db.flush()  # assigns user.id without committing, for the caller's profile row
+
+        return user
+
+    @staticmethod
+    def update_user_identity(
+        user: User,
+        db: Session,
+        email: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> User:
+        """Change the name or sign-in address on an existing account.
+
+        Shared by instructor and student editing, because those are the same act on two different
+        profile rows. Until now neither could be changed at all: the edit forms carried only the
+        employee/student number, so a misspelled name or a wrong email address - the exact thing
+        somebody opens an edit form to fix - had to be corrected in the database.
+
+        The email path repeats create_user_account's normalisation and case-insensitive duplicate
+        check for the reason documented there: without it "Name@x.com" and "name@x.com" become two
+        accounts, and the original becomes unreachable at login. Leaves the transaction open; the
+        caller commits alongside whatever else it is changing.
+        """
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+
+        if email is not None:
+            normalised = email.strip().lower()
+            if normalised != (user.email or "").strip().lower():
+                # Only on an actual CHANGE. The guard belongs here rather than on the schema
+                # because a field validator cannot see the address the record already has - and
+                # jrizal@gmail.cmo is a real row in the live database, the one the guard was
+                # written for. Validating every submission would have made that the single account
+                # nobody could edit at all, including to correct the owner's name.
+                #
+                # check_email_typo is shaped as a pydantic validator and raises ValueError; called
+                # outside one, that would surface as a 500 rather than as the sentence it wrote.
+                try:
+                    check_email_typo(normalised)
+                except ValueError as typo:
+                    raise HTTPException(status_code=400, detail=str(typo)) from typo
+
+                clash = (
+                    db.query(User)
+                    .filter(func.lower(User.email) == normalised, User.id != user.id)
+                    .first()
+                )
+                if clash is not None:
+                    raise HTTPException(status_code=400, detail="Email already exists.")
+                user.email = normalised
 
         return user
 

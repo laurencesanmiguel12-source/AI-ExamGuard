@@ -23,6 +23,12 @@ class StudentCreate(BaseModel):
         return value
 
 class StudentUpdate(BaseModel):
+    # first_name / last_name / email live on the linked User row. Without them the edit form could
+    # change a student's course and their accommodations but not the spelling of their own name.
+    first_name: str | None = None
+    last_name: str | None = None
+    # No typo validator - same reason as InstructorUpdate.
+    email: EmailStr | None = None
     student_number: str | None = None
     user_id: int | None = None
     course_id: int | None = None
@@ -32,9 +38,14 @@ class StudentUpdate(BaseModel):
     extra_time_minutes: int | None = None
 
 
+
 class StudentResponse(StudentBase):
     id: int
     student_name: str | None = None
+    email: str | None = None
+    # The stored halves, so the edit form can fill itself in without splitting the display name.
+    first_name: str | None = None
+    last_name: str | None = None
     face_model_path: str | None = None
     accommodation_notes: str | None = None
     skip_face_check: bool = False

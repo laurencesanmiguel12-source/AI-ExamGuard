@@ -208,8 +208,18 @@ export default function Instructors() {
   }
 
   function openEdit(instructor) {
-    setForm({ ...EMPTY_FORM, employee_number: instructor.employee_number });
+    // The whole person, not just the payroll number. Reported in QA: the edit form could only
+    // change the employee number, so a misspelled name - the likeliest reason to open it - had to
+    // be fixed in the database.
+    setForm({
+      ...EMPTY_FORM,
+      employee_number: instructor.employee_number,
+      first_name: instructor.first_name ?? "",
+      last_name: instructor.last_name ?? "",
+      email: instructor.email ?? "",
+    });
     setError("");
+    setViewing(null);
     setEditing(instructor);
   }
 
@@ -219,7 +229,14 @@ export default function Instructors() {
     setSubmitting(true);
     try {
       if (editing.id) {
-        await updateInstructor(editing.id, { employee_number: form.employee_number });
+        // Password is deliberately absent: setting somebody else's password is a different act
+        // from correcting their name, and this form is not where it belongs.
+        await updateInstructor(editing.id, {
+          employee_number: form.employee_number,
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
+        });
       } else {
         await createInstructor(form);
       }
@@ -303,6 +320,8 @@ export default function Instructors() {
                 })),
               },
             ]}
+            onEdit={() => openEdit(viewing)}
+            editLabel="Edit instructor"
             onClose={() => setViewing(null)}
           />
         );
@@ -320,29 +339,33 @@ export default function Instructors() {
               onChange={(e) => setForm({ ...form, employee_number: e.target.value })}
               placeholder="EMP-2025-001"
             />
+            {/* Outside the create-only block: these are the fields somebody opens an edit form
+                to correct. Password stays create-only below - changing an account's password is
+                a different act from fixing the spelling of its owner's name. */}
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="First Name"
+                required
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              />
+              <TextField
+                label="Last Name"
+                required
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              />
+            </div>
+            <TextField
+              label="Email Address"
+              hint="Their sign-in address. Changing it changes how they log in."
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
             {!editing.id && (
               <>
-                <div className="grid grid-cols-2 gap-3">
-                  <TextField
-                    label="First Name"
-                    required
-                    value={form.first_name}
-                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                  />
-                  <TextField
-                    label="Last Name"
-                    required
-                    value={form.last_name}
-                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                  />
-                </div>
-                <TextField
-                  label="Email Address"
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
                 <TextField
                   label="Password"
                   type="password"

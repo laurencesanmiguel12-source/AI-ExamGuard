@@ -9,6 +9,7 @@ import { getInstructors } from "../../api/instructors";
 import { getSections } from "../../api/academic";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import DetailModal from "../../components/DetailModal";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField, CheckboxField } from "../../components/ui/FormField";
@@ -57,6 +58,7 @@ export default function Exams() {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [viewing, setViewing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
@@ -233,10 +235,62 @@ export default function Exams() {
         </div>
       )}
 
-      <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No exams yet"
+      <DataTable columns={columns} rows={exams} loading={loading} onEdit={openEdit} onDelete={setDeleting} onRowClick={setViewing} emptyLabel="No exams yet"
         searchable searchPlaceholder="Search exams by title or subject…"
         emptyHint="An exam belongs to one section — one class, in one term, taught by one instructor — and admits that class unless you roster students on the exam itself."
       />
+
+      {viewing && (() => {
+        const sec = sectionById(viewing.section_id);
+        const when = (iso) => (iso ? new Date(iso).toLocaleString() : null);
+        return (
+          <DetailModal
+            title={viewing.title}
+            subtitle={viewing.description || undefined}
+            stats={[
+              { label: "Minutes", value: viewing.duration_minutes },
+              { label: "Points", value: viewing.total_points },
+              { label: "Pass %", value: viewing.passing_score },
+            ]}
+            sections={[
+              {
+                label: "Class",
+                rows: [
+                  ["Course", sec?.course_code],
+                  ["Subject", subjectName(viewing.subject_id)],
+                  ["Section", sec ? sec.code : `#${viewing.section_id}`],
+                  ["Term", viewing.term_label],
+                  ["Instructor", instructorName(viewing.instructor_id)],
+                  [
+                    "Enrolled in section",
+                    sec ? sec.enrolled_count : null,
+                  ],
+                ],
+              },
+              {
+                label: "Window",
+                rows: [
+                  ["Opens", when(viewing.start_time)],
+                  ["Closes", when(viewing.end_time)],
+                  ["Status", viewing.is_active ? "Active" : "Inactive"],
+                  [
+                    "Retake flagging",
+                    viewing.max_risk_score === null || viewing.max_risk_score === undefined
+                      ? "Off"
+                      : `Above risk ${viewing.max_risk_score}`,
+                  ],
+                ],
+              },
+            ]}
+            onEdit={() => {
+              setViewing(null);
+              openEdit(viewing);
+            }}
+            editLabel="Edit exam"
+            onClose={() => setViewing(null)}
+          />
+        );
+      })()}
 
       {editing && (
         <Modal title={editing.id ? "Edit Exam" : "Add Exam"} onClose={() => setEditing(null)}>

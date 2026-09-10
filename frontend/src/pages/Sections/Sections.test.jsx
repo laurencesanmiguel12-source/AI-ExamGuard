@@ -38,6 +38,7 @@ function section(overrides) {
     subject_name: "Intro to Programming",
     term_name: "1st Semester",
     academic_year_label: "2026-2027",
+    course_code: "BSCS",
     instructor_name: "Ana Cruz",
     subject_id: 2,
     term_id: 9,
@@ -86,12 +87,45 @@ describe("Sections & Class Lists", () => {
     expect(await screen.findByText("Nobody enrolled")).toBeInTheDocument();
   });
 
-  it("opens a section's class list from its row", async () => {
+  it("opens the section's details from its row", async () => {
+    // Reported in QA against every list page: a row should answer "what is this" before it does
+    // anything else, and offer the correction from inside the answer.
     await show();
 
     await userEvent.click(await screen.findByText("BSCS-3A"));
 
+    expect(await screen.findByRole("dialog")).toHaveTextContent(/BSCS-3A/);
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it("names the course, not just the subject", async () => {
+    // A section named its subject and never the programme, so CS-101 under BSCS and CS-101 under
+    // BSIT read as the same class.
+    await show({ sections: [section({ course_code: "BSCS" })] });
+
+    expect(await screen.findByText("BSCS")).toBeInTheDocument();
+  });
+
+  it("still reaches the class list, from its own control", async () => {
+    // The button lives in a cell. Before DataTable learned to ignore clicks on controls, this
+    // also opened the row's detail dialog behind it - the "2 modals pop up" report.
+    await show();
+
+    // Exact name: the row itself is a button whose accessible name is its whole text, which
+    // contains "Manage" too.
+    await userEvent.click(await screen.findByRole("button", { name: "Manage" }));
+
     expect(mocks.navigate).toHaveBeenCalledWith("/sections/5");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("offers the edit from inside the detail dialog", async () => {
+    await show();
+
+    await userEvent.click(await screen.findByText("BSCS-3A"));
+    await userEvent.click(await screen.findByRole("button", { name: /edit section/i }));
+
+    expect(screen.getByLabelText("Section Code")).toBeInTheDocument();
   });
 
   it("does not offer an instructor a control the server would refuse", async () => {

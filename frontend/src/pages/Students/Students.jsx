@@ -83,8 +83,13 @@ export default function Students() {
   }
 
   function openEdit(student) {
+    // Name and email as well as the record fields - the same QA finding as Instructors: the form
+    // could change a student's course and their accommodations but not the spelling of their name.
     setForm({
       ...EMPTY_FORM,
+      first_name: student.first_name ?? "",
+      last_name: student.last_name ?? "",
+      email: student.email ?? "",
       student_number: student.student_number,
       course_id: student.course_id,
       accommodation_notes: student.accommodation_notes ?? "",
@@ -93,6 +98,7 @@ export default function Students() {
       extra_time_minutes: student.extra_time_minutes ?? 0,
     });
     setError("");
+    setViewing(null);
     setEditing(student);
   }
 
@@ -109,6 +115,9 @@ export default function Students() {
           skip_face_check: form.skip_face_check,
           skip_object_check: form.skip_object_check,
           extra_time_minutes: Number(form.extra_time_minutes) || 0,
+          first_name: form.first_name,
+          last_name: form.last_name,
+          email: form.email,
         };
         await updateStudent(editing.id, payload);
       } else {
@@ -214,6 +223,8 @@ export default function Students() {
                 .map((sub) => ({ key: sub.id, primary: sub.name, secondary: sub.code })),
             },
           ]}
+          onEdit={canManage ? () => openEdit(viewing) : undefined}
+          editLabel="Edit student"
           onClose={() => setViewing(null)}
         />
       )}
@@ -222,45 +233,49 @@ export default function Students() {
         <Modal title={editing.id ? "Edit Student" : "Add Student"} onClose={() => setEditing(null)}>
           <form onSubmit={handleSubmit}>
             {error && <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">{error}</div>}
-            {editing.id ? (
+            {editing.id && (
               <TextField
                 label="Student Number"
+                hint="Generated when the account was created. Change it only to match your registrar's own numbering."
                 required
                 value={form.student_number}
                 onChange={(e) => setForm({ ...form, student_number: e.target.value })}
               />
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <TextField
-                    label="First Name"
-                    required
-                    value={form.first_name}
-                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                  />
-                  <TextField
-                    label="Last Name"
-                    required
-                    value={form.last_name}
-                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                  />
-                </div>
-                <TextField
-                  label="Email Address"
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-              </>
+            )}
+            {/* Always shown. These are the fields an edit form exists to correct; only the
+                password is create-only, because setting somebody else's password is a different
+                act from fixing their name. */}
+            <div className="grid grid-cols-2 gap-3">
+              <TextField
+                label="First Name"
+                required
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+              />
+              <TextField
+                label="Last Name"
+                required
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+              />
+            </div>
+            <TextField
+              label="Email Address"
+              hint="Their sign-in address. Changing it changes how they log in."
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+            {!editing.id && (
+              <TextField
+                label="Password"
+                type="password"
+                required
+                minLength={8}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
             )}
             <SelectField
               label="Course"

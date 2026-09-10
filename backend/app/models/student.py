@@ -85,3 +85,24 @@ class Student(Base, TimestampMixin):
         if self.user is None:
             return None
         return f"{self.user.first_name} {self.user.last_name}"
+
+    @property
+    def email(self) -> str | None:
+        """Their sign-in address, read through the linked account.
+
+        Surfaced for the same reason InstructorResponse carries one: the edit form has to show the
+        current address before it can offer to correct it, and a form that opens with a blank
+        required field submits a change nobody asked for.
+        """
+        return self.user.email if self.user is not None else None
+
+    # The two halves as stored, not split back out of student_name. A display name cannot be
+    # taken apart reliably - "Ana Maria Cruz" splits into the wrong halves - and an edit form that
+    # guesses them writes the guess back on save.
+    @property
+    def first_name(self) -> str | None:
+        return self.user.first_name if self.user is not None else None
+
+    @property
+    def last_name(self) -> str | None:
+        return self.user.last_name if self.user is not None else None

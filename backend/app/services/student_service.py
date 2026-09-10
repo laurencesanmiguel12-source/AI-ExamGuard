@@ -93,6 +93,14 @@ class StudentService:
         if request.student_number is not None:
             student.student_number = request.student_number
 
+        # See InstructorService.update - same act, same shared helper.
+        AuthService.update_user_identity(
+            student.user, db,
+            email=request.email,
+            first_name=request.first_name,
+            last_name=request.last_name,
+        )
+
         if request.course_id is not None:
             course = db.query(Course).filter(Course.id == request.course_id).first()
             if course is None:

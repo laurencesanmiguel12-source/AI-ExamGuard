@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle, Users } from "lucide-react";
 import {
   getSections,
   createSection,
@@ -15,6 +15,7 @@ import { useSchoolNav } from "../../hooks/useSchoolNav";
 import { isAdmin } from "../../utils/roles";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import DetailModal from "../../components/DetailModal";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import Card from "../../components/ui/Card";
@@ -44,6 +45,7 @@ export default function Sections() {
   // use, so the form below can serve both without a second copy of it.
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -90,6 +92,13 @@ export default function Sections() {
   const columns = [
     { key: "code", label: "Section" },
     {
+      // The course the subject belongs to. Reported in QA: a section named its subject and never
+      // the programme, so CS-101 under BSCS and CS-101 under BSIT read as the same class.
+      key: "course_code",
+      label: "Course",
+      render: (row) => row.course_code ?? "—",
+    },
+    {
       key: "subject",
       label: "Subject",
       render: (row) => `${row.subject_code ?? "—"} ${row.subject_name ?? ""}`.trim(),
@@ -102,6 +111,21 @@ export default function Sections() {
       search: (row) => `${row.term_name ?? ""} ${row.academic_year_label ?? ""}`,
     },
     { key: "instructor_name", label: "Instructor", render: (row) => row.instructor_name ?? "—" },
+    {
+      // A button inside a cell rather than the row's only action: the row now opens details, and
+      // DataTable no longer treats a click on a control as a click on the row.
+      key: "class_list",
+      label: "Class list",
+      render: (row) => (
+        <button
+          onClick={() => navigate(`/sections/${row.id}`)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider text-primary transition-colors hover:bg-primary/20"
+        >
+          <Users className="h-3.5 w-3.5" /> Manage
+        </button>
+      ),
+      search: () => "",
+    },
     {
       key: "enrolled_count",
       label: "Enrolled",
@@ -248,7 +272,7 @@ export default function Sections() {
         columns={columns}
         rows={sections}
         loading={loading}
-        onRowClick={(row) => navigate(`/sections/${row.id}`)}
+        onRowClick={setViewing}
         onEdit={canManage ? openEdit : undefined}
         onDelete={canManage ? setDeleting : undefined}
         emptyLabel="No sections yet"
@@ -259,7 +283,7 @@ export default function Sections() {
 
       {sections.length > 0 && (
         <Card className="mt-4 p-4 text-xs text-muted-foreground">
-          Open a section to manage who is enrolled in it.
+          Open a section to see its details or edit it. "Manage" opens its class list.
         </Card>
       )}
 
@@ -369,6 +393,40 @@ export default function Sections() {
             </button>
           </form>
         </Modal>
+      )}
+
+      {viewing && (
+        <DetailModal
+          title={viewing.label ?? viewing.code}
+          subtitle={`${viewing.term_name ?? ""} ${viewing.academic_year_label ?? ""}`.trim()}
+          stats={[
+            { label: "Enrolled", value: viewing.enrolled_count ?? 0 },
+            { label: "Capacity", value: viewing.capacity ?? "—" },
+          ]}
+          sections={[
+            {
+              label: "Class",
+              rows: [
+                ["Course", viewing.course_code],
+                ["Subject", `${viewing.subject_code ?? ""} ${viewing.subject_name ?? ""}`.trim()],
+                ["Section code", viewing.code],
+                ["Instructor", viewing.instructor_name],
+                ["Term", `${viewing.term_name ?? ""} ${viewing.academic_year_label ?? ""}`.trim()],
+                ["Schedule", viewing.schedule],
+              ],
+            },
+          ]}
+          onEdit={
+            canManage
+              ? () => {
+                  setViewing(null);
+                  openEdit(viewing);
+                }
+              : undefined
+          }
+          editLabel="Edit section"
+          onClose={() => setViewing(null)}
+        />
       )}
 
       {deleting && (

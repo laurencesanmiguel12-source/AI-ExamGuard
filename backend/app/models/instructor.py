@@ -54,6 +54,17 @@ class Instructor(Base, TimestampMixin):
     def email(self) -> str | None:
         return self.user.email if self.user is not None else None
 
+    # The two halves as stored, not split back out of instructor_name. A display name cannot be
+    # taken apart reliably - "Ana Maria Cruz" splits into the wrong halves - and an edit form that
+    # guesses them writes the guess back on save.
+    @property
+    def first_name(self) -> str | None:
+        return self.user.first_name if self.user is not None else None
+
+    @property
+    def last_name(self) -> str | None:
+        return self.user.last_name if self.user is not None else None
+
     @property
     def assignments(self) -> list[dict]:
         """What this instructor actually teaches, subject AND course together.

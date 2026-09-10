@@ -27,7 +27,20 @@ class InstructorCreate(BaseModel):
         return value
 
 class InstructorUpdate(BaseModel):
+    """Everything an admin can correct about an instructor without deleting the account.
+
+    Name and email live on the linked User row, which is why they were missing here for so long -
+    the edit form could only reach the Instructor row and so could only change a payroll number.
+    Correcting a misspelled name is the single most likely reason to open this form.
+    """
+
     employee_number: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    # No typo validator here, deliberately - see AuthService.update_user_identity. A field
+    # validator cannot see the address the record already has, so guarding here would make the one
+    # account that already HAS a mistyped address the one account nobody can edit.
+    email: EmailStr | None = None
 
 
 class InstructorAssignment(BaseModel):
@@ -47,6 +60,9 @@ class InstructorResponse(InstructorBase):
     # StudentResponse.student_name already was.
     instructor_name: str | None = None
     email: str | None = None
+    # The stored halves, so the edit form can fill itself in without splitting the display name.
+    first_name: str | None = None
+    last_name: str | None = None
     # Subject AND course, so two instructors on the same subject can be told apart.
     assignments: list[InstructorAssignment] = []
 

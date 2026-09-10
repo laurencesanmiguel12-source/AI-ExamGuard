@@ -5,6 +5,7 @@ import { getCourses } from "../../api/courses";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
+import DetailModal from "../../components/DetailModal";
 import Modal from "../../components/Modal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { TextField, SelectField } from "../../components/ui/FormField";
@@ -20,6 +21,7 @@ export default function Subjects() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   function refresh() {
@@ -101,10 +103,42 @@ export default function Subjects() {
         <div className="mb-4 text-sm text-muted-foreground">Create a course first before adding subjects.</div>
       )}
 
-      <DataTable columns={columns} rows={subjects} loading={loading} onEdit={openEdit} onDelete={setDeleting} emptyLabel="No subjects yet"
+      <DataTable columns={columns} rows={subjects} loading={loading} onEdit={openEdit} onDelete={setDeleting} onRowClick={setViewing} emptyLabel="No subjects yet"
         searchable searchPlaceholder="Search subjects by code, name or course…"
         emptyHint="Subjects are the individual classes inside a course, like CS-101. Exams are created against a subject, so you need at least one before any exam can exist."
       />
+
+      {viewing && (() => {
+        const course = courses.find((c) => c.id === viewing.course_id) ?? null;
+        return (
+          <DetailModal
+            title={viewing.name}
+            subtitle={viewing.code}
+            sections={[
+              {
+                label: "Record",
+                rows: [
+                  ["Code", viewing.code],
+                  ["Name", viewing.name],
+                ],
+              },
+              {
+                label: "Course",
+                rows: [
+                  ["Code", course?.code],
+                  ["Name", course?.name],
+                ],
+              },
+            ]}
+            onEdit={() => {
+              setViewing(null);
+              openEdit(viewing);
+            }}
+            editLabel="Edit subject"
+            onClose={() => setViewing(null)}
+          />
+        );
+      })()}
 
       {editing && (
         <Modal title={editing.id ? "Edit Subject" : "Add Subject"} onClose={() => setEditing(null)}>

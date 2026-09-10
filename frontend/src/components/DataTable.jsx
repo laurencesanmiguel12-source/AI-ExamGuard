@@ -158,8 +158,21 @@ export default function DataTable({
                 ? {
                     role: "button",
                     tabIndex: 0,
-                    onClick: () => onRowClick(row),
+                    // A control rendered INSIDE a cell - "Manage subjects", a status toggle, a
+                    // link - is its own action, not a click on the row. Without this the row's
+                    // detail modal opened behind whatever the control did, reported in QA as
+                    // "clicking Manage, 2 modals pop up". The trailing actions cell has always
+                    // stopped propagation; this covers every other cell, so a page adding a
+                    // button to a column does not have to remember to do it again.
+                    onClick: (e) => {
+                      if (e.target.closest("button, a, input, select, textarea, label")) return;
+                      onRowClick(row);
+                    },
                     onKeyDown: (e) => {
+                      // Same rule for the keyboard: Enter on a focused inner button belongs to
+                      // that button, and currentTarget is the row itself only when the row is
+                      // what holds focus.
+                      if (e.target !== e.currentTarget) return;
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
                         onRowClick(row);

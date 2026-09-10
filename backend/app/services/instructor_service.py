@@ -121,6 +121,16 @@ class InstructorService:
         if request.employee_number is not None:
             instructor.employee_number = request.employee_number
 
+        # Name and email live on the linked User row, so they go through the shared helper rather
+        # than being set here - it owns the email normalisation and the case-insensitive duplicate
+        # check that keeps a renamed account reachable at login.
+        AuthService.update_user_identity(
+            instructor.user, db,
+            email=request.email,
+            first_name=request.first_name,
+            last_name=request.last_name,
+        )
+
         db.commit()
         db.refresh(instructor)
 

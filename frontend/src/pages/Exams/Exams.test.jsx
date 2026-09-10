@@ -153,3 +153,52 @@ describe("Exam form — an exam belongs to a section", () => {
     expect(await screen.findByText(/BSCS-3A · 1st Semester/)).toBeInTheDocument();
   });
 });
+
+describe("Exams — a row answers what it is", () => {
+  it("opens the details, naming the class the exam belongs to", async () => {
+    await show({
+      exams: [{
+        id: 1, title: "Midterm", subject_id: 2, instructor_id: 3, section_id: 5,
+        is_active: true, duration_minutes: 60, total_points: 100, passing_score: 60,
+        max_risk_score: null, start_time: "2026-10-01T09:00:00Z", end_time: "2026-10-01T11:00:00Z",
+        term_label: "1st Semester 2026-2027", description: "",
+      }],
+    });
+
+    await userEvent.click(await screen.findByText("Midterm"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("BSCS-3A");
+    expect(dialog).toHaveTextContent("1st Semester 2026-2027");
+    expect(dialog).toHaveTextContent("Ana Cruz");
+  });
+
+  it("says when retake flagging is off rather than showing a blank", async () => {
+    await show({
+      exams: [{
+        id: 1, title: "Midterm", subject_id: 2, instructor_id: 3, section_id: 5,
+        is_active: false, duration_minutes: 60, total_points: 100, passing_score: 60,
+        max_risk_score: null, start_time: "2026-10-01T09:00:00Z", end_time: "2026-10-01T11:00:00Z",
+      }],
+    });
+
+    await userEvent.click(await screen.findByText("Midterm"));
+
+    expect(await screen.findByText("Off")).toBeInTheDocument();
+  });
+
+  it("offers the edit from inside the details", async () => {
+    await show({
+      exams: [{
+        id: 1, title: "Midterm", subject_id: 2, instructor_id: 3, section_id: 5,
+        is_active: true, duration_minutes: 60, total_points: 100, passing_score: 60,
+        max_risk_score: null, start_time: "2026-10-01T09:00:00Z", end_time: "2026-10-01T11:00:00Z",
+      }],
+    });
+
+    await userEvent.click(await screen.findByText("Midterm"));
+    await userEvent.click(await screen.findByRole("button", { name: /edit exam/i }));
+
+    expect(screen.getByLabelText("Title")).toHaveValue("Midterm");
+  });
+});

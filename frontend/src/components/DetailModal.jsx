@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import Modal from "./Modal";
 
 /**
@@ -9,10 +10,22 @@ import Modal from "./Modal";
  * nothing else, so the only way to see what a record actually contained was to open the edit form
  * and read it out of the inputs - which invites accidental changes just to answer a question.
  *
- * Deliberately read-only, and deliberately shared: two pages asking the same question of two
- * different entities should not grow two different-looking answers.
+ * Deliberately shared: two pages asking the same question of two different entities should not
+ * grow two different-looking answers.
+ *
+ * `onEdit` is optional and turns it from a dead end into the start of a correction. Reported in
+ * QA: opening a row to check a detail, finding it wrong, and then having to close the dialog and
+ * hunt for the pencil in the row you just came from. Reading and fixing are the same errand.
  */
-export default function DetailModal({ title, subtitle, stats = [], sections = [], onClose }) {
+export default function DetailModal({
+  title,
+  subtitle,
+  stats = [],
+  sections = [],
+  onEdit,
+  editLabel = "Edit",
+  onClose,
+}) {
   return (
     <Modal title={title} onClose={onClose}>
       {subtitle && <p className="-mt-1 mb-4 text-sm text-muted-foreground">{subtitle}</p>}
@@ -76,6 +89,17 @@ export default function DetailModal({ title, subtitle, stats = [], sections = []
           </div>
         ))}
       </div>
+
+      {onEdit && (
+        <div className="mt-6 flex justify-end border-t border-border pt-4">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[12px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90"
+          >
+            <Pencil className="h-3.5 w-3.5" /> {editLabel}
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }
