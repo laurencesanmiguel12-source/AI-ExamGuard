@@ -6,26 +6,37 @@ import { importSetupCsv, previewSetupCsv } from "../../api/setupImport";
 // A real, importable example rather than placeholder text - one row of each type, in an order
 // that demonstrates the dependency (the subject names the course above it, the instructor names
 // the subject). Someone can replace the values and upload it without reading anything else.
+// Every layer in one file, in the order the program flow runs. The last four row types are
+// what turns a catalogue into a school that can actually run an exam: two students, two
+// sections of one subject (which is what tells two instructors of it apart), and the class
+// list that an exam inherits.
 const TEMPLATE =
-  "type,code,name,course_code,employee_number,email,password,first_name,last_name,subject_codes\n" +
-  "course,BSCS,BS Computer Science,,,,,,,\n" +
-  "course,BSIT,BS Information Technology,,,,,,,\n" +
-  "subject,CS-101,Introduction to Programming,BSCS,,,,,,\n" +
-  "subject,CS-201,Data Structures,BSCS,,,,,,\n" +
-  "subject,IT-101,Web Systems,BSIT,,,,,,\n" +
-  "instructor,,,,EMP-001,ana.cruz@school.edu,ChangeMe123!,Ana,Cruz,CS-101;CS-201\n" +
-  "instructor,,,,EMP-002,ben.reyes@school.edu,ChangeMe123!,Ben,Reyes,IT-101\n";
+  "type,code,name,course_code,employee_number,email,password,first_name,last_name,subject_codes,capacity,schedule\n" +
+  "course,BSCS,BS Computer Science,,,,,,,,,\n" +
+  "course,BSIT,BS Information Technology,,,,,,,,,\n" +
+  "subject,CS-101,Introduction to Programming,BSCS,,,,,,,,\n" +
+  "subject,CS-201,Data Structures,BSCS,,,,,,,,\n" +
+  "subject,IT-101,Web Systems,BSIT,,,,,,,,\n" +
+  "instructor,,,,EMP-001,ana.cruz@school.edu,ChangeMe123!,Ana,Cruz,CS-101;CS-201,,\n" +
+  "instructor,,,,EMP-002,ben.reyes@school.edu,ChangeMe123!,Ben,Reyes,IT-101,,\n" +
+  "student,,,BSCS,,sam.diaz@school.edu,ChangeMe123!,Sam,Diaz,,,\n" +
+  "student,,,BSCS,,mia.lopez@school.edu,ChangeMe123!,Mia,Lopez,,,\n" +
+  "section,A,,,EMP-001,,,,,CS-101,40,MWF 9:00-10:30\n" +
+  "section,B,,,EMP-002,,,,,CS-101,40,TTh 13:00-14:30\n" +
+  "enrollment,A,,,,sam.diaz@school.edu,,,,CS-101,,\n" +
+  "enrollment,A,,,,mia.lopez@school.edu,,,,CS-101,,\n";
 
 const COLUMNS = [
-  ["type", "Which kind of row this is: course, subject or instructor. Required on every row."],
-  ["code", "The course or subject code, e.g. BSCS or CS-101. Leave blank on instructor rows."],
-  ["name", "The full name. Leave blank on instructor rows."],
-  ["course_code", "Subject rows only — which course the subject belongs to, by its code."],
-  ["employee_number", "Instructor rows only — your school's own staff ID. Must be unique."],
-  ["email", "Instructor rows only — becomes their sign-in address."],
-  ["password", "Instructor rows only — a starting password. Tell them to change it after first sign-in."],
-  ["first_name / last_name", "Instructor rows only."],
-  ["subject_codes", "Instructor rows only — which subjects they teach, separated by semicolons. Without at least one, they cannot create exams."],
+  ["type", "Which kind of row this is: course, subject, instructor, student, section or enrollment. Required on every row."],
+  ["code", "The course or subject code (BSCS, CS-101) — or, on section and enrollment rows, the section's own code, e.g. A."],
+  ["name", "The full name. Course and subject rows only."],
+  ["course_code", "Which course this belongs to, by its code. Subject rows and student rows."],
+  ["employee_number", "Your school's own staff ID. Instructor rows create it; section rows use it to say who teaches the class."],
+  ["email", "Sign-in address. Instructor and student rows create it; enrollment rows use it to name the student, because student numbers are generated and you would not know them yet."],
+  ["password", "A starting password, on instructor and student rows. Tell them to change it after first sign-in."],
+  ["first_name / last_name", "Instructor and student rows."],
+  ["subject_codes", "On instructor rows, every subject they teach, separated by semicolons. On section and enrollment rows, the ONE subject the class is of."],
+  ["capacity / schedule", "Section rows only, both optional. Capacity is for reference — it does not block enrolment."],
 ];
 
 // The four steps, stated once. The panel asked for a visible process flow rather than a file
@@ -83,9 +94,24 @@ export default function SetupImportPanel() {
     }
   }
 
+  // Every layer the importer creates, in program-flow order. Kept as one list so a new row type
+  // is added in one place rather than in a total, a breakdown and a label that can disagree.
+  const CREATED = [
+    ["created_courses", "course", "courses"],
+    ["created_subjects", "subject", "subjects"],
+    ["created_instructors", "instructor", "instructors"],
+    ["created_students", "student", "students"],
+    ["created_sections", "section", "sections"],
+    ["created_enrollments", "enrolment", "enrolments"],
+  ];
   const total = result
-    ? result.created_courses + result.created_subjects + result.created_instructors
+    ? CREATED.reduce((sum, [key]) => sum + (result[key] ?? 0), 0)
     : 0;
+  const breakdown = result
+    ? CREATED.filter(([key]) => (result[key] ?? 0) > 0).map(
+        ([key, one, many]) => `${result[key]} ${result[key] === 1 ? one : many}`
+      )
+    : [];
   const isPreview = result?.preview === true;
 
   return (
@@ -145,6 +171,15 @@ export default function SetupImportPanel() {
               ))}
             </dl>
             <div className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+              <p className="mb-2">
+                <span className="font-semibold text-foreground">
+                  Sections and enrolments go into whichever term is running.
+                </span>{" "}
+                They do not name a term, so open and activate one on the Academic Calendar before
+                uploading a sheet that contains them. A registrar filling this in is describing
+                this semester, and repeating the term on three hundred rows only invites one of
+                them to disagree with the rest.
+              </p>
               <p>
                 Leave unused columns empty — every row keeps all the columns, most of them blank.
                 Save as <span className="font-mono text-foreground/80">CSV UTF-8</span>.
@@ -223,10 +258,10 @@ export default function SetupImportPanel() {
                       : `Added ${total} record${total === 1 ? "" : "s"}`}
                 </div>
                 <div className="opacity-80">
-                  {result.created_courses} course{result.created_courses === 1 ? "" : "s"} ·{" "}
-                  {result.created_subjects} subject{result.created_subjects === 1 ? "" : "s"} ·{" "}
-                  {result.created_instructors} instructor
-                  {result.created_instructors === 1 ? "" : "s"}
+                  {/* Only the row types this file actually touched. A sheet of nothing but
+                      enrolments should not report "0 courses · 0 subjects · 0 instructors"
+                      before the one number that matters. */}
+                  {breakdown.join(" · ") || "nothing"}
                   {result.skipped_existing > 0 &&
                     ` · ${result.skipped_existing} already exist${isPreview ? "" : "ed"}`}
                 </div>

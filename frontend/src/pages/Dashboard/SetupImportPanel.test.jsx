@@ -219,3 +219,53 @@ describe("Bulk import — checking a file before importing it", () => {
     expect(screen.queryByText(/nothing has been imported yet/i)).not.toBeInTheDocument();
   });
 });
+
+describe("Bulk import — the offering layer", () => {
+  beforeEach(() => {
+    importSetupCsv.mockClear();
+    previewSetupCsv.mockClear();
+  });
+
+  it("counts students, sections and class lists alongside the catalogue", async () => {
+    // A sheet that stops at the catalogue leaves a school unable to run an exam: a section is
+    // required on one, and a section with nobody enrolled admits nobody.
+    importSetupCsv.mockResolvedValue({
+      created_courses: 1, created_subjects: 1, created_instructors: 1,
+      created_students: 2, created_sections: 2, created_enrollments: 40,
+      skipped_existing: 0, errors: [], preview: false,
+    });
+    await choose();
+
+    await userEvent.click(screen.getByRole("button", { name: /import for real/i }));
+
+    expect(await screen.findByText(/added 47 records/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 students · 2 sections · 40 enrolments/i)).toBeInTheDocument();
+  });
+
+  it("names only the row types the file actually touched", async () => {
+    // A sheet of nothing but enrolments should not lead with three zeroes before the one number
+    // that matters.
+    importSetupCsv.mockResolvedValue({
+      created_courses: 0, created_subjects: 0, created_instructors: 0,
+      created_students: 0, created_sections: 0, created_enrollments: 12,
+      skipped_existing: 0, errors: [], preview: false,
+    });
+    await choose();
+
+    await userEvent.click(screen.getByRole("button", { name: /import for real/i }));
+
+    expect(await screen.findByText("12 enrolments")).toBeInTheDocument();
+    expect(screen.queryByText(/0 courses/i)).not.toBeInTheDocument();
+  });
+
+  it("says sections and enrolments follow the running term", async () => {
+    // They do not name one per row, so the term has to be activated before uploading - and the
+    // guide is where somebody filling in the sheet will look for that.
+    render(<SetupImportPanel />);
+    await userEvent.click(screen.getByRole("button", { name: /column guide/i }));
+
+    expect(
+      screen.getByText(/sections and enrolments go into whichever term is running/i)
+    ).toBeInTheDocument();
+  });
+});

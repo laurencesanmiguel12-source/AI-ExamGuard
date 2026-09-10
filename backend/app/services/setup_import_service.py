@@ -26,23 +26,41 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.course import Course
+from app.models.academic_year import AcademicYear
+from app.models.enrollment import Enrollment
 from app.models.instructor import Instructor
+from app.models.section import Section
+from app.models.student import Student
+from app.models.term import Term
 from app.models.instructor_subject import InstructorSubject
 from app.models.subject import Subject
 from app.models.user import User
 from app.schemas.course import CourseCreate
 from app.schemas.instructor import InstructorCreate
 from app.schemas.setup_import import SetupImportResponse, SetupImportRowError
+from app.schemas.student import StudentCreate
 from app.schemas.subject import SubjectCreate
+from app.services.academic_service import AcademicService
 from app.services.course_service import CourseService
 from app.services.instructor_service import InstructorService
+from app.services.student_service import StudentService
 from app.services.subject_service import SubjectService
 
-ROW_TYPES = ("course", "subject", "instructor")
+ROW_TYPES = ("course", "subject", "instructor", "student", "section", "enrollment")
 
 # Dependency order, not file order: a subject may appear above its course in the sheet and should
-# still import.
-PROCESS_ORDER = ("course", "subject", "instructor")
+# still import. The chain is longer now - an enrolment needs a section, which needs a subject and
+# an instructor, and needs the student to exist to be enrolled at all.
+PROCESS_ORDER = ("course", "subject", "instructor", "student", "section", "enrollment")
+
+# Sections and enrolments land in whichever term is RUNNING, rather than naming one in every row.
+# A registrar filling this in is describing this semester's classes; asking them to repeat the
+# term on three hundred rows invites one of them to disagree with the rest, and the answer to
+# "which term" is already an administrative decision made on the Academic Calendar.
+_NO_TERM = (
+    "no term is running - activate one on the Academic Calendar first, so classes have somewhere "
+    "to sit"
+)
 
 
 def _clean(row: dict, key: str) -> str:
@@ -84,13 +102,16 @@ class SetupImportService:
                 continue
             rows.append((row_number, row_type, raw))
 
-        created = {"course": 0, "subject": 0, "instructor": 0}
-        skipped = {"course": 0, "subject": 0, "instructor": 0}
+        created = {t: 0 for t in ROW_TYPES}
+        skipped = {t: 0 for t in ROW_TYPES}
 
         handlers = {
             "course": SetupImportService._import_course,
             "subject": SetupImportService._import_subject,
             "instructor": SetupImportService._import_instructor,
+            "student": SetupImportService._import_student,
+            "section": SetupImportService._import_section,
+            "enrollment": SetupImportService._import_enrollment,
         }
 
         for row_type in PROCESS_ORDER:
@@ -119,6 +140,9 @@ class SetupImportService:
             created_courses=created["course"],
             created_subjects=created["subject"],
             created_instructors=created["instructor"],
+            created_students=created["student"],
+            created_sections=created["section"],
+            created_enrollments=created["enrollment"],
             skipped_existing=sum(skipped.values()),
             errors=errors,
         )
@@ -162,6 +186,200 @@ class SetupImportService:
             db.expire_all()
 
         return result.model_copy(update={"preview": True})
+
+    # --- offering layer: students, sections, class lists -----------------------------------------
+
+    @staticmethod
+    def _active_term(school_id: int, db: Session) -> Term:
+        term = (
+            db.query(Term)
+            .join(AcademicYear, Term.academic_year_id == AcademicYear.id)
+            .filter(AcademicYear.school_id == school_id, Term.status == "ACTIVE")
+            .order_by(Term.sequence)
+            .first()
+        )
+        if term is None:
+            raise HTTPException(status_code=400, detail=_NO_TERM)
+        return term
+
+    @staticmethod
+    def _subject_by_code(code: str, school_id: int, db: Session) -> Subject:
+        subject = (
+            db.query(Subject)
+            .join(Course, Subject.course_id == Course.id)
+            .filter(Subject.code == code, Course.school_id == school_id)
+            .first()
+        )
+        if subject is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no subject with code '{code}' - add it as a subject row first",
+            )
+        return subject
+
+    @staticmethod
+    def _import_student(row, current_user, school_id, db) -> str:
+        """Students are identified by EMAIL, not by student number.
+
+        The number is generated on creation (STU00042), so a sheet cannot supply one and cannot
+        reference one either - the row that enrols this student has to name them by something the
+        person filling in the spreadsheet actually knows.
+        """
+        email = _clean(row, "email")
+        first_name, last_name = _clean(row, "first_name"), _clean(row, "last_name")
+        password = _clean(row, "password")
+        course_code = _clean(row, "course_code")
+
+        if not email or not first_name or not last_name or not course_code:
+            raise HTTPException(
+                status_code=400,
+                detail="a student row needs email, first_name, last_name and course_code",
+            )
+        if not password:
+            raise HTTPException(
+                status_code=400,
+                detail="a student row needs a password - the account is created ready to use, so "
+                       "tell them to change it after their first sign-in",
+            )
+
+        if db.query(User).filter(User.email == email.lower()).first():
+            return "skipped"
+
+        course = (
+            db.query(Course)
+            .filter(Course.code == course_code, Course.school_id == school_id)
+            .first()
+        )
+        if course is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no course with code '{course_code}' - add it as a course row, or check "
+                       f"the spelling",
+            )
+
+        StudentService.create(
+            StudentCreate(
+                course_id=course.id, email=email, password=password,
+                first_name=first_name, last_name=last_name,
+            ),
+            current_user,
+            db,
+        )
+        return "created"
+
+    @staticmethod
+    def _import_section(row, current_user, school_id, db) -> str:
+        """One class: a subject, taught by one instructor, in the term that is running."""
+        subject_code = _clean(row, "subject_codes")
+        employee_number = _clean(row, "employee_number")
+        code = _clean(row, "code")
+
+        if not subject_code or not employee_number or not code:
+            raise HTTPException(
+                status_code=400,
+                detail="a section row needs subject_codes (one subject), employee_number and code",
+            )
+
+        term = SetupImportService._active_term(school_id, db)
+        subject = SetupImportService._subject_by_code(subject_code, school_id, db)
+
+        instructor = (
+            db.query(Instructor)
+            .join(User, Instructor.user_id == User.id)
+            .filter(
+                Instructor.employee_number == employee_number,
+                User.school_id == school_id,
+            )
+            .first()
+        )
+        if instructor is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no instructor with employee number '{employee_number}' - add them as an "
+                       f"instructor row first",
+            )
+
+        existing = (
+            db.query(Section)
+            .filter(
+                Section.subject_id == subject.id,
+                Section.term_id == term.id,
+                Section.code == code,
+            )
+            .first()
+        )
+        if existing is not None:
+            return "skipped"
+
+        capacity = _clean(row, "capacity")
+        AcademicService.create_section(
+            subject.id, term.id, instructor.id, code, school_id, db,
+            capacity=int(capacity) if capacity.isdigit() else None,
+            schedule=_clean(row, "schedule") or None,
+        )
+        return "created"
+
+    @staticmethod
+    def _import_enrollment(row, current_user, school_id, db) -> str:
+        """One student into one class - the rows that decide whether anybody can sit an exam."""
+        email = _clean(row, "email")
+        subject_code = _clean(row, "subject_codes")
+        code = _clean(row, "code")
+
+        if not email or not subject_code or not code:
+            raise HTTPException(
+                status_code=400,
+                detail="an enrollment row needs email, subject_codes (one subject) and code (the "
+                       "section)",
+            )
+
+        term = SetupImportService._active_term(school_id, db)
+        subject = SetupImportService._subject_by_code(subject_code, school_id, db)
+
+        section = (
+            db.query(Section)
+            .filter(
+                Section.subject_id == subject.id,
+                Section.term_id == term.id,
+                Section.code == code,
+            )
+            .first()
+        )
+        if section is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no section '{code}' of {subject_code} in {term.name} - add it as a "
+                       f"section row first",
+            )
+
+        student = (
+            db.query(Student)
+            .join(User, Student.user_id == User.id)
+            .filter(User.email == email.lower(), User.school_id == school_id)
+            .first()
+        )
+        if student is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"no student with email '{email}' - add them as a student row first",
+            )
+
+        already = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.section_id == section.id,
+                Enrollment.student_id == student.id,
+                Enrollment.status == "ENROLLED",
+            )
+            .first()
+        )
+        if already is not None:
+            return "skipped"
+
+        # Through the service, not a raw insert: it owns reinstating a previously DROPPED student
+        # rather than colliding with the row that is already there.
+        AcademicService.enroll(section.id, [student.id], school_id, db)
+        return "created"
 
     # --- per-type handlers ---------------------------------------------------------------------
 

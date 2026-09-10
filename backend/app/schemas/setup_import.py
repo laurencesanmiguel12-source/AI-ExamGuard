@@ -12,6 +12,11 @@ class SetupImportResponse(BaseModel):
     created_courses: int = 0
     created_subjects: int = 0
     created_instructors: int = 0
+    # The offering layer. A sheet that stops at the catalogue leaves a school unable to run an
+    # exam - a section is required on one, and a section with nobody enrolled admits nobody.
+    created_students: int = 0
+    created_sections: int = 0
+    created_enrollments: int = 0
     # Rows whose record already existed. Reported separately from errors on purpose: re-uploading
     # a sheet after adding a few rows is a normal thing to do, not a mistake.
     skipped_existing: int = 0
