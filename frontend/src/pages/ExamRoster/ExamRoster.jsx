@@ -216,13 +216,18 @@ export default function ExamRoster() {
         <h3 className="text-sm font-semibold text-foreground">
           Add Students {available.length > 0 && <span className="text-muted-foreground font-normal">({available.length} waiting)</span>}
         </h3>
-        {available.length > 0 && (
+        {/* Rosters the SECTION's class, which is why the count comes from the roster source and
+            not from the available list below. "Add All" over that list would have admitted people
+            who are not in this class AND dropped the inherited roster in the same click - two
+            wrongs from one button. Offered only while the class is what is actually in force. */}
+        {inherited && admits > 0 && (
           <button
             onClick={handleBulkAdd}
             disabled={bulkAdding}
             className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-colors"
           >
-            <Users className="w-3.5 h-3.5" /> {bulkAdding ? "Adding…" : `Add All (${available.length})`}
+            <Users className="w-3.5 h-3.5" />
+            {bulkAdding ? "Rostering…" : `Roster the class (${admits})`}
           </button>
         )}
       </div>

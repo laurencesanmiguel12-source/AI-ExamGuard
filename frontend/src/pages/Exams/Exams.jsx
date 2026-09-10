@@ -74,7 +74,13 @@ export default function Exams() {
   useEffect(refresh, []);
 
   const subjectName = (id) => subjects.find((s) => s.id === id)?.code ?? `#${id}`;
-  const instructorName = (id) => instructors.find((i) => i.id === id)?.employee_number ?? `#${id}`;
+  // Name first, employee number only as a fallback. The defense panel asked for names -
+  // InstructorResponse has carried instructor_name since that was fixed on the Instructors page,
+  // and this list was still rendering the payroll id at them.
+  const instructorName = (id) => {
+    const found = instructors.find((i) => i.id === id);
+    return found?.instructor_name ?? found?.employee_number ?? `#${id}`;
+  };
   const myInstructor = instructors.find((i) => i.user_id === user.id) ?? null;
   const sectionById = (id) => sections.find((sec) => sec.id === id) ?? null;
   // The sections this account may actually set an exam on. An instructor owns their own; an admin

@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.models.enrollment import ACTIVE_ENROLLMENT, Enrollment
 from app.models.exam import Exam
 from app.models.exam_roster import ExamRoster
 from app.models.student import Student
@@ -124,17 +125,35 @@ class ExamRosterService:
 
     @staticmethod
     def add_all_available(exam: Exam, db: Session):
-        # Since 7c21c35 (require explicit roster entry, no more course-wide default), every
-        # newly self-registered student is invisible to an exam's roster until an instructor
-        # adds them one at a time - real friction reported live: an instructor glancing at just
-        # the "Assigned Students" table has no way to tell a new student even exists without
-        # separately checking the "Add Students" list below it. This is the bulk equivalent of
-        # calling add_student for every currently-available student in one transaction, not a
-        # return to course-wide access - a student added this way still needed an explicit
-        # roster row, there are just many of them created at once.
-        available = ExamRosterService.get_available_students(exam, db)
+        """Roster this exam's CLASS - the students enrolled in its section.
 
-        entries = [ExamRoster(exam_id=exam.id, student_id=student.id) for student in available]
+        This used to add every student in the exam's COURSE, which was right when a course was the
+        widest thing an exam could be scoped to. Roster inheritance made it wrong in two ways at
+        once, and one click did both: it rosters people who are not in this class, and because
+        precedence is per-exam, the moment any row exists the section's own enrolment stops
+        applying. An instructor with a healthy inherited class of three, in a course of five,
+        pressed "Add All" and silently ended up admitting five.
+
+        Scoped to the section, the action is what its name suggests and is safe: it admits exactly
+        who the exam already admitted, just explicitly - which is the useful starting point for
+        narrowing to a makeup or a deferred sitting.
+
+        Adding somebody outside the class is still possible one at a time from the available list,
+        which is where a deliberate exception belongs rather than in a bulk button.
+        """
+        rostered_ids = db.query(ExamRoster.student_id).filter(ExamRoster.exam_id == exam.id)
+
+        classmates = (
+            db.query(Enrollment.student_id)
+            .filter(
+                Enrollment.section_id == exam.section_id,
+                Enrollment.status == ACTIVE_ENROLLMENT,
+                Enrollment.student_id.notin_(rostered_ids),
+            )
+            .all()
+        )
+
+        entries = [ExamRoster(exam_id=exam.id, student_id=sid) for (sid,) in classmates]
         db.add_all(entries)
         db.commit()
 

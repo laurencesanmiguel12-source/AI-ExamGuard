@@ -109,3 +109,39 @@ describe("ExamRoster — which roster is actually in force", () => {
     expect(screen.queryByText(/admits nobody/i)).not.toBeInTheDocument();
   });
 });
+
+describe("ExamRoster — rostering the class", () => {
+  it("offers to roster the class, counted from the class rather than the course", async () => {
+    // The count is the section's enrolment, not the length of the available list below. Those
+    // differ whenever the course is wider than the class, which is the normal case.
+    await show({
+      source: { source: "SECTION", count: 3, admits_nobody: false },
+      available: [student(7), student(8), student(9), student(10), student(11)],
+    });
+
+    expect(screen.getByRole("button", { name: /roster the class \(3\)/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add all/i })).not.toBeInTheDocument();
+  });
+
+  it("does not offer it once the exam keeps its own roster", async () => {
+    // There is no class in force to copy - the explicit rows already say who sits this exam.
+    await show({
+      source: { source: "EXPLICIT", count: 2, admits_nobody: false },
+      roster: [student(1), student(2)],
+      available: [student(7)],
+    });
+
+    expect(screen.queryByRole("button", { name: /roster the class/i })).not.toBeInTheDocument();
+  });
+
+  it("does not offer it when the class is empty", async () => {
+    // Rostering nobody achieves nothing, and a button offering to would read as a way out of the
+    // lockout when the fix is to enrol the section.
+    await show({
+      source: { source: "SECTION", count: 0, admits_nobody: true },
+      available: [student(7)],
+    });
+
+    expect(screen.queryByRole("button", { name: /roster the class/i })).not.toBeInTheDocument();
+  });
+});

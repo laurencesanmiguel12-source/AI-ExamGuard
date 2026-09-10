@@ -52,13 +52,18 @@ export default function Sections() {
     // Terms come from every year, not just the current one: a section is often built for next
     // term while this one is still running, and filtering to the current year would hide exactly
     // the term someone came here to set up.
-    Promise.all([getAcademicYears(), getSubjects(), getInstructors()])
-      .then(async ([years, subjectRows, instructorRows]) => {
-        const termLists = await Promise.all(years.map((y) => getTerms(y.id)));
+    // One terms request, not one per year. GET /academic/terms with no academic_year_id already
+    // returns every term in the school, and the year label is joined on here from the years we
+    // are fetching anyway - a school with eight years of history was making nine round trips to
+    // populate one dropdown.
+    Promise.all([getAcademicYears(), getSubjects(), getInstructors(), getTerms()])
+      .then(([years, subjectRows, instructorRows, termRows]) => {
         if (!active) return;
-        const withYear = termLists.flatMap((rows, i) =>
-          rows.map((t) => ({ ...t, year_label: years[i].label }))
-        );
+        const labelByYear = new Map(years.map((y) => [y.id, y.label]));
+        const withYear = termRows.map((t) => ({
+          ...t,
+          year_label: labelByYear.get(t.academic_year_id) ?? "",
+        }));
         setTerms(withYear);
         setSubjects(subjectRows);
         setInstructors(instructorRows);
