@@ -14,8 +14,14 @@ export default function ConfirmDialog({ title = "Confirm", message, onConfirm, o
     setError("");
     try {
       await onConfirm();
-    } catch {
-      setError("That didn't work. Please try again.");
+    } catch (err) {
+      // A refusal is usually the answer, not a hiccup. The backend says "1 exam is set on this
+      // section. Move or delete them first." - "Please try again" hides the one thing that would
+      // let someone act, and invites retrying something that can never succeed. The generic line
+      // is the fallback for a genuine failure with nothing to report. `detail` is a list on a 422,
+      // so only a string is shown as prose.
+      const detail = err?.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "That didn't work. Please try again.");
     } finally {
       setBusy(false);
     }

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models.academic_year import AcademicYear
 from app.models.enrollment import ACTIVE_ENROLLMENT, ENROLLMENT_STATUSES, Enrollment
+from app.models.exam import Exam
 from app.models.instructor import Instructor
 from app.models.section import Section
 from app.models.student import Student
@@ -103,6 +104,55 @@ class AcademicService:
             db.commit()
             db.refresh(year)
         return year
+
+    @staticmethod
+    def update_year(year_id: int, school_id: int, db: Session, label: str,
+                    starts_on: date, ends_on: date) -> AcademicYear:
+        year = AcademicService._year_for_school(year_id, school_id, db)
+
+        if ends_on <= starts_on:
+            raise HTTPException(status_code=400, detail="An academic year must end after it starts.")
+
+        clash = (
+            db.query(AcademicYear)
+            .filter(
+                AcademicYear.school_id == school_id,
+                AcademicYear.label == label,
+                AcademicYear.id != year_id,
+            )
+            .first()
+        )
+        if clash is not None:
+            raise HTTPException(status_code=400, detail=f"'{label}' already exists for this school.")
+
+        year.label, year.starts_on, year.ends_on = label, starts_on, ends_on
+        db.commit()
+        db.refresh(year)
+        return year
+
+    @staticmethod
+    def delete_year(year_id: int, school_id: int, db: Session) -> None:
+        """Refused while anything hangs off it, rather than cascading.
+
+        A cascade here would take terms, their sections, those sections' class lists and every
+        exam filed under them - an amount of destruction nobody intends from a button labelled
+        "delete this school year". The message names what is attached so the caller knows what to
+        clear first.
+        """
+        year = AcademicService._year_for_school(year_id, school_id, db)
+
+        terms = db.query(Term).filter(Term.academic_year_id == year_id).count()
+        if terms:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"'{year.label}' still has {terms} term{'s' if terms != 1 else ''}. "
+                    "Delete those first."
+                ),
+            )
+
+        db.delete(year)
+        db.commit()
 
     # --- terms ----------------------------------------------------------------------------------
 
@@ -235,6 +285,54 @@ class AcademicService:
         db.refresh(term)
         return term
 
+    @staticmethod
+    def update_term(term_id: int, school_id: int, db: Session, name: str, sequence: int,
+                    starts_on: date, ends_on: date) -> Term:
+        """Name, position and dates. Status is deliberately not here - it is a state machine with
+        its own transitions and side effects, and set_term_status owns it."""
+        term = AcademicService.get_term(term_id, school_id, db)
+
+        if ends_on <= starts_on:
+            raise HTTPException(status_code=400, detail="A term must end after it starts.")
+
+        clash = (
+            db.query(Term)
+            .filter(
+                Term.academic_year_id == term.academic_year_id,
+                Term.sequence == sequence,
+                Term.id != term_id,
+            )
+            .first()
+        )
+        if clash is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This year already has a term at position {sequence} ('{clash.name}').",
+            )
+
+        term.name, term.sequence = name, sequence
+        term.starts_on, term.ends_on = starts_on, ends_on
+        db.commit()
+        db.refresh(term)
+        return term
+
+    @staticmethod
+    def delete_term(term_id: int, school_id: int, db: Session) -> None:
+        term = AcademicService.get_term(term_id, school_id, db)
+
+        sections = db.query(Section).filter(Section.term_id == term_id).count()
+        if sections:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"'{term.name}' still has {sections} section{'s' if sections != 1 else ''}. "
+                    "Delete those first."
+                ),
+            )
+
+        db.delete(term)
+        db.commit()
+
     # --- sections -------------------------------------------------------------------------------
 
     @staticmethod
@@ -319,6 +417,95 @@ class AcademicService:
         if section is None:
             raise _not_found("Section")
         return section
+
+    @staticmethod
+    def update_section(section_id: int, school_id: int, db: Session, code: str,
+                       instructor_id: int, capacity: int | None = None,
+                       schedule: str | None = None) -> Section:
+        """Who teaches this class, what it is called, and the two display fields.
+
+        Subject and term are deliberately NOT editable. They are what makes this section the
+        section it is - changing either produces a different class, not a corrected one - and a
+        section with nothing hanging off it can simply be deleted and made again.
+
+        Changing the instructor REASSIGNS the class, and the exams go with it. That is the point
+        of deriving exam.instructor_id from the section rather than storing an independent copy:
+        leaving those exams behind is exactly the drift step 5 removed. It is a real
+        administrative act with a real consequence, so the screen warns before doing it.
+        """
+        section = AcademicService.get_section(section_id, school_id, db)
+
+        instructor = (
+            db.query(Instructor)
+            .join(User, Instructor.user_id == User.id)
+            .filter(Instructor.id == instructor_id, User.school_id == school_id)
+            .first()
+        )
+        if instructor is None:
+            raise _not_found("Instructor")
+
+        clash = (
+            db.query(Section)
+            .filter(
+                Section.subject_id == section.subject_id,
+                Section.term_id == section.term_id,
+                Section.code == code,
+                Section.id != section_id,
+            )
+            .first()
+        )
+        if clash is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Section '{code}' already exists for this subject in this term.",
+            )
+
+        section.code, section.capacity, section.schedule = code, capacity, schedule
+
+        if instructor_id != section.instructor_id:
+            section.instructor_id = instructor_id
+            db.query(Exam).filter(Exam.section_id == section_id).update(
+                {Exam.instructor_id: instructor_id}, synchronize_session=False
+            )
+
+        db.commit()
+        db.refresh(section)
+        return section
+
+    @staticmethod
+    def delete_section(section_id: int, school_id: int, db: Session) -> None:
+        """Refused while an exam or a class list depends on it.
+
+        Deleting a section with exams on it is not expressible at all now that exams.section_id is
+        NOT NULL - the database would refuse it with a foreign-key error naming a constraint. This
+        turns that into a sentence about exams. Enrolments would cascade silently, which is worse:
+        a class list is work somebody did, and losing forty rows to a mis-click is not recoverable
+        from the UI.
+        """
+        section = AcademicService.get_section(section_id, school_id, db)
+
+        exams = db.query(Exam).filter(Exam.section_id == section_id).count()
+        if exams:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{exams} exam{'s are' if exams != 1 else ' is'} set on this section. "
+                    "Move or delete them first."
+                ),
+            )
+
+        enrolled = db.query(Enrollment).filter(Enrollment.section_id == section_id).count()
+        if enrolled:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{enrolled} student{'s are' if enrolled != 1 else ' is'} enrolled in this "
+                    "section. Drop them first, or keep the section."
+                ),
+            )
+
+        db.delete(section)
+        db.commit()
 
     # --- enrolment ------------------------------------------------------------------------------
 

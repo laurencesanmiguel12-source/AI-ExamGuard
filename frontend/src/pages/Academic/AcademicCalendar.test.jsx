@@ -5,9 +5,13 @@ import userEvent from "@testing-library/user-event";
 const mocks = vi.hoisted(() => ({
   getAcademicYears: vi.fn(),
   createAcademicYear: vi.fn(),
+  updateAcademicYear: vi.fn(),
+  deleteAcademicYear: vi.fn(),
   setCurrentAcademicYear: vi.fn(),
   getTerms: vi.fn(),
   createTerm: vi.fn(),
+  updateTerm: vi.fn(),
+  deleteTerm: vi.fn(),
   setTermStatus: vi.fn(),
 }));
 
@@ -108,5 +112,81 @@ describe("Academic Calendar", () => {
     await show({ terms: [term({ status: "CLOSED" })] });
 
     expect(await screen.findByRole("button", { name: "Reopen" })).toBeInTheDocument();
+  });
+});
+
+describe("Academic Calendar — correcting and removing", () => {
+  it("lets a year be renamed rather than living with a typo forever", async () => {
+    // Until now the hierarchy was create-only, so a mistyped label was permanent - while every
+    // other entity in the app has had full CRUD from the start.
+    mocks.updateAcademicYear.mockResolvedValue({});
+    await show();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit 2026-2027" }));
+    const label = screen.getByLabelText("Label");
+    await userEvent.clear(label);
+    await userEvent.type(label, "AY 2026-27");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(mocks.updateAcademicYear).toHaveBeenCalled());
+    expect(mocks.updateAcademicYear.mock.calls[0][1].label).toBe("AY 2026-27");
+  });
+
+  it("does not offer 'make current' inside the rename form", async () => {
+    // Which year is current is a school-wide invariant with its own control on the row; a rename
+    // form that could flip it would change two unrelated things from one save.
+    await show();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit 2026-2027" }));
+
+    expect(screen.queryByLabelText(/make this the current school year/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the server's reason when a year still has terms, not 'please try again'", async () => {
+    // The refusal names what is attached, which is the only thing that tells someone what to
+    // clear first. A generic retry message hides it and suggests something that cannot work.
+    mocks.deleteAcademicYear.mockRejectedValue({
+      response: { data: { detail: "'2026-2027' still has 2 terms. Delete those first." } },
+    });
+    await show();
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete 2026-2027" }));
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(await screen.findByText(/still has 2 terms/i)).toBeInTheDocument();
+    expect(screen.queryByText(/please try again/i)).not.toBeInTheDocument();
+  });
+
+  it("lets a term be renamed and repositioned", async () => {
+    mocks.updateTerm.mockResolvedValue({});
+    await show({ terms: [term({ status: "PLANNED" })] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit 1st Semester" }));
+    const name = screen.getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "First Semester");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(mocks.updateTerm).toHaveBeenCalled());
+    expect(mocks.updateTerm.mock.calls[0][1].name).toBe("First Semester");
+  });
+
+  it("keeps status out of the term edit form", async () => {
+    // Closing a term completes every enrolment in it. That belongs to the state-machine buttons
+    // on the row, not to a form whose save button says "Save Changes".
+    await show({ terms: [term({ status: "ACTIVE" })] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit 1st Semester" }));
+
+    expect(screen.queryByLabelText(/status/i)).not.toBeInTheDocument();
+  });
+
+  it("offers delete on a term and warns it is refused while sections exist", async () => {
+    await show({ terms: [term()] });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete 1st Semester" }));
+
+    expect(screen.getByText(/refused while it still has sections/i)).toBeInTheDocument();
+    expect(mocks.deleteTerm).not.toHaveBeenCalled();
   });
 });

@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { Plus, CalendarDays, Check } from "lucide-react";
+import { Plus, CalendarDays, Check, Pencil, Trash2 } from "lucide-react";
 import {
   getAcademicYears,
   createAcademicYear,
+  updateAcademicYear,
+  deleteAcademicYear,
   setCurrentAcademicYear,
   getTerms,
   createTerm,
+  updateTerm,
+  deleteTerm,
   setTermStatus,
 } from "../../api/academic";
 import PageHeader from "../../components/PageHeader";
@@ -61,11 +65,17 @@ export default function AcademicCalendar() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
 
+  // Each pair is {values, editing}: editing is null when creating and the row when correcting
+  // one, so the same modal serves both instead of a second near-identical copy of it.
   const [yearForm, setYearForm] = useState(null);
+  const [editingYear, setEditingYear] = useState(null);
   const [termForm, setTermForm] = useState(null);
+  const [editingTerm, setEditingTerm] = useState(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [closing, setClosing] = useState(null);
+  const [deletingYear, setDeletingYear] = useState(null);
+  const [deletingTerm, setDeletingTerm] = useState(null);
 
   function loadYears() {
     setLoading(true);
@@ -111,15 +121,36 @@ export default function AcademicCalendar() {
     setFormError("");
     setSubmitting(true);
     try {
-      const created = await createAcademicYear(yearForm);
-      setYearForm(null);
-      await loadYears();
-      setSelectedYearId(created.id);
+      if (editingYear) {
+        // make_current is not sent on an edit: it is a school-wide invariant with its own
+        // control on the row, not something a rename should be able to flip.
+        await updateAcademicYear(editingYear.id, {
+          label: yearForm.label,
+          starts_on: yearForm.starts_on,
+          ends_on: yearForm.ends_on,
+        });
+        setYearForm(null);
+        setEditingYear(null);
+        await loadYears();
+      } else {
+        const created = await createAcademicYear(yearForm);
+        setYearForm(null);
+        await loadYears();
+        setSelectedYearId(created.id);
+      }
     } catch (err) {
-      setFormError(detail(err, "Couldn't create this academic year."));
+      setFormError(detail(err, "Couldn't save this academic year."));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function confirmDeleteYear() {
+    // Uncaught on purpose - ConfirmDialog shows the server's refusal, which names what is still
+    // attached and is the only thing that tells someone what to clear first.
+    await deleteAcademicYear(deletingYear.id);
+    setDeletingYear(null);
+    await loadYears();
   }
 
   async function submitTerm(event) {
@@ -127,18 +158,34 @@ export default function AcademicCalendar() {
     setFormError("");
     setSubmitting(true);
     try {
-      await createTerm({
-        ...termForm,
-        sequence: Number(termForm.sequence),
-        academic_year_id: selectedYearId,
-      });
+      if (editingTerm) {
+        await updateTerm(editingTerm.id, {
+          name: termForm.name,
+          sequence: Number(termForm.sequence),
+          starts_on: termForm.starts_on,
+          ends_on: termForm.ends_on,
+        });
+      } else {
+        await createTerm({
+          ...termForm,
+          sequence: Number(termForm.sequence),
+          academic_year_id: selectedYearId,
+        });
+      }
       setTermForm(null);
+      setEditingTerm(null);
       await refreshTerms();
     } catch (err) {
-      setFormError(detail(err, "Couldn't create this term."));
+      setFormError(detail(err, "Couldn't save this term."));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function confirmDeleteTerm() {
+    await deleteTerm(deletingTerm.id);
+    setDeletingTerm(null);
+    await refreshTerms();
   }
 
   async function makeCurrent(year) {
@@ -182,6 +229,7 @@ export default function AcademicCalendar() {
           <button
             onClick={() => {
               setYearForm(EMPTY_YEAR);
+              setEditingYear(null);
               setFormError("");
             }}
             className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
@@ -246,6 +294,30 @@ export default function AcademicCalendar() {
                       Make current
                     </button>
                   )}
+                  <span className="flex-1" />
+                  <button
+                    onClick={() => {
+                      setYearForm({
+                        label: year.label,
+                        starts_on: year.starts_on,
+                        ends_on: year.ends_on,
+                        make_current: year.is_current,
+                      });
+                      setEditingYear(year);
+                      setFormError("");
+                    }}
+                    aria-label={`Edit ${year.label}`}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeletingYear(year)}
+                    aria-label={`Delete ${year.label}`}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -258,6 +330,7 @@ export default function AcademicCalendar() {
             <button
               onClick={() => {
                 setTermForm({ ...EMPTY_TERM, sequence: terms.length + 1 });
+                setEditingTerm(null);
                 setFormError("");
               }}
               disabled={!selectedYearId}
@@ -312,6 +385,29 @@ export default function AcademicCalendar() {
                         Reopen
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        setTermForm({
+                          name: term.name,
+                          sequence: term.sequence,
+                          starts_on: term.starts_on,
+                          ends_on: term.ends_on,
+                        });
+                        setEditingTerm(term);
+                        setFormError("");
+                      }}
+                      aria-label={`Edit ${term.name}`}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeletingTerm(term)}
+                      aria-label={`Delete ${term.name}`}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -329,7 +425,13 @@ export default function AcademicCalendar() {
       )}
 
       {yearForm && (
-        <Modal title="Add School Year" onClose={() => setYearForm(null)}>
+        <Modal
+          title={editingYear ? `Edit ${editingYear.label}` : "Add School Year"}
+          onClose={() => {
+            setYearForm(null);
+            setEditingYear(null);
+          }}
+        >
           <form onSubmit={submitYear}>
             {formError && (
               <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
@@ -358,24 +460,34 @@ export default function AcademicCalendar() {
               value={yearForm.ends_on}
               onChange={(e) => setYearForm({ ...yearForm, ends_on: e.target.value })}
             />
-            <CheckboxField
-              label="Make this the current school year"
-              checked={yearForm.make_current}
-              onChange={(e) => setYearForm({ ...yearForm, make_current: e.target.checked })}
-            />
+            {/* Creation only. Which year is current is a school-wide invariant with its own
+                control on the row, and a rename form is not where it should be flipped. */}
+            {!editingYear && (
+              <CheckboxField
+                label="Make this the current school year"
+                checked={yearForm.make_current}
+                onChange={(e) => setYearForm({ ...yearForm, make_current: e.target.checked })}
+              />
+            )}
             <button
               type="submit"
               disabled={submitting}
               className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {submitting ? "Saving…" : "Create School Year"}
+              {submitting ? "Saving…" : editingYear ? "Save Changes" : "Create School Year"}
             </button>
           </form>
         </Modal>
       )}
 
       {termForm && (
-        <Modal title={`Add Term to ${selectedYear?.label ?? ""}`} onClose={() => setTermForm(null)}>
+        <Modal
+          title={editingTerm ? `Edit ${editingTerm.name}` : `Add Term to ${selectedYear?.label ?? ""}`}
+          onClose={() => {
+            setTermForm(null);
+            setEditingTerm(null);
+          }}
+        >
           <form onSubmit={submitTerm}>
             {formError && (
               <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
@@ -418,10 +530,28 @@ export default function AcademicCalendar() {
               disabled={submitting}
               className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {submitting ? "Saving…" : "Create Term"}
+              {submitting ? "Saving…" : editingTerm ? "Save Changes" : "Create Term"}
             </button>
           </form>
         </Modal>
+      )}
+
+      {deletingYear && (
+        <ConfirmDialog
+          title="Delete School Year"
+          message={`Delete "${deletingYear.label}"? This is refused while it still has terms — delete those first.`}
+          onConfirm={confirmDeleteYear}
+          onCancel={() => setDeletingYear(null)}
+        />
+      )}
+
+      {deletingTerm && (
+        <ConfirmDialog
+          title="Delete Term"
+          message={`Delete "${deletingTerm.name}"? This is refused while it still has sections — delete those first.`}
+          onConfirm={confirmDeleteTerm}
+          onCancel={() => setDeletingTerm(null)}
+        />
       )}
 
       {closing && (

@@ -24,6 +24,15 @@ export async function setCurrentAcademicYear(yearId) {
   return response.data;
 }
 
+export async function updateAcademicYear(yearId, payload) {
+  const response = await apiClient.put(`/academic/years/${yearId}`, payload);
+  return response.data;
+}
+
+export async function deleteAcademicYear(yearId) {
+  await apiClient.delete(`/academic/years/${yearId}`);
+}
+
 export async function getTerms(academicYearId) {
   const response = await apiClient.get("/academic/terms", {
     params: academicYearId ? { academic_year_id: academicYearId } : undefined,
@@ -46,6 +55,15 @@ export async function setTermStatus(termId, status) {
   return response.data;
 }
 
+export async function updateTerm(termId, payload) {
+  const response = await apiClient.put(`/academic/terms/${termId}`, payload);
+  return response.data;
+}
+
+export async function deleteTerm(termId) {
+  await apiClient.delete(`/academic/terms/${termId}`);
+}
+
 export async function getSections({ termId, instructorId } = {}) {
   const params = {};
   if (termId) params.term_id = termId;
@@ -62,6 +80,15 @@ export async function getSection(sectionId) {
 export async function createSection(payload) {
   const response = await apiClient.post("/academic/sections", payload);
   return response.data;
+}
+
+export async function updateSection(sectionId, payload) {
+  const response = await apiClient.put(`/academic/sections/${sectionId}`, payload);
+  return response.data;
+}
+
+export async function deleteSection(sectionId) {
+  await apiClient.delete(`/academic/sections/${sectionId}`);
 }
 
 // active_only=false so the class list can show DROPPED and COMPLETED rows too - a roster that

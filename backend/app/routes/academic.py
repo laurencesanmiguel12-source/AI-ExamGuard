@@ -9,15 +9,18 @@ from app.models.user import User
 from app.schemas.academic import (
     AcademicYearCreate,
     AcademicYearResponse,
+    AcademicYearUpdate,
     EnrollRequest,
     EnrollResponse,
     EnrollmentResponse,
     EnrollmentStatusRequest,
     SectionCreate,
     SectionResponse,
+    SectionUpdate,
     TermCreate,
     TermResponse,
     TermStatusRequest,
+    TermUpdate,
 )
 from app.services.academic_service import AcademicService
 
@@ -69,6 +72,28 @@ def set_current_year(
     return AcademicService.set_current_year(year_id, _school_id(current_user), db)
 
 
+@router.put("/years/{year_id}", response_model=AcademicYearResponse)
+def update_year(
+    year_id: int,
+    request: AcademicYearUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    return AcademicService.update_year(
+        year_id, _school_id(current_user), db,
+        request.label, request.starts_on, request.ends_on,
+    )
+
+
+@router.delete("/years/{year_id}", status_code=204)
+def delete_year(
+    year_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    AcademicService.delete_year(year_id, _school_id(current_user), db)
+
+
 # --- terms ------------------------------------------------------------------------------------
 
 @router.get("/terms", response_model=list[TermResponse])
@@ -107,6 +132,28 @@ def set_term_status(
     current_user: User = Depends(require_admin),
 ):
     return AcademicService.set_term_status(term_id, request.status, _school_id(current_user), db)
+
+
+@router.put("/terms/{term_id}", response_model=TermResponse)
+def update_term(
+    term_id: int,
+    request: TermUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    return AcademicService.update_term(
+        term_id, _school_id(current_user), db,
+        request.name, request.sequence, request.starts_on, request.ends_on,
+    )
+
+
+@router.delete("/terms/{term_id}", status_code=204)
+def delete_term(
+    term_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    AcademicService.delete_term(term_id, _school_id(current_user), db)
 
 
 # --- sections ---------------------------------------------------------------------------------
@@ -175,6 +222,30 @@ def get_section(
     return _section_payload(
         AcademicService.get_section(section_id, _school_id(current_user), db), db
     )
+
+
+@router.put("/sections/{section_id}", response_model=SectionResponse)
+def update_section(
+    section_id: int,
+    request: SectionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    section = AcademicService.update_section(
+        section_id, _school_id(current_user), db,
+        request.code, request.instructor_id,
+        capacity=request.capacity, schedule=request.schedule,
+    )
+    return _section_payload(section, db)
+
+
+@router.delete("/sections/{section_id}", status_code=204)
+def delete_section(
+    section_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    AcademicService.delete_section(section_id, _school_id(current_user), db)
 
 
 # --- enrolment --------------------------------------------------------------------------------

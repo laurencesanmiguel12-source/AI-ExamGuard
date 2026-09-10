@@ -14,6 +14,14 @@ class AcademicYearCreate(BaseModel):
     make_current: bool = False
 
 
+class AcademicYearUpdate(BaseModel):
+    # make_current is absent: it is a school-wide invariant with its own endpoint, not a field
+    # you can flip while renaming a year.
+    label: str = Field(min_length=1, max_length=50)
+    starts_on: date
+    ends_on: date
+
+
 class AcademicYearResponse(BaseModel):
     id: int
     label: str
@@ -31,6 +39,15 @@ class TermCreate(BaseModel):
     name: str = Field(min_length=1, max_length=50)
     # Ordering within the year, explicit rather than inferred from dates - a summer term may
     # overlap or abut the semesters around it depending on the institution.
+    sequence: int = Field(ge=1, le=12)
+    starts_on: date
+    ends_on: date
+
+
+class TermUpdate(BaseModel):
+    # academic_year_id and status are absent. A term does not move between years - that is a
+    # different term - and status is a state machine owned by its own endpoint.
+    name: str = Field(min_length=1, max_length=50)
     sequence: int = Field(ge=1, le=12)
     starts_on: date
     ends_on: date
@@ -59,6 +76,16 @@ class SectionCreate(BaseModel):
     term_id: int
     instructor_id: int
     code: str = Field(min_length=1, max_length=20)
+    capacity: int | None = Field(default=None, ge=1)
+    schedule: str | None = Field(default=None, max_length=200)
+
+
+class SectionUpdate(BaseModel):
+    # subject_id and term_id are absent on purpose: they are what makes this section this class.
+    # Changing instructor_id reassigns the class AND every exam filed under it, which is the point
+    # of exams deriving their instructor from here rather than keeping a copy.
+    code: str = Field(min_length=1, max_length=20)
+    instructor_id: int
     capacity: int | None = Field(default=None, ge=1)
     schedule: str | None = Field(default=None, max_length=200)
 

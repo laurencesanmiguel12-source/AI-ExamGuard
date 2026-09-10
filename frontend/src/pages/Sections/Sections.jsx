@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Plus, AlertTriangle } from "lucide-react";
-import { getSections, createSection, getAcademicYears, getTerms } from "../../api/academic";
+import {
+  getSections,
+  createSection,
+  updateSection,
+  deleteSection,
+  getAcademicYears,
+  getTerms,
+} from "../../api/academic";
 import { getSubjects } from "../../api/subjects";
 import { getInstructors } from "../../api/instructors";
 import { useAuth } from "../../context/AuthContext";
@@ -9,6 +16,7 @@ import { isAdmin } from "../../utils/roles";
 import PageHeader from "../../components/PageHeader";
 import DataTable from "../../components/DataTable";
 import Modal from "../../components/Modal";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import Card from "../../components/ui/Card";
 import { TextField, SelectField } from "../../components/ui/FormField";
 
@@ -32,6 +40,10 @@ export default function Sections() {
   const [pageError, setPageError] = useState("");
 
   const [form, setForm] = useState(null);
+  // null = closed, {} = creating, a section = editing that one. Same shape the other list pages
+  // use, so the form below can serve both without a second copy of it.
+  const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -103,26 +115,69 @@ export default function Sections() {
     },
   ];
 
+  function openCreate() {
+    setForm({
+      ...EMPTY_FORM,
+      subject_id: subjects[0]?.id ?? "",
+      term_id: termFilter || terms[0]?.id || "",
+      instructor_id: instructors[0]?.id ?? "",
+    });
+    setFormError("");
+    setEditing({});
+  }
+
+  function openEdit(section) {
+    setForm({
+      subject_id: section.subject_id,
+      term_id: section.term_id,
+      instructor_id: section.instructor_id,
+      code: section.code,
+      capacity: section.capacity ?? "",
+      schedule: section.schedule ?? "",
+    });
+    setFormError("");
+    setEditing(section);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setFormError("");
     setSubmitting(true);
     try {
-      await createSection({
-        subject_id: Number(form.subject_id),
-        term_id: Number(form.term_id),
-        instructor_id: Number(form.instructor_id),
-        code: form.code,
-        capacity: form.capacity === "" ? null : Number(form.capacity),
-        schedule: form.schedule === "" ? null : form.schedule,
-      });
-      setForm(null);
+      if (editing.id) {
+        // Subject and term are not sent: they are what makes this section this class, and the
+        // server does not accept them on an edit.
+        await updateSection(editing.id, {
+          code: form.code,
+          instructor_id: Number(form.instructor_id),
+          capacity: form.capacity === "" ? null : Number(form.capacity),
+          schedule: form.schedule === "" ? null : form.schedule,
+        });
+      } else {
+        await createSection({
+          subject_id: Number(form.subject_id),
+          term_id: Number(form.term_id),
+          instructor_id: Number(form.instructor_id),
+          code: form.code,
+          capacity: form.capacity === "" ? null : Number(form.capacity),
+          schedule: form.schedule === "" ? null : form.schedule,
+        });
+      }
+      setEditing(null);
       await refresh();
     } catch (err) {
-      setFormError(detail(err, "Couldn't create this section."));
+      setFormError(detail(err, "Couldn't save this section."));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function confirmDelete() {
+    // Deliberately not caught here - ConfirmDialog surfaces the server's refusal, and that
+    // refusal ("1 exam is set on this section") is the useful part.
+    await deleteSection(deleting.id);
+    setDeleting(null);
+    await refresh();
   }
 
   const canCreate = canManage && terms.length > 0 && subjects.length > 0 && instructors.length > 0;
@@ -143,15 +198,7 @@ export default function Sections() {
         actions={
           canManage && (
             <button
-              onClick={() => {
-                setForm({
-                  ...EMPTY_FORM,
-                  subject_id: subjects[0]?.id ?? "",
-                  term_id: termFilter || terms[0]?.id || "",
-                  instructor_id: instructors[0]?.id ?? "",
-                });
-                setFormError("");
-              }}
+              onClick={openCreate}
               disabled={!canCreate}
               className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-[12px] font-mono uppercase tracking-wider transition-colors"
             >
@@ -197,6 +244,8 @@ export default function Sections() {
         rows={sections}
         loading={loading}
         onRowClick={(row) => navigate(`/sections/${row.id}`)}
+        onEdit={canManage ? openEdit : undefined}
+        onDelete={canManage ? setDeleting : undefined}
         emptyLabel="No sections yet"
         searchable
         searchPlaceholder="Search by section code, subject, term or instructor…"
@@ -209,38 +258,59 @@ export default function Sections() {
         </Card>
       )}
 
-      {form && (
-        <Modal title="Add Section" onClose={() => setForm(null)}>
+      {editing && (
+        <Modal
+          title={editing.id ? `Edit ${editing.subject_code ?? ""} ${editing.code}`.trim() : "Add Section"}
+          onClose={() => setEditing(null)}
+        >
           <form onSubmit={handleSubmit}>
             {formError && (
               <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
                 {formError}
               </div>
             )}
-            <SelectField
-              label="Subject"
-              required
-              value={form.subject_id}
-              onChange={(e) => setForm({ ...form, subject_id: e.target.value })}
-            >
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.code} — {s.name}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Term"
-              required
-              value={form.term_id}
-              onChange={(e) => setForm({ ...form, term_id: e.target.value })}
-            >
-              {terms.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} — {t.year_label}
-                </option>
-              ))}
-            </SelectField>
+            {/* Subject and term are settled at creation and shown read-only afterwards. They are
+                what makes this section this class - changing either gives you a different class,
+                not a corrected one - and an unused section can simply be deleted and remade. */}
+            {editing.id ? (
+              <div className="mb-4 rounded-xl border border-border bg-secondary px-4 py-3 text-sm">
+                <span className="text-muted-foreground">
+                  {editing.subject_code} {editing.subject_name} · {editing.term_name}{" "}
+                  {editing.academic_year_label}
+                </span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A section's subject and term cannot be changed. Delete it and make another if
+                  either is wrong.
+                </p>
+              </div>
+            ) : (
+              <>
+                <SelectField
+                  label="Subject"
+                  required
+                  value={form.subject_id}
+                  onChange={(e) => setForm({ ...form, subject_id: e.target.value })}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.code} — {s.name}
+                    </option>
+                  ))}
+                </SelectField>
+                <SelectField
+                  label="Term"
+                  required
+                  value={form.term_id}
+                  onChange={(e) => setForm({ ...form, term_id: e.target.value })}
+                >
+                  {terms.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} — {t.year_label}
+                    </option>
+                  ))}
+                </SelectField>
+              </>
+            )}
             <SelectField
               label="Instructor"
               hint="Who teaches this particular offering. Two instructors on the same subject are two sections, which is what tells their classes apart."
@@ -254,6 +324,13 @@ export default function Sections() {
                 </option>
               ))}
             </SelectField>
+            {editing.id && Number(form.instructor_id) !== editing.instructor_id && (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                This hands the class to a different instructor, and every exam set on it goes with
+                them — they become the owner and {editing.instructor_name ?? "the current instructor"}{" "}
+                loses access.
+              </div>
+            )}
             <TextField
               label="Section Code"
               hint="How the class is named on a schedule — BSCS-3A, Section 2, and so on."
@@ -283,10 +360,19 @@ export default function Sections() {
               disabled={submitting}
               className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
             >
-              {submitting ? "Saving…" : "Create Section"}
+              {submitting ? "Saving…" : editing.id ? "Save Changes" : "Create Section"}
             </button>
           </form>
         </Modal>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete Section"
+          message={`Delete ${deleting.subject_code ?? ""} ${deleting.code}? This is refused if any exam is set on it or anyone is still enrolled.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
       )}
     </div>
   );
