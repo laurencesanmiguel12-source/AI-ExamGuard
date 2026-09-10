@@ -123,6 +123,46 @@ class SetupImportService:
             errors=errors,
         )
 
+    @staticmethod
+    def preview(file_bytes: bytes, current_user: User, school_id: int,
+                db: Session) -> SetupImportResponse:
+        """What this file WOULD do, run through the real import and then thrown away.
+
+        The panel asked to see duplicates and bad formatting before anything is written. The
+        tempting way to answer that is a second pass that re-checks the rows - and that is exactly
+        the "two definitions of correct" this module's docstring warns about: a preview that
+        validates differently from the importer is worse than none, because it is trusted.
+
+        So this runs the importer itself, unmodified, against a throwaway session on its own
+        connection, and rolls the whole connection back afterwards. Every duplicate check, every
+        cross-reference, every per-row error is the real one, because it IS the real one.
+
+        `join_transaction_mode="create_savepoint"` is what makes that work: the services commit as
+        they always do, but those commits land on a SAVEPOINT inside the outer transaction rather
+        than on the database, so the final rollback still takes all of them. The importer's own
+        per-row `db.rollback()` unwinds to that savepoint rather than to the outer transaction,
+        which is why one bad row still does not abandon the rest.
+        """
+        # The caller's OWN connection, not a fresh one from the engine. A second connection would
+        # sit outside this request's transaction and so could not see anything it has not
+        # committed - which is exactly the state the test harness runs every test in, and would
+        # have made the preview disagree with the import for reasons nobody could reproduce
+        # locally. Joining here means the preview reads precisely what the import would read.
+        connection = db.connection()
+        outer = connection.begin_nested()
+        preview_db = Session(bind=connection, join_transaction_mode="create_savepoint")
+        try:
+            result = SetupImportService.import_setup(
+                file_bytes, current_user, school_id, preview_db
+            )
+        finally:
+            preview_db.close()
+            outer.rollback()
+            # The parent session may hold rows that only ever existed inside the savepoint.
+            db.expire_all()
+
+        return result.model_copy(update={"preview": True})
+
     # --- per-type handlers ---------------------------------------------------------------------
 
     @staticmethod

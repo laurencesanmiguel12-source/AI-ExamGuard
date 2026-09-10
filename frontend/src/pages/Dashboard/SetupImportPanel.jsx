@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Upload, Download, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Upload, Download, ChevronDown, ChevronRight, CheckCircle2, Eye, FileSpreadsheet } from "lucide-react";
 import Card from "../../components/ui/Card";
-import { importSetupCsv } from "../../api/setupImport";
+import { importSetupCsv, previewSetupCsv } from "../../api/setupImport";
 
 // A real, importable example rather than placeholder text - one row of each type, in an order
 // that demonstrates the dependency (the subject names the course above it, the instructor names
@@ -28,11 +28,22 @@ const COLUMNS = [
   ["subject_codes", "Instructor rows only — which subjects they teach, separated by semicolons. Without at least one, they cannot create exams."],
 ];
 
+// The four steps, stated once. The panel asked for a visible process flow rather than a file
+// input and a button - the sequence is not guessable, and the checking step is the one people
+// skip when nothing tells them it exists.
+const STEPS = [
+  ["Download the template", "One row per course, subject and instructor, with a working example already filled in."],
+  ["Fill it in with Excel", "Open the file in Excel, replace the example rows with your own, then Save As → CSV UTF-8."],
+  ["Check the file", "Runs the real import and throws the result away, so you see what would happen — duplicates, bad rows and all — before anything is written."],
+  ["Import", "Only what the check showed. Re-uploading later is safe: anything that already exists is skipped."],
+];
+
 export default function SetupImportPanel() {
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [importing, setImporting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
 
   function downloadTemplate() {
@@ -42,6 +53,20 @@ export default function SetupImportPanel() {
     link.download = "examguard_setup_template.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleCheck() {
+    if (!file) return;
+    setChecking(true);
+    setError("");
+    setResult(null);
+    try {
+      setResult(await previewSetupCsv(file));
+    } catch (err) {
+      setError(err.response?.data?.detail ?? "Couldn't read that file.");
+    } finally {
+      setChecking(false);
+    }
   }
 
   async function handleImport() {
@@ -61,12 +86,37 @@ export default function SetupImportPanel() {
   const total = result
     ? result.created_courses + result.created_subjects + result.created_instructors
     : 0;
+  const isPreview = result?.preview === true;
 
   return (
     // No heading of its own: this now sits under the Bulk Import page's PageHeader, which says
     // the same thing in the place every other screen says it.
     <div>
       <Card className="p-6">
+        <ol className="mb-5 grid gap-3 sm:grid-cols-2">
+          {STEPS.map(([title, detail], i) => (
+            <li key={title} className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-secondary font-mono text-[11px] font-semibold text-muted-foreground">
+                {i + 1}
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-foreground">{title}</div>
+                <p className="text-sm text-muted-foreground">{detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mb-5 flex gap-2.5 rounded-xl border border-border bg-secondary px-4 py-3">
+          <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Use Excel, and save as CSV UTF-8.</span>{" "}
+            Excel's plain &ldquo;CSV&rdquo; option mangles accented names and long ID numbers, and a
+            file saved from Notepad usually loses its column headings. Keep every column even where
+            it is blank &mdash; a course row leaves the instructor columns empty and vice versa.
+          </p>
+        </div>
+
         <div className="mb-4 flex flex-wrap items-center gap-4">
           <button
             onClick={downloadTemplate}
@@ -125,37 +175,81 @@ export default function SetupImportPanel() {
           </div>
         )}
 
-        <button
-          onClick={handleImport}
-          disabled={!file || importing}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[12px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
-        >
-          <Upload className="h-4 w-4" /> {importing ? "Importing…" : "Import"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={handleCheck}
+            disabled={!file || checking || importing}
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[12px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+          >
+            <Eye className="h-4 w-4" /> {checking ? "Checking…" : "Check this file"}
+          </button>
+          {/* Available without checking first - an admin re-uploading a sheet they have already
+              checked should not have to check it again. It is second, and quieter, so the
+              cautious path is the obvious one. */}
+          <button
+            onClick={handleImport}
+            disabled={!file || importing || checking}
+            className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[12px] font-mono uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+          >
+            <Upload className="h-4 w-4" /> {importing ? "Importing…" : "Import for real"}
+          </button>
+        </div>
 
         {result && (
           <div className="mt-5">
-            <div className="mb-2 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            {/* A preview must never read like a receipt. Same numbers, different tense, different
+                colour - somebody who skims this and walks away has to leave knowing whether their
+                data is in. */}
+            <div
+              className={`mb-2 flex items-start gap-2 rounded-xl border px-3 py-2 text-sm ${
+                isPreview
+                  ? "border-blue-200 bg-blue-50 text-blue-900"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+              }`}
+            >
+              {isPreview ? (
+                <Eye className="mt-0.5 h-4 w-4 shrink-0" />
+              ) : (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              )}
               <div>
                 <div className="font-medium">
-                  {total === 0 ? "Nothing new to add" : `Added ${total} record${total === 1 ? "" : "s"}`}
+                  {isPreview
+                    ? total === 0
+                      ? "Nothing new in this file — nothing has been imported"
+                      : `This file would add ${total} record${total === 1 ? "" : "s"} — nothing has been imported yet`
+                    : total === 0
+                      ? "Nothing new to add"
+                      : `Added ${total} record${total === 1 ? "" : "s"}`}
                 </div>
-                <div className="text-emerald-800/80">
+                <div className="opacity-80">
                   {result.created_courses} course{result.created_courses === 1 ? "" : "s"} ·{" "}
                   {result.created_subjects} subject{result.created_subjects === 1 ? "" : "s"} ·{" "}
                   {result.created_instructors} instructor
                   {result.created_instructors === 1 ? "" : "s"}
-                  {result.skipped_existing > 0 && ` · ${result.skipped_existing} already existed`}
+                  {result.skipped_existing > 0 &&
+                    ` · ${result.skipped_existing} already exist${isPreview ? "" : "ed"}`}
                 </div>
+                {isPreview && (
+                  <button
+                    onClick={handleImport}
+                    disabled={importing}
+                    className="mt-2 flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-white transition-colors hover:bg-primary/90 disabled:opacity-40"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {importing ? "Importing…" : "Import this file"}
+                  </button>
+                )}
               </div>
             </div>
 
             {result.errors.length > 0 && (
               <div className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
                 <div className="mb-1 font-semibold">
-                  {result.errors.length} row{result.errors.length === 1 ? "" : "s"} skipped —
-                  everything else was imported
+                  {result.errors.length} row{result.errors.length === 1 ? "" : "s"}{" "}
+                  {isPreview
+                    ? "would be skipped — fix these in your sheet, or import anyway and the rest still lands"
+                    : "skipped — everything else was imported"}
                 </div>
                 <ul className="list-inside list-disc space-y-0.5">
                   {result.errors.map((e, i) => (

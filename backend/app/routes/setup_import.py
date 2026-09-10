@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_admin
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.readiness import SetupReadiness
 from app.schemas.setup_import import SetupImportResponse
+from app.services.readiness_service import ReadinessService
 from app.services.setup_import_service import SetupImportService
 
 router = APIRouter(prefix="/admin/setup-import", tags=["Admin"])
@@ -31,3 +33,38 @@ async def import_setup(
     return SetupImportService.import_setup(
         file_bytes, current_user, current_user.school_id, db
     )
+
+
+@router.post("/preview", response_model=SetupImportResponse)
+async def preview_setup(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """The same import, run and then thrown away, so an admin can see what a file would do.
+
+    Registered after the bare POST above it - a literal path under a router whose own route is
+    "" needs no ordering care, but keeping the convention costs nothing.
+
+    Nothing is written. The counts in the response mean "would create", which is why the response
+    carries `preview: true` rather than leaving the caller to remember which endpoint it called.
+    """
+    file_bytes = await file.read()
+    return SetupImportService.preview(
+        file_bytes, current_user, current_user.school_id, db
+    )
+
+
+@router.get("/readiness", response_model=SetupReadiness)
+def setup_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """What still stands between this school and running an exam.
+
+    Lives under the import router because this is the second half of what the panel asked for
+    there - "left floating, then add a workflow to connect them" - but it is not import-specific.
+    It is the same question an admin asks at the start of every term, and it walks the program
+    flow in order so the first unmet item is genuinely the next thing to do.
+    """
+    return ReadinessService.report(current_user.school_id, db)

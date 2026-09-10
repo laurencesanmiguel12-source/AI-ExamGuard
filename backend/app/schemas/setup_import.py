@@ -16,3 +16,7 @@ class SetupImportResponse(BaseModel):
     # a sheet after adding a few rows is a normal thing to do, not a mistake.
     skipped_existing: int = 0
     errors: list[SetupImportRowError] = []
+    # True when this run was a dry run and nothing was written. The counts mean "would create"
+    # rather than "created", and the UI has to say so - a preview that reads like a receipt is
+    # worse than no preview, because it leaves someone believing the import already happened.
+    preview: bool = False

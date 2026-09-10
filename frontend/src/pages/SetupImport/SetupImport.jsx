@@ -1,5 +1,6 @@
 import PageHeader from "../../components/PageHeader";
 import SetupImportPanel from "../Dashboard/SetupImportPanel";
+import SetupReadinessPanel from "../Dashboard/SetupReadinessPanel";
 
 // Promoted out of the admin dashboard's tab strip and onto the sidebar, because it belongs with
 // the three things it creates. Courses, Subjects and Instructors are each their own page under
@@ -17,6 +18,14 @@ export default function SetupImport() {
         description="Set your school up from a spreadsheet instead of one form at a time. One CSV creates courses, subjects and instructors together, and rows refer to each other by code so a subject can name the course above it."
       />
       <SetupImportPanel />
+
+      {/* The second half of what the panel asked for here: rows that arrive floating need a
+          workflow to connect them, not just a note that they are unlinked. It sits below the
+          importer because that is when the question is asked - though it answers the same
+          question at the start of every term, which is why it names the term it is checking. */}
+      <div className="mt-8">
+        <SetupReadinessPanel />
+      </div>
     </div>
   );
 }
