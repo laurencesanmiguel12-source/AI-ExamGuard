@@ -267,6 +267,8 @@ export default function ExamRoster() {
       {deleting && (
         <ConfirmDialog
           title="Remove Student"
+          confirmLabel="Remove"
+          busyLabel="Removing…"
           message={`Remove ${deleting.student.student_name ?? deleting.student.student_number} (${deleting.student.student_number}) from this exam's roster?`}
           onConfirm={confirmRemove}
           onCancel={() => setDeleting(null)}

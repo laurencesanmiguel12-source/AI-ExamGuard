@@ -557,6 +557,8 @@ export default function AcademicCalendar() {
       {closing && (
         <ConfirmDialog
           title="Close Term"
+          confirmLabel="Close term"
+          busyLabel="Closing…"
           message={`Close "${closing.name}"? Everyone still enrolled in its sections is marked as having completed it, so those class lists stop reading as current. The term can be reopened afterwards, but that does not put the enrolments back to enrolled.`}
           onConfirm={confirmClose}
           onCancel={() => setClosing(null)}

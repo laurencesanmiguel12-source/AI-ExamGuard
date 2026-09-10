@@ -36,6 +36,10 @@ export default function Modal({ title, onClose, children }) {
 
     function onKeyDown(event) {
       if (event.key === "Escape") {
+        // A dialog rendered without onClose is a deliberate gate (the biometric consent step),
+        // not an oversight. Calling the missing handler threw a TypeError and left the dialog
+        // open, so Escape did nothing visible and broke the page underneath it.
+        if (!onCloseRef.current) return;
         event.stopPropagation();
         onCloseRef.current();
         return;
@@ -94,14 +98,19 @@ export default function Modal({ title, onClose, children }) {
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
           <h3 id={titleId} className="font-display font-bold text-lg text-foreground">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {/* Rendered only when there is something for it to do. With no onClose it was a close
+              button that visibly did nothing - worse than no button, because it says the dialog
+              can be dismissed and then refuses. */}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>

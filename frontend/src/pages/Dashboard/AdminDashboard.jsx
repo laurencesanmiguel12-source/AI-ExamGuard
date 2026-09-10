@@ -714,6 +714,8 @@ export default function AdminDashboard() {
           {confirmingPurge && (
             <ConfirmDialog
               title="Purge Expired Evidence"
+              confirmLabel="Purge"
+              busyLabel="Purging…"
               message={`This will permanently delete ${retentionPreview?.eligible_count ?? 0} evidence photo(s) from disk. The violation records themselves are kept. This cannot be undone.`}
               onConfirm={handlePurge}
               onCancel={() => setConfirmingPurge(false)}

@@ -73,7 +73,10 @@ export default function FaceEnrollment() {
   return (
     <div className="min-h-screen bg-background px-6 py-10 max-w-2xl mx-auto">
       {!loading && student && !consented && (
-        <FaceEnrollmentGuideModal onContinue={() => setConsented(true)} />
+        <FaceEnrollmentGuideModal
+          onContinue={() => setConsented(true)}
+          onDecline={() => navigate("/dashboard")}
+        />
       )}
 
       <SectionTag text="Biometric Setup" />

@@ -12,11 +12,14 @@ const TIPS = [
 // Gates the camera/capture UI on FaceEnrollment.jsx - useCamera isn't activated until this modal
 // is dismissed via the consent checkbox, so the webcam isn't even turned on until the student has
 // actually seen what's collected and agreed to it, not just informational after the fact.
-export default function FaceEnrollmentGuideModal({ onContinue }) {
+export default function FaceEnrollmentGuideModal({ onContinue, onDecline }) {
   const [consented, setConsented] = useState(false);
 
+  // onDecline is the close handler as well as a visible button. A consent dialog whose only
+  // exits are "I agree" and the browser back button is not offering a choice - and until this,
+  // the X in the header rendered anyway and did nothing at all.
   return (
-    <Modal title="Before You Enroll">
+    <Modal title="Before You Enroll" onClose={onDecline}>
       <div className="space-y-3 mb-5">
         {TIPS.map(({ icon: Icon, title, body }) => (
           <div key={title} className="flex gap-3">
@@ -66,13 +69,23 @@ export default function FaceEnrollmentGuideModal({ onContinue }) {
         </span>
       </label>
 
-      <button
-        onClick={onContinue}
-        disabled={!consented}
-        className="w-full bg-primary hover:bg-primary/90 disabled:opacity-40 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
-      >
-        I Understand, Continue
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={onDecline}
+          className="flex-1 border border-border hover:border-foreground/20 text-muted-foreground hover:text-foreground py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+        >
+          Not Now
+        </button>
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!consented}
+          className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
+        >
+          I Understand, Continue
+        </button>
+      </div>
     </Modal>
   );
 }

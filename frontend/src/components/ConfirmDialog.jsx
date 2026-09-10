@@ -5,7 +5,19 @@ import Modal from "./Modal";
 // through here - catching a failed onConfirm (e.g. a backend FK-constraint 400) in this one place
 // means every caller gets a visible error + a re-enabled dialog instead of a silently-stuck
 // confirm button, without having to remember to wrap their own confirmDelete in try/catch.
-export default function ConfirmDialog({ title = "Confirm", message, onConfirm, onCancel }) {
+export default function ConfirmDialog({
+  title = "Confirm",
+  message,
+  onConfirm,
+  onCancel,
+  // Most callers here really are deleting something, so "Delete" stays the default. Three are
+  // not - closing a term, purging expired evidence, removing a student from one exam's roster -
+  // and every one of them rendered a red button labelled "Delete". A dialog that explains it is
+  // going to close a term and then offers "Delete" invites the reader to believe the term is
+  // about to be destroyed.
+  confirmLabel = "Delete",
+  busyLabel,
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,7 +58,7 @@ export default function ConfirmDialog({ title = "Confirm", message, onConfirm, o
           disabled={busy}
           className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-mono uppercase tracking-widest transition-colors"
         >
-          {busy ? "Deleting…" : "Delete"}
+          {busy ? (busyLabel ?? `${confirmLabel}…`) : confirmLabel}
         </button>
       </div>
     </Modal>
