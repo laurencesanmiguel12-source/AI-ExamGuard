@@ -87,7 +87,7 @@ function SubjectsModal({ instructor, allSubjects, onClose }) {
   );
 }
 
-function buildColumns(onManageSubjects, subjectCounts) {
+function buildColumns(onManageSubjects) {
   return [
     // Name first. The list previously led with employee_number and a raw #user_id and never
     // showed a name at all - the defense panel's "Instructor should have complete information
@@ -135,7 +135,10 @@ function buildColumns(onManageSubjects, subjectCounts) {
       key: "subjects",
       label: "Subjects",
       render: (row) => {
-        const count = subjectCounts[row.id];
+        // From the row the list already returned, not from a request of its own. This used to
+        // fire one GET per instructor on every page load - 61 requests for a school with 60
+        // teaching staff - to count something InstructorResponse.assignments already contains.
+        const count = (row.assignments ?? []).length;
         return (
           <div className="flex items-center gap-3">
             <button
@@ -173,7 +176,6 @@ export default function Instructors() {
   const [deleting, setDeleting] = useState(null);
   const [managingSubjects, setManagingSubjects] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [subjectCounts, setSubjectCounts] = useState({});
   const [students, setStudents] = useState([]);
   const [viewing, setViewing] = useState(null);
 
@@ -184,18 +186,7 @@ export default function Instructors() {
         setInstructors(i);
         setAllSubjects(s);
         setStudents(stu);
-        // One request per instructor - the same shape the instructor dashboard already uses for
-        // per-exam rosters, and this list is short. A failure here only costs the warning badge,
-        // so it must not blank out the table.
-        return Promise.all(
-          i.map((row) =>
-            getInstructorSubjects(row.id)
-              .then((assigned) => [row.id, assigned.length])
-              .catch(() => [row.id, null])
-          )
-        ).then((entries) => setSubjectCounts(Object.fromEntries(entries)));
       })
-      .catch(() => setSubjectCounts({}))
       .finally(() => setLoading(false));
   }
 
@@ -272,7 +263,7 @@ export default function Instructors() {
       />
 
       <DataTable
-        columns={buildColumns(setManagingSubjects, subjectCounts)}
+        columns={buildColumns(setManagingSubjects)}
         rows={instructors}
         loading={loading}
         onEdit={openEdit}

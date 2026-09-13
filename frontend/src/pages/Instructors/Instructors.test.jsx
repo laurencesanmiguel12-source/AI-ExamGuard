@@ -152,3 +152,32 @@ describe("Instructors — the row detail leads to the edit", () => {
     expect(within(dialogs[0]).getByText("Edit Instructor")).toBeInTheDocument();
   });
 });
+
+describe("Instructors — one request, not one per instructor", () => {
+  it("counts subjects from the row the list already returned", async () => {
+    // This page used to fire a GET per instructor on every load, purely to count something
+    // InstructorResponse.assignments already contains.
+    mocks.getInstructors.mockResolvedValue([
+      ANA,
+      { ...ANA, id: 4, user_id: 10, employee_number: "EMP-002", instructor_name: "Ben Reyes", assignments: [] },
+    ]);
+    mocks.getSubjects.mockResolvedValue([{ id: 1, code: "CS-101", name: "Intro" }]);
+    mocks.getStudents.mockResolvedValue([]);
+    render(<Instructors />);
+    await waitFor(() => expect(screen.getByText("Ben Reyes")).toBeInTheDocument());
+
+    // The warning badge still appears for the instructor who teaches nothing...
+    expect(screen.getByText(/no subjects/i)).toBeInTheDocument();
+    // ...and no per-row request was made to work that out.
+    expect(mocks.getInstructorSubjects).not.toHaveBeenCalled();
+  });
+
+  it("still loads the assignments when the subjects dialog is opened", async () => {
+    // The dialog genuinely needs them - it renders a checkbox per subject with its current state.
+    await show();
+
+    await userEvent.click(screen.getByRole("button", { name: "Manage" }));
+
+    await waitFor(() => expect(mocks.getInstructorSubjects).toHaveBeenCalledWith(3));
+  });
+});

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_admin
+from app.auth.dependencies import get_current_user, is_super_admin, require_admin
 from app.auth.ownership import require_course_owner
 from app.core.database import get_db
 from app.models.course import Course
@@ -35,15 +35,28 @@ def get_courses(
     return CourseService.get_all(db, school_id)
 
 
+# NOT public, unlike the list above it. The list is deliberately open because a visitor has to
+# populate a registration dropdown before they have an account - and it is school-scoped by a
+# required parameter, so it can only ever return one school's catalogue. This one took a bare id
+# and returned whatever it found, which made every school's course codes and names enumerable by
+# anyone who could count. Nothing in the app called it.
 @router.get(
     "/{course_id}",
     response_model=CourseResponse
 )
 def get_course(
     course_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return CourseService.get_by_id(course_id, db)
+    course = CourseService.get_by_id(course_id, db)
+
+    # 404 rather than 403 on a cross-school id: "that course exists but is not yours" is itself
+    # something worth not saying, and the caller cannot act on the difference either way.
+    if not is_super_admin(current_user) and course.school_id != current_user.school_id:
+        raise HTTPException(status_code=404, detail="Course not found.")
+
+    return course
 
 
 @router.post(
