@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -55,7 +56,33 @@ async def lifespan(_app: FastAPI):
     # each lazily build their own YOLO/YuNet models - gigabytes of duplicated weights for no
     # throughput gain. See settings.INFERENCE_THREADS for the measurements behind the number.
     anyio.to_thread.current_default_thread_limiter().total_tokens = settings.INFERENCE_THREADS
+
+    # Build the YOLO models now rather than on whichever student's first poll gets there first.
+    # They are built lazily PER THREAD because none of them are thread-safe, so the warm-up has
+    # to happen on each of the inference threads, not once on the event loop - hence one task per
+    # token, all in flight at the same time so they occupy distinct threads.
+    #
+    # Fail-quiet on purpose: a server that cannot pre-warm should still start and let the lazy
+    # path try again, exactly as it did before. The log line is the signal that it did not.
+    async def _prewarm():
+        from app.services.object_detection_service import ObjectDetectionService
+        try:
+            await asyncio.gather(*(
+                anyio.to_thread.run_sync(ObjectDetectionService.prewarm)
+                for _ in range(settings.INFERENCE_THREADS)
+            ))
+            logging.getLogger(__name__).info(
+                "inference models pre-warmed on %d thread(s)", settings.INFERENCE_THREADS
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("inference pre-warm failed; falling back to lazy load")
+
+    warmup = asyncio.create_task(_prewarm()) if settings.PREWARM_INFERENCE else None
+
     yield
+
+    if warmup is not None:
+        warmup.cancel()
 
 
 app = FastAPI(

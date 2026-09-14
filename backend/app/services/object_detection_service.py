@@ -16,6 +16,7 @@ from app.services.violation_episodes import (
     discard_session as _discard_episodes,
     end_episode,
 )
+from app.core.config import settings
 from app.services.violation_service import ViolationService
 
 MODEL_PATH = os.path.join(
@@ -194,6 +195,33 @@ def _record_candidate(session_id: int, is_candidate: bool) -> bool:
 # scales with the thread limiter set in main.py rather than with the threadpool's default size.
 # The first request on each new thread pays the model-load cost once (~1s); with a small bounded
 # pool that's a handful of one-off slow requests at startup, not a steady-state cost.
+# session_id -> (polls seen, last person_count). Same in-memory, single-process, lost-on-restart
+# tradeoff as the episode state next door, and evicted by the same discard_session().
+_person_count_state: dict[int, tuple[int, int]] = {}
+
+
+def _should_count_people(session_id: int) -> bool:
+    """Whether this poll runs the person-count model.
+
+    Every Nth poll per SESSION rather than globally: a global counter would sample one student
+    three times in a row and the next not at all, which is the one distribution that leaves a
+    student unwatched.
+    """
+    every = max(1, settings.PERSON_COUNT_EVERY_N_POLLS)
+    polls, last = _person_count_state.get(session_id, (0, 0))
+    _person_count_state[session_id] = (polls + 1, last)
+    return polls % every == 0
+
+
+def _remember_person_count(session_id: int, count: int) -> None:
+    polls, _ = _person_count_state.get(session_id, (1, 0))
+    _person_count_state[session_id] = (polls, count)
+
+
+def _last_person_count(session_id: int) -> int:
+    return _person_count_state.get(session_id, (0, 0))[1]
+
+
 _thread_models = threading.local()
 
 
@@ -309,7 +337,26 @@ def _phone_near_hands(image, pose_results):
 class ObjectDetectionService:
 
     @staticmethod
+    def prewarm() -> None:
+        """Build all three models on THIS thread, before anyone is waiting on them.
+
+        The models are built lazily per thread (they are not thread-safe, so each inference
+        thread holds its own). That made the first object-check on each new thread pay for all
+        three: measured at 45.6s on the deploy host, not the "~1s" the lazy-loader's comment
+        assumed. With INFERENCE_THREADS=2 that is two ~45s requests after every deploy, landing
+        on whichever students happen to start first.
+
+        Called once per inference thread from the startup hook, so the cost is paid while the
+        container is coming up rather than by a student mid-exam. A blank frame is enough - the
+        expense is constructing the graph and loading weights, not what is in the image.
+        """
+        base_model().predict(_BENCHMARK_IMAGE, verbose=False, conf=CONFIDENCE_THRESHOLD)
+        phone_model().predict(_BENCHMARK_IMAGE, verbose=False, conf=PHONE_CANDIDATE_THRESHOLD)
+        pose_model().predict(_BENCHMARK_IMAGE, verbose=False)
+
+    @staticmethod
     def discard_session(session_id: int) -> None:
+        _person_count_state.pop(session_id, None)
         discard_session(session_id)
 
     @staticmethod
@@ -335,16 +382,24 @@ class ObjectDetectionService:
         # Skip inference entirely for an accommodated student, not just the violation-logging
         # step - avoids burning CPU on a check whose result will never be used.
         if student is not None and student.skip_object_check:
-            return {"phone_detected": False, "person_count": 0}
+            return {"phone_detected": False, "person_count": 0, "person_count_fresh": False}
 
         image = _decode(image_bytes)
 
         if image is None:
-            return {"phone_detected": False, "person_count": 0}
+            return {"phone_detected": False, "person_count": 0, "person_count_fresh": False}
 
-        results = base_model().predict(image, verbose=False, conf=CONFIDENCE_THRESHOLD)[0]
-        classes = results.boxes.cls.tolist() if results.boxes is not None else []
-        person_count = classes.count(PERSON_CLASS)
+        # The most expensive model in the pipeline, and its entire output is a person count -
+        # see settings.PERSON_COUNT_EVERY_N_POLLS for why it is taken less often rather than made
+        # cheaper, and for the two cheaper alternatives that were measured and rejected.
+        counted_people = _should_count_people(session_id)
+        if counted_people:
+            results = base_model().predict(image, verbose=False, conf=CONFIDENCE_THRESHOLD)[0]
+            classes = results.boxes.cls.tolist() if results.boxes is not None else []
+            person_count = classes.count(PERSON_CLASS)
+            _remember_person_count(session_id, person_count)
+        else:
+            person_count = _last_person_count(session_id)
 
         # Predict at the lower candidate threshold so weak-but-real detections aren't discarded
         # before they get a chance to be corroborated across polls.
@@ -382,20 +437,29 @@ class ObjectDetectionService:
                 db=db,
             )
 
-        if person_count > 1:
-            if begin_episode(session_id, "MULTIPLE_PEOPLE"):
-                ViolationService.log_violation(
-                    session_id,
-                    ViolationCreate(event_type="MULTIPLE_PEOPLE"),
-                    db,
-                    evidence_bytes=image_bytes
-                )
-        else:
-            end_episode(session_id, "MULTIPLE_PEOPLE")
+        # Only a frame this model actually looked at may open or close an episode. Feeding the
+        # carried-forward count in would decide from evidence that was never examined - a stale
+        # positive would keep resetting the clear streak on frames nobody counted, and a stale
+        # negative would advance it toward closing an episode that may still be running.
+        if counted_people:
+            if person_count > 1:
+                if begin_episode(session_id, "MULTIPLE_PEOPLE"):
+                    ViolationService.log_violation(
+                        session_id,
+                        ViolationCreate(event_type="MULTIPLE_PEOPLE"),
+                        db,
+                        evidence_bytes=image_bytes
+                    )
+            else:
+                end_episode(session_id, "MULTIPLE_PEOPLE")
 
         return {
             "phone_detected": phone_detected,
-            "person_count": person_count
+            "person_count": person_count,
+            # False when the count is carried forward from an earlier poll rather than measured
+            # on this frame. The client shows a live count; without this it cannot tell a fresh
+            # reading from a repeated one.
+            "person_count_fresh": counted_people,
         }
 
 

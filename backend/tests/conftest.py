@@ -19,6 +19,12 @@ import re
 
 os.environ["ALLOWED_ORIGINS"] = "http://localhost:5173"
 
+# The client fixture below opens a TestClient per test, and a TestClient context manager runs the
+# app's lifespan - which in production builds all three YOLO models on every inference thread. For
+# a suite where almost nothing touches inference that is minutes of rebuilding weights nobody
+# looks at. Set here rather than in the fixture so it is in place before Settings is constructed.
+os.environ["PREWARM_INFERENCE"] = "false"
+
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 with open(_env_path) as f:
     for line in f:

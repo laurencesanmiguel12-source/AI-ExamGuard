@@ -43,6 +43,41 @@ class Settings(BaseSettings):
     # already achieves. Re-measure on the real deploy host with backend/loadtest/ before changing.
     INFERENCE_THREADS: int = 2
 
+    # Build the YOLO models during startup instead of on the first student's first poll. See
+    # ObjectDetectionService.prewarm for the 45.6s that otherwise lands on whoever starts first.
+    #
+    # Off in the test suite, which creates a TestClient - and therefore runs this lifespan - once
+    # per test: 300-odd tests that never touch inference would each rebuild three models. The
+    # suite sets it via the environment in conftest rather than the production default moving.
+    PREWARM_INFERENCE: bool = True
+
+    # How often the person-COUNT model runs, in polls. 1 = every frame, as it always did.
+    #
+    # The whole cost of the base yolov8s model is a person count: 58% of a frame's inference on
+    # the deploy host (498ms of 861ms), measured 2026-09-08. Two cheaper ways to get that count
+    # were measured on 2026-09-14 and both failed on real evidence frames:
+    #
+    #   * yolov8n-pose, which already runs on nearly every frame and is a person model, disagreed
+    #     with yolov8s on the >1 decision in 2 of 29 frames - in both directions.
+    #   * the same weights at imgsz=512 lost a genuine second person in 2 of 15 frames; at 416
+    #     and 320, 4 of 15. The second person in these frames is a hand or forearm at the edge,
+    #     which is exactly what a lower input resolution throws away first.
+    #
+    # So the count is not made cheaper - it is taken less often, which is what its timescale
+    # actually calls for. A phone is glanced at for a second and needs a fast sample rate; a
+    # second person in the room is there for minutes. On polls where it is skipped the previous
+    # count is reported and the MULTIPLE_PEOPLE episode is left untouched, so nothing is decided
+    # from a frame that was never examined.
+    #
+    # The cost is detection latency, and it is paid in POLLS, so the wall-clock figure depends on
+    # the frontend's CAPTURE_INTERVAL_MS rather than on anything here. At its current 5s a second
+    # person is noticed up to (N-1)=2 polls later than before - 10s of added delay, 15s worst case
+    # from the moment they appear. That is the trade: someone leaning in to help is present for
+    # minutes, a phone is glanced at for a second, and only the phone detector still runs on every
+    # frame. Re-read this number if CAPTURE_INTERVAL_MS moves; set to 1 to restore per-frame
+    # counting.
+    PERSON_COUNT_EVERY_N_POLLS: int = 3
+
     model_config = SettingsConfigDict(env_file=".env")
 
     @property
