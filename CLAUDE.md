@@ -4,6 +4,29 @@ Full-stack exam proctoring app: FastAPI backend (`backend/`), React/Vite fronten
 Chrome extension (`extension/`) for tab-monitoring. Real trained models (OpenCV YuNet+LBPH for
 face, fine-tuned YOLOv8 for phone detection, logistic regression for risk scoring) — no mocked ML.
 
+## An exam belongs to a Section
+
+The single most important thing to know before changing anything here. A **Section** is one
+offering of one subject, in one term, taught by one instructor, to one enrolled class —
+`subject × term × instructor`. `exams.section_id` is **NOT NULL**, and an exam's subject and
+instructor are DERIVED from its section on every write: neither is a field `ExamCreate` or
+`ExamUpdate` will accept. Term and school year are not stored on an exam at all; they are reached
+by following `exam → section → term → academic_year`.
+
+Both columns are still on the table because ~20 call sites join school scoping and analytics
+through them. They are a copy that cannot drift, not a second source of truth — do not start
+setting them directly.
+
+**Roster precedence is per-EXAM, not per-student, and this is the trap.** If an exam has ANY
+explicit `exam_rosters` row it admits *only* those students; otherwise it admits its section's
+`ENROLLED` enrolment. Neither means **nobody** — it deliberately never falls back to course-wide.
+Two consequences worth holding on to:
+
+- Rostering one student does not add them to the class, it **replaces** the class with them.
+- An exam on a section with no enrolment looks perfectly configured and admits no one.
+  `ExamService.roster_source` returns `{source, count, admits_nobody}` for exactly this, and four
+  screens surface it. Do not "fix" an empty roster by inventing a fallback.
+
 > **If `DEPLOY_NOTES.md` exists at the repo root, read it before doing anything deploy-related.**
 > It is a temporary handoff for a specific pending release — what is being deployed, the required
 > backend-before-frontend order, how to verify it went live, and how to roll back. It is deleted
@@ -78,6 +101,15 @@ has CUDA-capable local dev — that's intentional, not a bug.
   `IntegrityError` on a NOT NULL column — schemas have drifted out of sync with models before.
 - After registering a new router in `main.py`, register literal-path routes (e.g. `/live`, `/me`)
   *before* any router with an overlapping `{param}` path, or the param route silently swallows it.
+- Foreign keys are **not** auto-indexed by Postgres — only primary keys and unique constraints
+  are. Migration `b3f7a21c9d04` indexed the 15 FKs on per-request paths; 7 are left unindexed on
+  purpose and named in its docstring. Index a new FK if it will be filtered or joined per request.
+- `PREWARM_INFERENCE` must stay **off in the test suite**. A `TestClient` context manager runs the
+  app lifespan, so with it on, every test rebuilds three YOLO models on two threads — that
+  exhausted this 7.9GB host's memory and took the Docker engine down with it. `conftest.py` sets
+  the env var; don't remove that line.
+- When Docker Desktop wedges (every API call returns 500) and you cannot restart it without
+  elevation, `wsl --terminate docker-desktop` is the way back — give it a couple of minutes.
 - `uvicorn --reload` on this codebase is unreliable for verifying changes: it can serve stale code
   with no error, and a killed reloader can leave an orphaned worker still serving traffic
   disconnected from its own log. For real verification (and always in prod), kill everything on
