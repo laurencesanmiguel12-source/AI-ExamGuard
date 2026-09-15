@@ -9,7 +9,7 @@ Everything here is school-scoped. `school_id` is always taken from the acting us
 never from the request body, for the same reason the bulk-import service does it: a school id
 that arrives in a payload is an invitation to write into somebody else's school.
 """
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -272,6 +272,40 @@ class AcademicService:
                 )
 
         if status == "CLOSED":
+            # An exam that is still open cannot be left behind by this. Closing marks every
+            # ENROLLED row COMPLETED, and eligibility reads ENROLLED - so an exam whose window is
+            # still open would keep saying is_active=True while admitting nobody, and a student
+            # part-way through the week would be told the exam "is not available". Reopening does
+            # NOT put the enrolments back, so the damage is not undoable either.
+            #
+            # Refused rather than cascaded, the same way the delete guards work: the admin is told
+            # which exams and can close them deliberately.
+            now = datetime.now(timezone.utc)
+            open_exams = (
+                db.query(Exam)
+                .join(Section, Exam.section_id == Section.id)
+                .filter(
+                    Section.term_id == term.id,
+                    Exam.is_active.is_(True),
+                    Exam.end_time > now,
+                )
+                .order_by(Exam.id)
+                .all()
+            )
+            if open_exams:
+                names = ", ".join('"%s"' % e.title for e in open_exams[:3])
+                if len(open_exams) > 3:
+                    names += " and %d more" % (len(open_exams) - 3)
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"{len(open_exams)} exam{'s are' if len(open_exams) != 1 else ' is'} still "
+                        f"open in '{term.name}' ({names}). Deactivate them or let their window "
+                        f"close first - closing the term empties their class lists, and reopening "
+                        f"it does not put them back."
+                    ),
+                )
+
             # Closing finalises the class lists rather than leaving them looking current forever.
             db.query(Enrollment).filter(
                 Enrollment.section_id.in_(

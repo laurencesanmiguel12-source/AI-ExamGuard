@@ -59,10 +59,28 @@ class ExamSessionService:
                 detail="Exam is not active."
             )
 
+        # A closed term is finished. It already refuses new sections, new exams and new
+        # enrolment - but an EXISTING exam could be re-activated inside one and sat, because
+        # nothing on this path looked at the term at all. An explicit roster survives closure, so
+        # those students stayed admitted. Checked here rather than only on the update, because
+        # this is the moment that matters and it holds however the exam came to be active.
+        term = exam.term
+        if term is not None and term.status == "CLOSED":
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"'{term.name}' is closed, so this exam can no longer be taken. Ask your "
+                    f"instructor if it needs to be reopened."
+                ),
+            )
+
         if not ExamService.is_student_eligible(student, exam, db):
             raise HTTPException(
                 status_code=403,
-                detail="This exam is not available for your course."
+                detail=(
+                    "You are not on this exam's list. It admits the students enrolled in its "
+                    "class, unless your instructor has set a roster for it."
+                )
             )
 
         if not student.skip_face_check and student.face_model_path is None:

@@ -32,11 +32,16 @@ def _active_term(db, school_id):
 def _exam_payload(section_id, **over):
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
-    return ExamCreate(
+    # Built as a dict so an override can REPLACE a default rather than arriving as a duplicate
+    # keyword - start_time and end_time both need overriding now that an exam has to overlap the
+    # term its class runs in.
+    fields = dict(
         title="Midterm", duration_minutes=60, total_points=10, passing_score=50,
         start_time=now, end_time=now + timedelta(hours=2),
-        section_id=section_id, **over,
+        section_id=section_id,
     )
+    fields.update(over)
+    return ExamCreate(**fields)
 
 
 def test_an_exam_on_a_section_reaches_its_term_and_year(
@@ -159,7 +164,18 @@ def test_exams_in_one_term_can_be_found_together(
     other = AcademicService.create_section(
         subject.id, second.id, instructor.id, "A", default_school.id, db
     )
-    ExamService.create(instructor.user, _exam_payload(other.id), db)
+    # Dated INSIDE the second term. An exam now has to overlap the term its class runs in - see
+    # test_term_boundary - and "now" is not inside a semester starting in November.
+    from datetime import datetime, timezone
+    ExamService.create(
+        instructor.user,
+        _exam_payload(
+            other.id,
+            start_time=datetime(2026, 11, 10, 9, tzinfo=timezone.utc),
+            end_time=datetime(2026, 11, 10, 11, tzinfo=timezone.utc),
+        ),
+        db,
+    )
 
     in_term = (
         db.query(Exam).join(Section, Exam.section_id == Section.id)

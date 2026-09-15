@@ -1,3 +1,5 @@
+from datetime import datetime, time, timezone
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -254,6 +256,37 @@ class ExamService:
         return section
 
     @staticmethod
+    def _require_window_within_term(section, start_time, end_time) -> None:
+        """An exam has to overlap the term its class runs in.
+
+        Not "be contained by" - a makeup or a deferred sitting genuinely runs a little past the
+        end of a term, and refusing that would push people to reopen a closed term to mark one
+        paper. What is always a mistake is an exam that does not touch its term at all: the wrong
+        term picked from the dropdown, or a year mistyped. That exam then sits in the wrong term's
+        reports forever, and nothing anywhere says so.
+        """
+        term = section.term
+        if term is None or start_time is None or end_time is None:
+            return
+
+        term_opens = datetime.combine(term.starts_on, time.min, tzinfo=timezone.utc)
+        term_closes = datetime.combine(term.ends_on, time.max, tzinfo=timezone.utc)
+
+        # Naive datetimes would raise on comparison; treat one as UTC rather than guessing.
+        start = start_time if start_time.tzinfo else start_time.replace(tzinfo=timezone.utc)
+        end = end_time if end_time.tzinfo else end_time.replace(tzinfo=timezone.utc)
+
+        if end < term_opens or start > term_closes:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"That window falls entirely outside '{term.name}' "
+                    f"({term.starts_on} to {term.ends_on}). Check the dates, or pick the section "
+                    f"whose term this exam belongs to."
+                ),
+            )
+
+    @staticmethod
     def create(current_user: User, request: ExamCreate, db: Session):
         """An exam is created against a section, and takes its subject and instructor from it.
 
@@ -263,6 +296,7 @@ class ExamService:
         the right instructor alongside it.
         """
         section = ExamService._section_for_exam(request.section_id, current_user, db)
+        ExamService._require_window_within_term(section, request.start_time, request.end_time)
 
         exam = Exam(
             **request.model_dump(),
@@ -292,6 +326,30 @@ class ExamService:
             section = ExamService._section_for_exam(new_section_id, current_user, db)
             update_data["subject_id"] = section.subject_id
             update_data["instructor_id"] = section.instructor_id
+        else:
+            section = exam.section
+
+        # Checked on every update, not only when the section moves: shifting the dates of an
+        # existing exam can walk it out of its term just as easily as picking the wrong section.
+        ExamService._require_window_within_term(
+            section,
+            update_data.get("start_time", exam.start_time),
+            update_data.get("end_time", exam.end_time),
+        )
+
+        # Re-activating inside a closed term. start_exam refuses it either way, so this is about
+        # saying so now rather than letting an instructor believe the exam is open and find out
+        # from a student who cannot start it.
+        if update_data.get("is_active") and section is not None:
+            term = section.term
+            if term is not None and term.status == "CLOSED":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"'{term.name}' is closed, so this exam cannot be re-activated. Reopen the "
+                        f"term first if it genuinely needs to run again."
+                    ),
+                )
 
         for key, value in update_data.items():
             setattr(exam, key, value)
